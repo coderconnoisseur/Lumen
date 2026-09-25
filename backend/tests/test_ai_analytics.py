@@ -778,6 +778,28 @@ def test_authenticated_get_routes_reject_missing_token(path, clean_db):
     assert resp.status_code == 401
 
 
+def test_analyze_route_rejects_missing_token(clean_db):
+    """POST /api/analytics/analyze must 401 without an Authorization
+    header."""
+    from app import app as flask_app
+
+    client = flask_app.test_client()
+    resp = client.post("/api/analytics/analyze", json={})
+
+    assert resp.status_code == 401
+
+
+def test_mark_insight_read_rejects_missing_token(clean_db):
+    """POST /api/analytics/insights/<id>/read must 401 without an
+    Authorization header."""
+    from app import app as flask_app
+
+    client = flask_app.test_client()
+    resp = client.post("/api/analytics/insights/1/read")
+
+    assert resp.status_code == 401
+
+
 @pytest.mark.parametrize(
     "path",
     [
