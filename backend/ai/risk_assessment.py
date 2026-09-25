@@ -4,7 +4,6 @@ Risk Assessment Engine - Comprehensive financial health scoring
 
 from datetime import date, datetime, timedelta
 from typing import Dict, Any, List
-import statistics
 import logging
 
 from models.database import db
@@ -159,8 +158,8 @@ class RiskAssessmentEngine:
         rows = db.session.execute(db.text("""
             SELECT
                 CASE
-                    WHEN risk_score >= 80 THEN 'HIGH'
-                    WHEN risk_score >= 50 THEN 'MEDIUM'
+                    WHEN a.risk_score >= 80 THEN 'HIGH'
+                    WHEN a.risk_score >= 50 THEN 'MEDIUM'
                     ELSE 'LOW'
                 END as risk_level,
                 COUNT(*) as count
@@ -170,8 +169,8 @@ class RiskAssessmentEngine:
             AND a.created_at >= :since_30
             GROUP BY
                 CASE
-                    WHEN risk_score >= 80 THEN 'HIGH'
-                    WHEN risk_score >= 50 THEN 'MEDIUM'
+                    WHEN a.risk_score >= 80 THEN 'HIGH'
+                    WHEN a.risk_score >= 50 THEN 'MEDIUM'
                     ELSE 'LOW'
                 END
         """), {'user_id': str(user_id), 'since_30': since_30}).mappings().all()
