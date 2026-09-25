@@ -8,9 +8,24 @@ import uuid
 from datetime import date, datetime, timedelta
 
 import pytest
+import requests
 from sqlalchemy import event
 
 from models.database import db
+
+
+@pytest.fixture(autouse=True)
+def _block_network_requests(monkeypatch):
+    """Guard against a real OpenRouter call slipping through an unmocked
+    code path: any attempt to reach the network via requests.post/get during
+    this file's tests raises immediately instead of spending one of the
+    ~50/day free-tier requests with the real key from backend/.env."""
+
+    def _blocked(*a, **kw):
+        raise AssertionError("network access attempted during tests")
+
+    monkeypatch.setattr(requests, "post", _blocked)
+    monkeypatch.setattr(requests, "get", _blocked)
 
 
 @pytest.fixture
@@ -20,7 +35,7 @@ def clean_db():
     rows left over from other test modules."""
     import conftest
     from app import app as flask_app
-    from models import FraudAnomaly, SpendingPattern, Transaction, TransactionItem, User
+    from models import AnalyticsInsight, FraudAnomaly, SpendingPattern, Transaction, TransactionItem, User
 
     with flask_app.app_context():
         url = str(db.engine.url)
@@ -30,6 +45,7 @@ def clean_db():
         TransactionItem.query.delete()
         FraudAnomaly.query.delete()
         SpendingPattern.query.delete()
+        AnalyticsInsight.query.delete()
         Transaction.query.delete()
         User.query.delete()
         db.session.commit()
@@ -303,7 +319,8 @@ def test_dashboard_route_returns_only_user1_data_with_safe_bind_params(clean_db,
     bare `datetime.date` against the TEXT `date` column (that binds as a
     typed DATE parameter on Postgres, and `varchar >= date` has no implicit
     cast there even though SQLite tolerates it)."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     _seed()
 
@@ -777,7 +794,7 @@ def test_transaction_backed_get_routes_return_200_without_user2_data(
     """Dashboard/reminders/anomalies/forecast/risk-score all derive from the
     same two-user transaction+anomaly seed; none of them may leak user-2's
     'Sneaky Vendor' transaction into user-1's response."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
     monkeypatch.setattr(
         "ai.forecasting_agent.chat_completion", lambda *a, **kw: '["mocked insight"]'
     )
@@ -793,7 +810,8 @@ def test_transaction_backed_get_routes_return_200_without_user2_data(
 def test_insights_route_scopes_to_authenticated_user(clean_db, authed_client, monkeypatch):
     """GET /api/analytics/insights must scope its raw SQL to user_id and
     never return another user's insight."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import AnalyticsInsight
 
@@ -821,7 +839,8 @@ def test_insights_route_scopes_to_authenticated_user(clean_db, authed_client, mo
 
 def test_patterns_route_scopes_to_authenticated_user(clean_db, authed_client, monkeypatch):
     """GET /api/analytics/patterns must scope its raw SQL to user_id."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import SpendingPattern
 
@@ -849,7 +868,8 @@ def test_patterns_route_scopes_to_authenticated_user(clean_db, authed_client, mo
 def test_mark_insight_read_marks_own_insight(clean_db, authed_client, monkeypatch):
     """POST /api/analytics/insights/<id>/read succeeds for the caller's own
     insight and actually flips is_read."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import AnalyticsInsight
 
@@ -880,7 +900,8 @@ def test_mark_insight_read_cannot_flip_another_users_insight(
     """POST .../insights/<id>/read for another user's insight id must 404
     and must not flip that insight's is_read -- otherwise user-1 could mark
     user-2's insights as read simply by guessing ids."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import AnalyticsInsight
 
@@ -913,7 +934,8 @@ def test_mark_insight_read_binds_is_read_as_boolean_not_integer_literal(
     boolean column: `column "is_read" is of type boolean but expression is
     of type integer` on `SET is_read = 1`. Bind a Python bool instead so
     the same query works on both."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import AnalyticsInsight
 
@@ -962,7 +984,8 @@ def test_patterns_route_binds_is_active_as_boolean_not_integer_literal(
     `spending_patterns.is_active` is a real boolean column and 500s on the
     inlined form. Bind a Python bool instead so the same query works on
     both."""
-    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.anomaly_detection.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr("ai.forecasting_agent.chat_completion", lambda *a, **kw: "mocked")
 
     from models import SpendingPattern
 
