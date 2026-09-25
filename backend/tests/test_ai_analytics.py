@@ -366,3 +366,216 @@ def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_
     body = resp.get_json()
     assert body["success"] is True
     assert "Sneaky Vendor" not in json.dumps(body)
+
+
+AUTHENTICATED_GET_ROUTES = [
+    "/api/analytics/dashboard",
+    "/api/analytics/reminders",
+    "/api/analytics/anomalies",
+    "/api/analytics/forecast",
+    "/api/analytics/risk-score",
+    "/api/analytics/insights",
+    "/api/analytics/patterns",
+]
+
+
+@pytest.mark.parametrize("path", AUTHENTICATED_GET_ROUTES)
+def test_authenticated_get_routes_reject_missing_token(path, clean_db):
+    """Every authenticated GET route in ai_analytics.py must 401 without an
+    Authorization header. (This is a route-decorator regression too: a
+    handler missing its `@ai_analytics_bp.route(...)` isn't reachable at
+    all, so it can't be exercised here or in production.)"""
+    from app import app as flask_app
+
+    client = flask_app.test_client()
+    resp = client.get(path)
+
+    assert resp.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/analytics/dashboard",
+        "/api/analytics/reminders",
+        "/api/analytics/anomalies",
+        "/api/analytics/forecast",
+        "/api/analytics/risk-score",
+    ],
+)
+def test_transaction_backed_get_routes_return_200_without_user2_data(
+    path, clean_db, authed_client, monkeypatch
+):
+    """Dashboard/reminders/anomalies/forecast/risk-score all derive from the
+    same two-user transaction+anomaly seed; none of them may leak user-2's
+    'Sneaky Vendor' transaction into user-1's response."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+    monkeypatch.setattr(
+        "ai.forecasting_agent.chat_completion", lambda *a, **kw: '["mocked insight"]'
+    )
+
+    _seed()
+
+    resp = authed_client.get(path, headers={"Authorization": "Bearer x.y.z"})
+
+    assert resp.status_code == 200
+    assert "Sneaky Vendor" not in json.dumps(resp.get_json())
+
+
+def test_insights_route_scopes_to_authenticated_user(clean_db, authed_client, monkeypatch):
+    """GET /api/analytics/insights must scope its raw SQL to user_id and
+    never return another user's insight."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import AnalyticsInsight
+
+    _seed()
+    db.session.add_all([
+        AnalyticsInsight(user_id="user-1", insight_type="reminder",
+                          title="User1 insight", description="d1", severity="info"),
+        AnalyticsInsight(user_id="user-2", insight_type="reminder",
+                          title="User2 insight", description="d2", severity="info"),
+    ])
+    db.session.commit()
+
+    resp = authed_client.get(
+        "/api/analytics/insights", headers={"Authorization": "Bearer x.y.z"}
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    titles = {row["title"] for row in body["insights"]}
+    assert "User1 insight" in titles
+    assert "User2 insight" not in titles
+    assert "Sneaky Vendor" not in json.dumps(body)
+
+
+def test_patterns_route_scopes_to_authenticated_user(clean_db, authed_client, monkeypatch):
+    """GET /api/analytics/patterns must scope its raw SQL to user_id."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import SpendingPattern
+
+    _seed()
+    db.session.add_all([
+        SpendingPattern(user_id="user-1", pattern_type="recurring",
+                         vendor_name="User1 Vendor", category="Fitness", is_active=True),
+        SpendingPattern(user_id="user-2", pattern_type="recurring",
+                         vendor_name="User2 Vendor", category="Misc", is_active=True),
+    ])
+    db.session.commit()
+
+    resp = authed_client.get(
+        "/api/analytics/patterns", headers={"Authorization": "Bearer x.y.z"}
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    vendors = {row["vendor_name"] for row in body["patterns"]}
+    assert "User1 Vendor" in vendors
+    assert "User2 Vendor" not in vendors
+
+
+def test_mark_insight_read_marks_own_insight(clean_db, authed_client, monkeypatch):
+    """POST /api/analytics/insights/<id>/read succeeds for the caller's own
+    insight and actually flips is_read."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import AnalyticsInsight
+
+    _seed()
+    insight = AnalyticsInsight(user_id="user-1", insight_type="reminder",
+                                title="User1 insight", description="d1",
+                                severity="info", is_read=False)
+    db.session.add(insight)
+    db.session.commit()
+    insight_id = insight.id
+
+    resp = authed_client.post(
+        f"/api/analytics/insights/{insight_id}/read",
+        headers={"Authorization": "Bearer x.y.z"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["success"] is True
+
+    db.session.expire_all()
+    refreshed = db.session.get(AnalyticsInsight, insight_id)
+    assert refreshed.is_read is True
+
+
+def test_mark_insight_read_cannot_flip_another_users_insight(
+    clean_db, authed_client, monkeypatch
+):
+    """POST .../insights/<id>/read for another user's insight id must 404
+    and must not flip that insight's is_read -- otherwise user-1 could mark
+    user-2's insights as read simply by guessing ids."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import AnalyticsInsight
+
+    _seed()
+    other_insight = AnalyticsInsight(user_id="user-2", insight_type="reminder",
+                                      title="User2 insight", description="d2",
+                                      severity="info", is_read=False)
+    db.session.add(other_insight)
+    db.session.commit()
+    other_id = other_insight.id
+
+    resp = authed_client.post(
+        f"/api/analytics/insights/{other_id}/read",
+        headers={"Authorization": "Bearer x.y.z"},
+    )
+
+    assert resp.status_code == 404
+
+    db.session.expire_all()
+    refreshed = db.session.get(AnalyticsInsight, other_id)
+    assert refreshed.is_read is False
+
+
+def test_health_route_returns_200():
+    """GET /api/analytics/health needs no authentication."""
+    from app import app as flask_app
+
+    client = flask_app.test_client()
+    resp = client.get("/api/analytics/health")
+
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "healthy"
+
+
+def test_require_auth_routes_are_all_registered_as_views():
+    """Regression guard for this file's bug: every function in
+    routes/ai_analytics.py decorated with @require_auth must be registered
+    as a Flask view. When a route's `@ai_analytics_bp.route(...)` decorator
+    is dropped, the function still exists and is still wrapped by
+    `@require_auth`, but Flask no longer dispatches any URL to it -- exactly
+    what happened here and made every one of these endpoints 404."""
+    import ast
+    import inspect
+
+    import routes.ai_analytics as ai_analytics
+    from app import app as flask_app
+
+    tree = ast.parse(inspect.getsource(ai_analytics))
+
+    decorated_names = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        for dec in node.decorator_list
+        if isinstance(dec, ast.Name) and dec.id == "require_auth"
+    }
+    assert decorated_names, "expected to find @require_auth-decorated functions"
+
+    registered_names = {
+        func.__name__
+        for func in flask_app.view_functions.values()
+        if getattr(func, "__module__", None) == ai_analytics.__name__
+    }
+
+    missing = decorated_names - registered_names
+    assert not missing, f"@require_auth handlers not registered as routes: {missing}"
