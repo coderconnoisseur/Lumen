@@ -196,6 +196,46 @@ def test_pattern_detection_agent_scopes_to_single_user(clean_db):
     assert "Sneaky Vendor" not in json.dumps(analysis)
 
 
+def test_save_insight_serializes_datetime_and_decimal_metadata(clean_db):
+    """save_insight must survive metadata containing datetime/Decimal values,
+    exactly what a raw `SELECT *` row looks like on Postgres: psycopg2 returns
+    real datetime objects for DateTime columns (created_at/updated_at) where
+    SQLite returns strings, so this only ever broke in production. A bill due
+    in ~3 days generates a reminder insight whose metadata nests a
+    spending_patterns row -- created_at and all -- and json.dumps must not
+    choke on it."""
+    from decimal import Decimal
+
+    from ai.analytics_orchestrator import AnalyticsOrchestrator
+    from models import AnalyticsInsight, User
+
+    db.session.add(User(id="user-1", email="user1-analytics@example.com"))
+    db.session.commit()
+
+    orchestrator = AnalyticsOrchestrator()
+    insight = {
+        "type": "reminder",
+        "title": "Upcoming: Monthly Gym",
+        "description": "Your Monthly Gym payment is typically due in 3 days",
+        "severity": "info",
+        "confidence": 0.9,
+        "is_actionable": True,
+        "metadata": {
+            "next_predicted_date": "2026-09-28",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "average_amount": Decimal("999.00"),
+        },
+    }
+
+    orchestrator.save_insight("user-1", insight)
+
+    saved = AnalyticsInsight.query.filter_by(user_id="user-1").one()
+    meta = json.loads(saved.meta)
+    assert meta["average_amount"] == "999.00"
+    assert "created_at" in meta
+
+
 def test_dashboard_route_returns_only_user1_data_with_safe_bind_params(clean_db, authed_client, monkeypatch):
     """GET /api/analytics/dashboard must return 200 with only user-1's data,
     and every query it runs must bind dates as strings/datetimes, never a

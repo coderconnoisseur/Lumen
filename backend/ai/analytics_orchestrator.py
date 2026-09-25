@@ -224,7 +224,11 @@ class AnalyticsOrchestrator:
             title=insight.get("title", ""),
             description=insight.get("description", ""),
             severity=insight.get("severity", "info"),
-            meta=json.dumps(insight.get("metadata", {})),
+            # default=str: metadata can nest a raw DB row (a reminder's
+            # pattern, an anomaly's transaction). psycopg2 returns real
+            # datetime/Decimal objects for those columns where SQLite hands
+            # back strings, so json.dumps needs a fallback for both.
+            meta=json.dumps(insight.get("metadata", {}), default=str),
             confidence_score=insight.get("confidence", 1.0),
             is_actionable=insight.get("is_actionable", False),
         )
