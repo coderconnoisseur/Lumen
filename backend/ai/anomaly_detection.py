@@ -4,9 +4,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import statistics
 import json
-import requests
-import os
 from models.database import db
+from utils.llm import LLMError, chat_completion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,11 +24,6 @@ except ImportError:
 class FraudDetectionAgent:
     """Multi-layer anomaly detection system"""
 
-    from config import Config as _Config  # local import to avoid module-level cycles
-    OPENROUTER_API_KEY = _Config.OPENROUTER_API_KEY
-    OPENROUTER_MODEL = _Config.LLM_TEXT_MODEL
-    OPENROUTER_CHAT_URL = _Config.OPENROUTER_CHAT_URL
-    
     def __init__(self):
         """
         Initialize fraud detection agent
@@ -242,11 +236,6 @@ class FraudDetectionAgent:
         Layer 4: LLM contextual reasoning
         Provides human-readable explanations
         """
-        if not self.OPENROUTER_API_KEY:
-            anomaly['llm_explanation'] = anomaly['explanation']
-            anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
-            return anomaly
-        
         txn = anomaly['transaction']
         
         prompt = f"""You are a fraud detection expert analyzing a flagged transaction.
@@ -278,43 +267,31 @@ Respond in JSON format:
 }}"""
         
         try:
-            response = requests.post(
-                self.OPENROUTER_CHAT_URL,
-                headers={
-                    "Authorization": f"Bearer {self.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": _Config.get_llm_text_model(),
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 300
-                },
-                timeout=30
-            )
-            
-            result = response.json()
-            content = result['choices'][0]['message']['content'].strip()
-            
+            content = chat_completion(prompt, temperature=0.3, max_tokens=300, timeout=30)
+
             # Clean JSON
             content = content.replace('```json', '').replace('```', '').strip()
             llm_result = json.loads(content)
-            
+
             # Update anomaly with LLM reasoning
             anomaly['llm_explanation'] = llm_result['explanation']
             anomaly['llm_confidence'] = llm_result['confidence']
             anomaly['recommendation'] = llm_result['recommendation']
             anomaly['risk_level'] = llm_result['risk_level']
-            
+
             # Adjust risk score based on LLM
             if not llm_result['is_suspicious']:
                 anomaly['risk_score'] *= 0.5  # Reduce if LLM thinks it's false positive
-        
-        except Exception as e:
-            logger.info(f"LLM reasoning failed: {str(e)}")
+
+        except LLMError as e:
+            logger.warning("LLM reasoning failed: %s", e.kind)
             anomaly['llm_explanation'] = anomaly['explanation']
             anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
-        
+        except Exception as e:
+            logger.warning("LLM reasoning failed: %s", type(e).__name__)
+            anomaly['llm_explanation'] = anomaly['explanation']
+            anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+
         return anomaly
     
     def _calculate_risk_level(self, risk_score: float) -> str:

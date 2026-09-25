@@ -227,3 +227,142 @@ def test_dashboard_route_returns_only_user1_data_with_safe_bind_params(clean_db,
     assert body["success"] is True
     assert "Sneaky Vendor" not in json.dumps(body)
     assert bad_params == []
+
+
+def test_forecast_insights_use_llm_response(monkeypatch):
+    """generate_forecast_insights must use whatever chat_completion returns
+    when the call succeeds, instead of the stats-only fallback."""
+    import ai.forecasting_agent as forecasting_agent
+
+    monkeypatch.setattr(
+        forecasting_agent, "chat_completion",
+        lambda *a, **kw: '["Insight A", "Insight B"]',
+    )
+
+    agent = forecasting_agent.ForecastingAgent()
+    insights = agent.generate_forecast_insights(
+        mean_daily=100.0, total_forecast=3000.0, trend="stable",
+        days_ahead=30, category_forecast=[],
+    )
+
+    assert insights == ["Insight A", "Insight B"]
+
+
+def test_forecast_insights_falls_back_when_llm_fails(monkeypatch):
+    """A failed LLM call must not raise -- generate_forecast_insights falls
+    back to its canned, stats-based insights, exactly as it did before this
+    call went through utils.llm."""
+    from utils.llm import LLMError
+    import ai.forecasting_agent as forecasting_agent
+
+    def _raise(*a, **kw):
+        raise LLMError(LLMError.AUTH, "no key configured")
+
+    monkeypatch.setattr(forecasting_agent, "chat_completion", _raise)
+
+    agent = forecasting_agent.ForecastingAgent()
+    insights = agent.generate_forecast_insights(
+        mean_daily=100.0, total_forecast=3000.0, trend="stable",
+        days_ahead=30, category_forecast=[],
+    )
+
+    assert insights == [
+        "Based on your spending pattern, expect around ₹3000 in the next 30 days.",
+        "Your spending trend is stable.",
+        "Monitor your expenses.",
+    ]
+
+
+def test_llm_reasoning_uses_llm_response(monkeypatch):
+    """llm_reasoning must adopt the LLM's explanation/risk_level/recommendation
+    when the call succeeds."""
+    import ai.anomaly_detection as anomaly_detection
+
+    llm_body = json.dumps({
+        "is_suspicious": True,
+        "confidence": 0.9,
+        "explanation": "Looks risky",
+        "recommendation": "ALERT",
+        "risk_level": "HIGH",
+    })
+    monkeypatch.setattr(anomaly_detection, "chat_completion", lambda *a, **kw: llm_body)
+
+    agent = anomaly_detection.FraudDetectionAgent()
+    anomaly = {
+        "transaction": {
+            "total_amount": 500, "vendor_name": "Vendor", "category": "Misc",
+            "date": "2024-01-01", "payment_method": "Cash",
+        },
+        "flags": ["amount_outside_iqr"],
+        "risk_score": 0.5,
+        "explanation": "stat explanation",
+    }
+
+    result = agent.llm_reasoning(anomaly)
+
+    assert result["llm_explanation"] == "Looks risky"
+    assert result["recommendation"] == "ALERT"
+    assert result["risk_level"] == "HIGH"
+
+
+def test_llm_reasoning_falls_back_when_llm_fails(monkeypatch):
+    """A failed LLM call must not raise -- the anomaly keeps its statistical
+    explanation and a risk level computed from the score, exactly as it did
+    before this call went through utils.llm."""
+    from utils.llm import LLMError
+    import ai.anomaly_detection as anomaly_detection
+
+    def _raise(*a, **kw):
+        raise LLMError(LLMError.AUTH, "no key configured")
+
+    monkeypatch.setattr(anomaly_detection, "chat_completion", _raise)
+
+    agent = anomaly_detection.FraudDetectionAgent()
+    anomaly = {
+        "transaction": {
+            "total_amount": 500, "vendor_name": "Vendor", "category": "Misc",
+            "date": "2024-01-01", "payment_method": "Cash",
+        },
+        "flags": ["amount_outside_iqr"],
+        "risk_score": 0.5,
+        "explanation": "stat explanation",
+    }
+
+    result = agent.llm_reasoning(anomaly)
+
+    assert result["llm_explanation"] == "stat explanation"
+    assert result["risk_level"] == "MEDIUM"
+    assert "recommendation" not in result
+
+
+def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_client, monkeypatch):
+    """POST /api/analytics/analyze must return 200 for user-1, using only
+    user-1's data, with every LLM call mocked so the run never reaches
+    OpenRouter."""
+    import ai.forecasting_agent as forecasting_agent
+    import ai.anomaly_detection as anomaly_detection
+
+    monkeypatch.setattr(forecasting_agent, "chat_completion", lambda *a, **kw: '["mocked insight"]')
+    monkeypatch.setattr(
+        anomaly_detection, "chat_completion",
+        lambda *a, **kw: json.dumps({
+            "is_suspicious": False,
+            "confidence": 0.2,
+            "explanation": "mocked",
+            "recommendation": "MONITOR",
+            "risk_level": "LOW",
+        }),
+    )
+
+    _seed()
+
+    resp = authed_client.post(
+        "/api/analytics/analyze",
+        json={"use_llm": True},
+        headers={"Authorization": "Bearer x.y.z"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    assert "Sneaky Vendor" not in json.dumps(body)

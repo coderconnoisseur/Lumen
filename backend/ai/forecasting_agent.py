@@ -7,9 +7,8 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import json
-import requests
-import os
 from models.database import db
+from utils.llm import LLMError, chat_completion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,11 +17,6 @@ logger = logging.getLogger(__name__)
 class ForecastingAgent:
     """Time-series forecasting for spending predictions"""
 
-    from config import Config as _Config  # local import to avoid module-level cycles
-    OPENROUTER_API_KEY = _Config.OPENROUTER_API_KEY
-    OPENROUTER_MODEL = _Config.LLM_TEXT_MODEL
-    OPENROUTER_CHAT_URL = _Config.OPENROUTER_CHAT_URL
-    
     def __init__(self):
         """
         Initialize forecasting agent
@@ -221,26 +215,28 @@ class ForecastingAgent:
     def forecast_by_category(self, user_id: int, days_ahead: int = 30) -> List[Dict]:
         """Forecast spending by category"""
         # Get last 90 days per category
+        cutoff_date = (datetime.now() - timedelta(days=90)).date().isoformat()
+
         query = db.text("""
-            SELECT 
+            SELECT
                 category,
                 AVG(daily_amount) as avg_daily,
                 SUM(daily_amount) as total_90days
             FROM (
-                SELECT 
+                SELECT
                     category,
                     date,
                     SUM(total_amount) as daily_amount
                 FROM transactions
                 WHERE user_id = :user_id
-                AND date >= date('now', '-90 days')
+                AND date >= :cutoff_date
                 GROUP BY category, date
-            )
+            ) daily_totals
             GROUP BY category
             ORDER BY total_90days DESC
         """)
-        
-        result = db.session.execute(query, {'user_id': str(user_id)})
+
+        result = db.session.execute(query, {'user_id': str(user_id), 'cutoff_date': cutoff_date})
         results = result.fetchall()
         
         category_forecasts = []
@@ -263,14 +259,7 @@ class ForecastingAgent:
                                    days_ahead: int,
                                    category_forecast: List[Dict]) -> List[str]:
         """Generate human-readable insights using LLM"""
-        
-        if not self.OPENROUTER_API_KEY:
-            return [
-                f"Your daily spending average is ₹{mean_daily:.0f}",
-                f"Predicted spending for next {days_ahead} days: ₹{total_forecast:.0f}",
-                f"Trend: {trend}"
-            ]
-        
+
         # Prepare context for LLM
         top_categories = category_forecast[:3]
         category_text = ", ".join([f"{c['category']} (₹{c['predicted_total']:.0f})" 
@@ -297,37 +286,24 @@ Return as JSON array of strings:
 """
         
         try:
-            response = requests.post(
-                self.OPENROUTER_CHAT_URL,
-                headers={
-                    "Authorization": f"Bearer {self.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": _Config.get_llm_text_model(),
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7,
-                    "max_tokens": 300
-                },
-                timeout=30
-            )
-            
-            result = response.json()
-            content = result['choices'][0]['message']['content'].strip()
-            
+            content = chat_completion(prompt, temperature=0.7, max_tokens=300, timeout=30)
+
             # Parse JSON
             content = content.replace('```json', '').replace('```', '').strip()
             insights = json.loads(content)
-            
+
             return insights
-        
+
+        except LLMError as e:
+            logger.warning("LLM insight generation failed: %s", e.kind)
         except Exception as e:
-            logger.info(f"LLM insight generation failed: {str(e)}")
-            return [
-                f"Based on your spending pattern, expect around ₹{total_forecast:.0f} in the next {days_ahead} days.",
-                f"Your spending trend is {trend}.",
-                f"Top spending category: {top_categories[0]['category']}" if top_categories else "Monitor your expenses."
-            ]
+            logger.warning("LLM insight generation failed: %s", type(e).__name__)
+
+        return [
+            f"Based on your spending pattern, expect around ₹{total_forecast:.0f} in the next {days_ahead} days.",
+            f"Your spending trend is {trend}.",
+            f"Top spending category: {top_categories[0]['category']}" if top_categories else "Monitor your expenses."
+        ]
 
 
 # Test/Example Usage

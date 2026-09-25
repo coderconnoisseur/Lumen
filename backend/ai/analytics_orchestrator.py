@@ -8,7 +8,7 @@ from ai.forecasting_agent import ForecastingAgent
 from ai.risk_assessment import RiskAssessmentEngine
 from typing import Dict, Any, List
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from models.database import db
 import logging
 
@@ -144,14 +144,15 @@ class AnalyticsOrchestrator:
         reminders = pattern_results['reminders'][:5]  # Top 5
         
         # Check for recent anomalies
+        since_7 = datetime.utcnow() - timedelta(days=7)
         result = db.session.execute(db.text("""
             SELECT COUNT(*) as count
             FROM anomalies a
             JOIN transactions t ON a.transaction_id = t.id
             WHERE t.user_id = :user_id
-            AND a.created_at >= datetime('now', '-7 days')
+            AND a.created_at >= :since_7
             AND a.risk_score >= 80
-        """), {'user_id': str(user_id)})
+        """), {'user_id': str(user_id), 'since_7': since_7})
         
         high_risk_anomalies = result.scalar() or 0
         
