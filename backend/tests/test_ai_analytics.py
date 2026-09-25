@@ -582,6 +582,40 @@ def test_save_insight_skips_duplicate_unread_insight(clean_db):
     assert len(rows) == 1
 
 
+def test_date_only_transactions_never_flagged_as_midnight():
+    """A bare ISO date (no time-of-day) must never trigger the midnight-hour
+    rule -- datetime.fromisoformat('2026-09-25') parses to hour 0, which
+    used to make every date-only transaction look like a 3 AM purchase."""
+    from ai.anomaly_detection import FraudDetectionAgent
+
+    agent = FraudDetectionAgent()
+    transactions = [
+        {"id": str(i), "vendor_name": f"Vendor{i}", "total_amount": 100.0,
+         "date": "2026-09-25", "payment_method": "Card"}
+        for i in range(3)
+    ]
+
+    anomalies = agent.rule_based_detection(transactions)
+
+    assert all("unusual_time_midnight" not in a["flags"] for a in anomalies)
+
+
+def test_real_midnight_timestamp_still_flagged():
+    """A transaction with an actual time-of-day in the small hours must
+    still be flagged."""
+    from ai.anomaly_detection import FraudDetectionAgent
+
+    agent = FraudDetectionAgent()
+    transactions = [{
+        "id": "1", "vendor_name": "Vendor", "total_amount": 100.0,
+        "date": "2026-09-25T02:30:00", "payment_method": "Card",
+    }]
+
+    anomalies = agent.rule_based_detection(transactions)
+
+    assert any("unusual_time_midnight" in a["flags"] for a in anomalies)
+
+
 def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_client, monkeypatch):
     """POST /api/analytics/analyze must return 200 for user-1, using only
     user-1's data, with every LLM call mocked so the run never reaches

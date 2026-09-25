@@ -129,14 +129,19 @@ class FraudDetectionAgent:
                 flags.append("first_time_merchant")
                 risk_score += 0.15
             
-            # Time-based anomaly (midnight to 5am)
-            try:
-                txn_datetime = datetime.fromisoformat(txn['date'])
-                if 0 <= txn_datetime.hour < 5:
-                    flags.append("unusual_time_midnight")
-                    risk_score += 0.2
-            except:
-                pass
+            # Time-based anomaly (midnight to 5am) -- only applies when the
+            # date string actually carries a time-of-day. A bare ISO date
+            # ("YYYY-MM-DD", 10 chars) parses to hour 0 and must never be
+            # treated as a midnight purchase.
+            date_str = txn.get('date') or ''
+            if len(date_str) > 10:
+                try:
+                    txn_datetime = datetime.fromisoformat(date_str)
+                    if 0 <= txn_datetime.hour < 5:
+                        flags.append("unusual_time_midnight")
+                        risk_score += 0.2
+                except:
+                    pass
             
             # Duplicate detection (same amount within 24 hours)
             key = f"{vendor}_{txn['total_amount']}"
