@@ -148,6 +148,37 @@ def _seed():
     }
 
 
+def _seed_rich():
+    """_seed() plus ~36 additional user-1 transactions spread across ~70
+    days and 3 categories (with two amount outliers), so fraud detection
+    (min 5 transactions in the 90-day window) and forecasting (min 10
+    distinct dates) actually run their real code paths -- forecast_by_
+    category's rewritten SQL, the anomaly LLM loop via the route, and
+    save_anomalies_to_db -- instead of the 4-transaction seed's
+    'insufficient data' short-circuit in both agents."""
+    from models import Transaction
+
+    expected = _seed()
+
+    base = date.today()
+    categories = ["Shopping", "Groceries", "Dining"]
+    for i in range(36):
+        category = categories[i % len(categories)]
+        amount = 100.0 + (i % 7) * 15
+        if i in (5, 20):
+            amount = 50000.0  # outlier: statistical z-score + round-number rule
+        # Odd offsets only, so these never land on the same date as _seed()'s
+        # even-offset rows (today/+30/+60/+90).
+        d = base - timedelta(days=(i * 2) + 1)
+        db.session.add(Transaction(
+            id=str(uuid.uuid4()), user_id="user-1", vendor_name=f"BulkVendor{i % 5}",
+            category=category, date=d.isoformat(), total_amount=amount,
+        ))
+    db.session.commit()
+
+    return expected
+
+
 def test_risk_assessment_engine_scopes_to_single_user(clean_db):
     from ai.risk_assessment import RiskAssessmentEngine
 
@@ -647,6 +678,62 @@ def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_
     body = resp.get_json()
     assert body["success"] is True
     assert "Sneaky Vendor" not in json.dumps(body)
+
+
+def test_analyze_route_reaches_forecast_and_anomaly_persistence(clean_db, authed_client, monkeypatch):
+    """POST /api/analytics/analyze with use_llm=true must actually exercise
+    forecast_by_category's rewritten SQL, the anomaly LLM loop, and
+    save_anomalies_to_db -- the old 4-transaction seed was below fraud
+    detection's minimum of 5 and forecasting's minimum of 10 distinct dates,
+    so none of that code ever ran through this route in a test."""
+    import ai.forecasting_agent as forecasting_agent
+    import ai.anomaly_detection as anomaly_detection
+    from models import FraudAnomaly
+
+    forecast_calls = []
+
+    def _forecast_llm(*a, **kw):
+        forecast_calls.append(1)
+        return '["mocked insight"]'
+
+    anomaly_calls = []
+
+    def _anomaly_llm(*a, **kw):
+        anomaly_calls.append(1)
+        return json.dumps({
+            "is_suspicious": True, "confidence": 0.8, "explanation": "mocked",
+            "recommendation": "REVIEW", "risk_level": "HIGH",
+        })
+
+    monkeypatch.setattr(forecasting_agent, "chat_completion", _forecast_llm)
+    monkeypatch.setattr(anomaly_detection, "chat_completion", _anomaly_llm)
+
+    _seed_rich()
+
+    resp = authed_client.post(
+        "/api/analytics/analyze",
+        json={"use_llm": True},
+        headers={"Authorization": "Bearer x.y.z"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    assert "Sneaky Vendor" not in json.dumps(body)
+
+    forecast_results = body["results"]["forecast"]
+    assert forecast_results.get("success") is True
+    assert forecast_results["category_forecast"], "expected a non-empty category forecast"
+
+    # Exactly one forecast insight call (forecast never loops); the anomaly
+    # loop makes at least one and at most the top-5 cap.
+    assert len(forecast_calls) == 1
+    assert 1 <= len(anomaly_calls) <= 5
+
+    user1_anomalies = FraudAnomaly.query.filter_by(user_id="user-1").all()
+    user2_anomalies = FraudAnomaly.query.filter_by(user_id="user-2").all()
+    assert len(user1_anomalies) > 0
+    assert len(user2_anomalies) == 1  # only the pre-seeded user-2 anomaly
 
 
 AUTHENTICATED_GET_ROUTES = [
