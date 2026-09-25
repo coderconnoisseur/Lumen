@@ -536,6 +536,101 @@ def test_mark_insight_read_cannot_flip_another_users_insight(
     assert refreshed.is_read is False
 
 
+def test_mark_insight_read_binds_is_read_as_boolean_not_integer_literal(
+    clean_db, authed_client, monkeypatch
+):
+    """The UPDATE must bind is_read as a parameter, never inline a bare
+    integer literal (`SET is_read = 1`). SQLite silently accepts assigning
+    an int to any column, but Postgres's `insights.is_read` is a real
+    boolean column: `column "is_read" is of type boolean but expression is
+    of type integer` on `SET is_read = 1`. Bind a Python bool instead so
+    the same query works on both."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import AnalyticsInsight
+
+    _seed()
+    insight = AnalyticsInsight(user_id="user-1", insight_type="reminder",
+                                title="User1 insight", description="d1",
+                                severity="info", is_read=False)
+    db.session.add(insight)
+    db.session.commit()
+    insight_id = insight.id
+
+    seen = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        if "UPDATE insights" in statement:
+            seen.append((statement, dict(context.compiled_parameters[0])))
+
+    engine = db.engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        resp = authed_client.post(
+            f"/api/analytics/insights/{insight_id}/read",
+            headers={"Authorization": "Bearer x.y.z"},
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+
+    assert resp.status_code == 200
+    assert seen, "expected the UPDATE insights statement to be captured"
+    statement, params = seen[0]
+
+    assert "is_read = 1" not in statement, (
+        f"is_read must be bound, not inlined as an integer literal: {statement!r}"
+    )
+    assert isinstance(params.get("is_read"), bool), (
+        f"is_read must be bound as a Python bool, got {params.get('is_read')!r}"
+    )
+
+
+def test_patterns_route_binds_is_active_as_boolean_not_integer_literal(
+    clean_db, authed_client, monkeypatch
+):
+    """GET /api/analytics/patterns must bind is_active as a parameter, never
+    inline a bare integer literal (`AND is_active = 1`). SQLite tolerates
+    that against its boolean-as-integer column, but Postgres's
+    `spending_patterns.is_active` is a real boolean column and 500s on the
+    inlined form. Bind a Python bool instead so the same query works on
+    both."""
+    monkeypatch.setattr("utils.llm.chat_completion", lambda *a, **kw: "mocked")
+
+    from models import SpendingPattern
+
+    _seed()
+    db.session.add(SpendingPattern(user_id="user-1", pattern_type="recurring",
+                                    vendor_name="User1 Vendor", category="Fitness",
+                                    is_active=True))
+    db.session.commit()
+
+    seen = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        if "FROM spending_patterns" in statement:
+            seen.append((statement, dict(context.compiled_parameters[0])))
+
+    engine = db.engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        resp = authed_client.get(
+            "/api/analytics/patterns", headers={"Authorization": "Bearer x.y.z"}
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+
+    assert resp.status_code == 200
+    assert seen, "expected the SELECT spending_patterns statement to be captured"
+    statement, params = seen[0]
+
+    assert "is_active = 1" not in statement, (
+        f"is_active must be bound, not inlined as an integer literal: {statement!r}"
+    )
+    assert isinstance(params.get("is_active"), bool), (
+        f"is_active must be bound as a Python bool, got {params.get('is_active')!r}"
+    )
+
+
 def test_health_route_returns_200():
     """GET /api/analytics/health needs no authentication."""
     from app import app as flask_app

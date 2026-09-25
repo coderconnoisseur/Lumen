@@ -237,9 +237,9 @@ def mark_insight_read(insight_id):
     try:
         result = db.session.execute(db.text("""
             UPDATE insights
-            SET is_read = 1
+            SET is_read = :is_read
             WHERE id = :insight_id AND user_id = :user_id
-        """), {'insight_id': insight_id, 'user_id': g.user_id})
+        """), {'is_read': True, 'insight_id': insight_id, 'user_id': g.user_id})
 
         if result.rowcount == 0:
             db.session.rollback()
@@ -268,8 +268,8 @@ def get_patterns():
         user_id = g.user_id
         pattern_type = request.args.get('pattern_type', None)
         
-        query_text = "SELECT * FROM spending_patterns WHERE user_id = :user_id AND is_active = 1"
-        params = {'user_id': user_id}
+        query_text = "SELECT * FROM spending_patterns WHERE user_id = :user_id AND is_active = :is_active"
+        params = {'user_id': user_id, 'is_active': True}
         
         if pattern_type:
             query_text += " AND pattern_type = :pattern_type"
