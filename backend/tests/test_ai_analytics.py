@@ -438,6 +438,93 @@ def test_llm_reasoning_falls_back_when_llm_fails(monkeypatch):
     assert "recommendation" not in result
 
 
+def _seed_anomaly_candidates(user_id="user-1", count=12):
+    """`count` transactions for user_id, with five suspicious round amounts,
+    so both the statistical layer (needs >= 10 txns) and the round-number
+    rule flag several anomalies -- enough to prove a loop over them makes
+    more than one call unless something stops it early."""
+    from models import Transaction, User
+
+    if db.session.get(User, user_id) is None:
+        db.session.add(User(id=user_id, email=f"{user_id}-analytics@example.com"))
+
+    base = date.today()
+    round_amounts = [1000, 2000, 5000, 10000, 20000]
+    amounts = round_amounts + [100 + i * 3 for i in range(count - len(round_amounts))]
+    for i, amount in enumerate(amounts):
+        db.session.add(Transaction(
+            id=str(uuid.uuid4()), user_id=user_id, vendor_name=f"Vendor{i}",
+            category="Shopping", date=(base - timedelta(days=i)).isoformat(),
+            total_amount=float(amount),
+        ))
+    db.session.commit()
+
+
+def test_anomaly_llm_loop_stops_after_fatal_error(clean_db, monkeypatch):
+    """Once chat_completion raises a fatal LLMError (timeout/auth/rate-limit
+    kinds), the loop must stop spending further calls on the remaining
+    flagged anomalies -- each of those gets the statistical fallback."""
+    from utils.llm import LLMError
+    import ai.anomaly_detection as anomaly_detection
+
+    calls = []
+
+    def _raise(*a, **kw):
+        calls.append(1)
+        raise LLMError(LLMError.UNAVAILABLE, "boom")
+
+    monkeypatch.setattr(anomaly_detection, "chat_completion", _raise)
+
+    _seed_anomaly_candidates()
+
+    agent = anomaly_detection.FraudDetectionAgent()
+    result = agent.detect_anomalies("user-1", use_llm=True)
+
+    assert len(calls) == 1
+    assert result["anomalies_detected"] >= 2
+    for anomaly in result["anomalies"][:5]:
+        assert anomaly["llm_explanation"] == anomaly["explanation"]
+
+
+def test_anomaly_llm_loop_stops_after_deadline(clean_db, monkeypatch):
+    """A 60s wall-clock deadline (measured with time.monotonic() from the
+    first LLM call) caps the whole anomaly LLM stage regardless of how many
+    flagged items remain, so it can't eat into gunicorn's 120s budget: once
+    the clock shows more than 60s have passed since the first call, no
+    further calls are made."""
+    import ai.anomaly_detection as anomaly_detection
+
+    calls = []
+
+    def _ok(*a, **kw):
+        calls.append(1)
+        return json.dumps({
+            "is_suspicious": False, "confidence": 0.1, "explanation": "ok",
+            "recommendation": "MONITOR", "risk_level": "LOW",
+        })
+
+    monkeypatch.setattr(anomaly_detection, "chat_completion", _ok)
+
+    fake_time = [1000.0]
+
+    def _monotonic():
+        fake_time[0] += 61  # every check jumps well past the 60s deadline
+        return fake_time[0]
+
+    monkeypatch.setattr(anomaly_detection.time, "monotonic", _monotonic)
+
+    _seed_anomaly_candidates()
+
+    agent = anomaly_detection.FraudDetectionAgent()
+    result = agent.detect_anomalies("user-1", use_llm=True)
+
+    # The first call establishes the deadline's start time and always goes
+    # through; every later item in this run must be skipped once the fake
+    # clock shows the 60s budget is already spent.
+    assert len(calls) == 1
+    assert result["anomalies_detected"] >= 2
+
+
 def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_client, monkeypatch):
     """POST /api/analytics/analyze must return 200 for user-1, using only
     user-1's data, with every LLM call mocked so the run never reaches

@@ -295,7 +295,11 @@ Return as JSON array of strings:
 """
 
         try:
-            content = chat_completion(prompt, temperature=0.7, max_tokens=300, timeout=30)
+            # timeout=20: keeps this call well inside gunicorn's 120s worker
+            # timeout alongside the anomaly detection LLM stage. After PR #6
+            # merges, pass retries=0 here (this base's chat_completion has no
+            # such argument; it already retries an empty reply once).
+            content = chat_completion(prompt, temperature=0.7, max_tokens=300, timeout=20)
 
             # Parse JSON
             content = content.replace('```json', '').replace('```', '').strip()

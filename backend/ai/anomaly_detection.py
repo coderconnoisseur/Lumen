@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import statistics
 import json
+import time
 from models.database import db
 from utils.llm import LLMError, chat_completion
 import logging
@@ -231,13 +232,13 @@ class FraudDetectionAgent:
         
         return anomalies
     
-    def llm_reasoning(self, anomaly: Dict) -> Dict:
-        """
-        Layer 4: LLM contextual reasoning
-        Provides human-readable explanations
-        """
+    def _apply_llm_reasoning(self, anomaly: Dict) -> None:
+        """Call the LLM for one anomaly and update it in place. Raises
+        LLMError on failure -- callers decide whether to fall back silently
+        (llm_reasoning) or stop the whole loop (detect_anomalies, for a
+        fatal error)."""
         txn = anomaly['transaction']
-        
+
         prompt = f"""You are a fraud detection expert analyzing a flagged transaction.
 
 Transaction Details:
@@ -265,24 +266,34 @@ Respond in JSON format:
   "recommendation": "MONITOR/REVIEW/ALERT",
   "risk_level": "LOW/MEDIUM/HIGH"
 }}"""
-        
+
+        # timeout=20: keeps a single call well under gunicorn's 120s worker
+        # timeout even when several anomalies are processed in one request.
+        # After PR #6 merges, pass retries=0 here (this base's chat_completion
+        # has no such argument; it already retries an empty reply once).
+        content = chat_completion(prompt, temperature=0.3, max_tokens=300, timeout=20)
+
+        # Clean JSON
+        content = content.replace('```json', '').replace('```', '').strip()
+        llm_result = json.loads(content)
+
+        # Update anomaly with LLM reasoning
+        anomaly['llm_explanation'] = llm_result['explanation']
+        anomaly['llm_confidence'] = llm_result['confidence']
+        anomaly['recommendation'] = llm_result['recommendation']
+        anomaly['risk_level'] = llm_result['risk_level']
+
+        # Adjust risk score based on LLM
+        if not llm_result['is_suspicious']:
+            anomaly['risk_score'] *= 0.5  # Reduce if LLM thinks it's false positive
+
+    def llm_reasoning(self, anomaly: Dict) -> Dict:
+        """
+        Layer 4: LLM contextual reasoning
+        Provides human-readable explanations
+        """
         try:
-            content = chat_completion(prompt, temperature=0.3, max_tokens=300, timeout=30)
-
-            # Clean JSON
-            content = content.replace('```json', '').replace('```', '').strip()
-            llm_result = json.loads(content)
-
-            # Update anomaly with LLM reasoning
-            anomaly['llm_explanation'] = llm_result['explanation']
-            anomaly['llm_confidence'] = llm_result['confidence']
-            anomaly['recommendation'] = llm_result['recommendation']
-            anomaly['risk_level'] = llm_result['risk_level']
-
-            # Adjust risk score based on LLM
-            if not llm_result['is_suspicious']:
-                anomaly['risk_score'] *= 0.5  # Reduce if LLM thinks it's false positive
-
+            self._apply_llm_reasoning(anomaly)
         except LLMError as e:
             logger.warning("LLM reasoning failed: %s", e.kind)
             anomaly['llm_explanation'] = anomaly['explanation']
@@ -362,11 +373,42 @@ Respond in JSON format:
         # Sort by risk score
         final_anomalies.sort(key=lambda x: x['risk_score'], reverse=True)
         
-        # Layer 4: LLM reasoning on top anomalies (limit to save time/cost)
+        # Layer 4: LLM reasoning on top anomalies (limit to save time/cost).
+        # Stop calling the LLM for the rest of this run as soon as a call
+        # comes back with a fatal error (timeout/auth/rate-limit -- those
+        # fail every later call too) or the stage has spent more than 60s
+        # of wall clock since its first call, so one slow/broken run can't
+        # chain enough LLM calls to blow past gunicorn's 120s worker timeout.
         if use_llm:
             logger.info(f"   Applying LLM reasoning to top {min(len(final_anomalies), 5)} anomalies...")
+            llm_stage_start = None
+            stop_calling_llm = False
             for anomaly in final_anomalies[:5]:
-                self.llm_reasoning(anomaly)
+                if stop_calling_llm:
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    continue
+
+                if llm_stage_start is None:
+                    llm_stage_start = time.monotonic()
+                elif time.monotonic() - llm_stage_start > 60:
+                    stop_calling_llm = True
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    continue
+
+                try:
+                    self._apply_llm_reasoning(anomaly)
+                except LLMError as e:
+                    logger.warning("LLM reasoning failed: %s", e.kind)
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    if e.is_fatal:
+                        stop_calling_llm = True
+                except Exception as e:
+                    logger.warning("LLM reasoning failed: %s", type(e).__name__)
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
         else:
             for anomaly in final_anomalies:
                 anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
