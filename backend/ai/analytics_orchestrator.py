@@ -98,7 +98,9 @@ class AnalyticsOrchestrator:
         if include_forecasting:
             logger.info("\n[3/4] Spending Forecast...")
             try:
-                forecast_results = self.forecast_agent.forecast_spending(user_id, days_ahead=30)
+                forecast_results = self.forecast_agent.forecast_spending(
+                    user_id, days_ahead=30, use_llm=use_llm_reasoning
+                )
                 results['forecast'] = forecast_results
                 if forecast_results.get('success'):
                     total = forecast_results['forecast']['total_predicted']

@@ -343,6 +343,39 @@ def test_forecast_insights_falls_back_when_llm_fails(monkeypatch):
     ]
 
 
+def test_forecast_spending_skips_llm_when_use_llm_false(clean_db, monkeypatch):
+    """forecast_spending must not call chat_completion at all when the
+    caller passes use_llm=False -- previously the forecast's insight step
+    ignored the flag entirely and always spent an LLM call."""
+    import ai.forecasting_agent as forecasting_agent
+    from models import Transaction, User
+
+    calls = []
+
+    def _count(*a, **kw):
+        calls.append(1)
+        return '["mocked insight"]'
+
+    monkeypatch.setattr(forecasting_agent, "chat_completion", _count)
+
+    db.session.add(User(id="user-1", email="user1-analytics@example.com"))
+    base = date.today()
+    for i in range(15):
+        db.session.add(Transaction(
+            id=str(uuid.uuid4()), user_id="user-1", vendor_name=f"Vendor{i}",
+            category="Shopping", date=(base - timedelta(days=i * 2)).isoformat(),
+            total_amount=100.0 + i,
+        ))
+    db.session.commit()
+
+    agent = forecasting_agent.ForecastingAgent()
+    result = agent.forecast_spending("user-1", days_ahead=30, use_llm=False)
+
+    assert result["success"] is True
+    assert calls == []
+    assert result["insights"][0].startswith("Based on your spending pattern")
+
+
 def test_llm_reasoning_uses_llm_response(monkeypatch):
     """llm_reasoning must adopt the LLM's explanation/risk_level/recommendation
     when the call succeeds."""

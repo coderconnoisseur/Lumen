@@ -91,14 +91,16 @@ class ForecastingAgent:
         else:
             return 'stable'
     
-    def forecast_spending(self, user_id: int, days_ahead: int = 30) -> Dict[str, Any]:
+    def forecast_spending(self, user_id: int, days_ahead: int = 30, use_llm: bool = True) -> Dict[str, Any]:
         """
         Forecast future spending
-        
+
         Args:
             user_id: User ID
             days_ahead: Number of days to forecast
-            
+            use_llm: Whether to generate insight text via the LLM (costs an
+                API call); when False, the stats-based fallback is used
+
         Returns:
             Forecast results with predictions
         """
@@ -187,7 +189,8 @@ class ForecastingAgent:
             total_forecast=total_forecast,
             trend=trend,
             days_ahead=days_ahead,
-            category_forecast=category_forecast
+            category_forecast=category_forecast,
+            use_llm=use_llm
         )
         
         return {
@@ -252,19 +255,25 @@ class ForecastingAgent:
         
         return category_forecasts
     
-    def generate_forecast_insights(self, 
-                                   mean_daily: float, 
+    def generate_forecast_insights(self,
+                                   mean_daily: float,
                                    total_forecast: float,
                                    trend: str,
                                    days_ahead: int,
-                                   category_forecast: List[Dict]) -> List[str]:
-        """Generate human-readable insights using LLM"""
+                                   category_forecast: List[Dict],
+                                   use_llm: bool = True) -> List[str]:
+        """Generate human-readable insights using LLM (or the stats-only
+        fallback when use_llm is False, to avoid spending a call on every
+        page view of the ~50/day free-tier budget)."""
+
+        if not use_llm:
+            return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast)
 
         # Prepare context for LLM
         top_categories = category_forecast[:3]
-        category_text = ", ".join([f"{c['category']} (₹{c['predicted_total']:.0f})" 
+        category_text = ", ".join([f"{c['category']} (₹{c['predicted_total']:.0f})"
                                   for c in top_categories])
-        
+
         prompt = f"""You are a financial advisor analyzing spending forecasts.
 
 Historical Data:
@@ -284,7 +293,7 @@ Generate 3-4 concise, actionable insights (1 sentence each):
 Return as JSON array of strings:
 ["insight 1", "insight 2", ...]
 """
-        
+
         try:
             content = chat_completion(prompt, temperature=0.7, max_tokens=300, timeout=30)
 
@@ -299,6 +308,12 @@ Return as JSON array of strings:
         except Exception as e:
             logger.warning("LLM insight generation failed: %s", type(e).__name__)
 
+        return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast)
+
+    def _fallback_insights(self, total_forecast: float, trend: str, days_ahead: int,
+                           category_forecast: List[Dict]) -> List[str]:
+        """Stats-only insights, used when the LLM is skipped or fails."""
+        top_categories = category_forecast[:3]
         return [
             f"Based on your spending pattern, expect around ₹{total_forecast:.0f} in the next {days_ahead} days.",
             f"Your spending trend is {trend}.",
