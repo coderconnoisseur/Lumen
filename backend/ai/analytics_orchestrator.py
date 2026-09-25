@@ -18,30 +18,23 @@ logger = logging.getLogger(__name__)
 class AnalyticsOrchestrator:
     """Coordinates all analytics agents and provides unified interface"""
 
-    def __init__(self, db_path: str | None = None):
-        """
-        Initialize analytics orchestrator
-
-        Args:
-            db_path: Path to SQLite database. Defaults to Config.DATABASE_PATH.
-        """
-        from config import Config
-        resolved = db_path or str(Config.DATABASE_PATH)
-        logger.info("🚀 Initializing Analytics Orchestrator (db=%s)", resolved)
+    def __init__(self):
+        """Initialize analytics orchestrator"""
+        logger.info("🚀 Initializing Analytics Orchestrator")
 
         # Initialize all agents
-        self.pattern_agent = PatternDetectionAgent(resolved)
+        self.pattern_agent = PatternDetectionAgent()
         logger.info("   ✅ Pattern Detection Agent ready")
-        
+
         self.fraud_agent = FraudDetectionAgent()
         logger.info("   ✅ Fraud Detection Agent ready")
-        
+
         self.forecast_agent = ForecastingAgent()
         logger.info("   ✅ Forecasting Agent ready")
-        
-        self.risk_engine = RiskAssessmentEngine(db_path)
+
+        self.risk_engine = RiskAssessmentEngine()
         logger.info("   ✅ Risk Assessment Engine ready")
-        
+
         logger.info("✅ Analytics Orchestrator initialized!\n")
     
     def run_complete_analysis(self, 
