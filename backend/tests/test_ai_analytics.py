@@ -236,6 +236,36 @@ def test_save_insight_serializes_datetime_and_decimal_metadata(clean_db):
     assert "created_at" in meta
 
 
+def test_day_of_month_pattern_handles_day_31_in_short_month(clean_db, monkeypatch):
+    """A day-of-month pattern anchored on the 31st must not crash when
+    'today' falls in a shorter month: datetime(today.year, today.month, 31)
+    raises ValueError for April, June, September, November and February, so
+    the day must be clamped to the month's last day instead."""
+    import ai.pattern_detection as pattern_detection
+    from models import Transaction, User
+
+    db.session.add(User(id="user-1", email="user1-analytics@example.com"))
+    for i, (month, day) in enumerate([(1, 31), (3, 31), (5, 31)]):
+        db.session.add(Transaction(
+            id=str(uuid.uuid4()), user_id="user-1", vendor_name=f"Landlord{i}",
+            category="Rent", date=f"2026-{month:02d}-{day:02d}", total_amount=1000.0,
+        ))
+    db.session.commit()
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls):
+            return datetime(2026, 4, 15)  # April has only 30 days
+
+    monkeypatch.setattr(pattern_detection, "datetime", FakeDateTime)
+
+    agent = pattern_detection.PatternDetectionAgent()
+    patterns = agent.detect_day_of_month_patterns("user-1")
+
+    rent_pattern = next(p for p in patterns if p["category"] == "Rent")
+    assert rent_pattern["next_predicted_date"] == "2026-04-30"
+
+
 def test_dashboard_route_returns_only_user1_data_with_safe_bind_params(clean_db, authed_client, monkeypatch):
     """GET /api/analytics/dashboard must return 200 with only user-1's data,
     and every query it runs must bind dates as strings/datetimes, never a

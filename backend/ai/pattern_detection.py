@@ -2,6 +2,7 @@
 Pattern Detection Agent - Identifies recurring patterns and spending habits
 """
 
+import calendar
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import List, Dict, Any
@@ -157,16 +158,21 @@ class PatternDetectionAgent:
             # Find dominant days (>= 3 occurrences)
             for day, count in day_counts.items():
                 if count >= 3:
-                    # Calculate next occurrence
+                    # Calculate next occurrence. Clamp to the month's last
+                    # day: a pattern on the 31st has no such day in April,
+                    # June, September, November or February.
                     today = datetime.now()
-                    next_occurrence = datetime(today.year, today.month, day)
+                    last_day = calendar.monthrange(today.year, today.month)[1]
+                    next_occurrence = datetime(today.year, today.month, min(day, last_day))
 
                     if next_occurrence <= today:
                         # Move to next month
                         if today.month == 12:
-                            next_occurrence = datetime(today.year + 1, 1, day)
+                            next_year, next_month = today.year + 1, 1
                         else:
-                            next_occurrence = datetime(today.year, today.month + 1, day)
+                            next_year, next_month = today.year, today.month + 1
+                        last_day = calendar.monthrange(next_year, next_month)[1]
+                        next_occurrence = datetime(next_year, next_month, min(day, last_day))
 
                     pattern = {
                         'pattern_type': 'day_of_month',
