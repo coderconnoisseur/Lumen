@@ -217,13 +217,28 @@ class AnalyticsOrchestrator:
         return self.risk_engine.calculate_overall_risk(user_id)
     
     def save_insight(self, user_id, insight: Dict):
-        """Save an insight to the database for display."""
+        """Save an insight to the database for display. Skips creating a
+        duplicate when the user already has an unread insight with the same
+        type and title -- otherwise re-running /analyze piles up repeats of
+        the same reminder/anomaly/forecast insight on every page view."""
         from models import AnalyticsInsight
+
+        insight_type = insight.get("type", "general")
+        title = insight.get("title", "")
+
+        existing = AnalyticsInsight.query.filter_by(
+            user_id=str(user_id),
+            insight_type=insight_type,
+            title=title,
+            is_read=False,
+        ).first()
+        if existing is not None:
+            return
 
         row = AnalyticsInsight(
             user_id=str(user_id),
-            insight_type=insight.get("type", "general"),
-            title=insight.get("title", ""),
+            insight_type=insight_type,
+            title=title,
             description=insight.get("description", ""),
             severity=insight.get("severity", "info"),
             # default=str: metadata can nest a raw DB row (a reminder's

@@ -525,6 +525,63 @@ def test_anomaly_llm_loop_stops_after_deadline(clean_db, monkeypatch):
     assert result["anomalies_detected"] >= 2
 
 
+def test_save_anomalies_to_db_replaces_existing_rows_for_same_user(clean_db):
+    """Re-running anomaly detection for the same user must update the
+    existing (transaction_id, anomaly_type) row instead of inserting a
+    second one -- otherwise every page view doubles the anomaly count and
+    the risk score climbs from visits alone (46 -> 92 rows in the review)."""
+    from ai.anomaly_detection import FraudDetectionAgent
+    from models import FraudAnomaly, Transaction, User
+
+    db.session.add(User(id="user-1", email="user1-analytics@example.com"))
+    txn_id = str(uuid.uuid4())
+    db.session.add(Transaction(id=txn_id, user_id="user-1", vendor_name="Vendor",
+                                category="Shopping", date=date.today().isoformat(),
+                                total_amount=1000.0))
+    db.session.commit()
+
+    agent = FraudDetectionAgent()
+    anomaly = {
+        "transaction_id": txn_id, "anomaly_type": "amount",
+        "detection_method": "statistical", "risk_score": 0.5,
+        "risk_level": "MEDIUM", "explanation": "test", "flags": ["x"],
+    }
+
+    agent.save_anomalies_to_db("user-1", [anomaly])
+    agent.save_anomalies_to_db("user-1", [dict(anomaly, risk_score=0.9, risk_level="HIGH")])
+
+    rows = FraudAnomaly.query.filter_by(user_id="user-1", transaction_id=txn_id).all()
+    assert len(rows) == 1
+    assert rows[0].risk_level == "HIGH"
+
+
+def test_save_insight_skips_duplicate_unread_insight(clean_db):
+    """Calling save_insight twice with the same type/title for a user that
+    hasn't read the first one must not create a second row -- otherwise
+    every /analyze run piles up repeats of the same reminder/anomaly/
+    forecast insight."""
+    from ai.analytics_orchestrator import AnalyticsOrchestrator
+    from models import AnalyticsInsight, User
+
+    db.session.add(User(id="user-1", email="user1-analytics@example.com"))
+    db.session.commit()
+
+    orchestrator = AnalyticsOrchestrator()
+    insight = {
+        "type": "reminder", "title": "Upcoming: Rent", "description": "d",
+        "severity": "info", "confidence": 0.9, "is_actionable": True,
+        "metadata": {},
+    }
+
+    orchestrator.save_insight("user-1", insight)
+    orchestrator.save_insight("user-1", insight)
+
+    rows = AnalyticsInsight.query.filter_by(
+        user_id="user-1", insight_type="reminder", title="Upcoming: Rent"
+    ).all()
+    assert len(rows) == 1
+
+
 def test_analyze_route_returns_only_user1_data_with_llm_mocked(clean_db, authed_client, monkeypatch):
     """POST /api/analytics/analyze must return 200 for user-1, using only
     user-1's data, with every LLM call mocked so the run never reaches

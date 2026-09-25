@@ -427,11 +427,31 @@ Respond in JSON format:
         }
     
     def save_anomalies_to_db(self, user_id, anomalies: List[Dict]):
-        """Save anomalies to database via SQLAlchemy."""
+        """Save anomalies to database via SQLAlchemy. A run replaces the
+        user's existing row for the same (transaction_id, anomaly_type)
+        instead of inserting a new one every time, so re-running analysis
+        (or just viewing the dashboard again) doesn't duplicate anomalies
+        and inflate the risk score from repeat visits alone."""
         from models import FraudAnomaly
         import uuid
 
         for anomaly in anomalies:
+            existing = FraudAnomaly.query.filter_by(
+                user_id=str(user_id),
+                transaction_id=anomaly["transaction_id"],
+                anomaly_type=anomaly.get("anomaly_type"),
+            ).first()
+
+            if existing is not None:
+                existing.detection_method = anomaly.get("detection_method")
+                existing.risk_score = int(anomaly["risk_score"] * 100)
+                existing.risk_level = anomaly.get("risk_level", "LOW")
+                existing.explanation = anomaly.get("explanation")
+                existing.flags = json.dumps(anomaly.get("flags", []))
+                existing.llm_explanation = anomaly.get("llm_explanation")
+                existing.recommendation = anomaly.get("recommendation")
+                continue
+
             db.session.add(
                 FraudAnomaly(
                     id=str(uuid.uuid4()),
