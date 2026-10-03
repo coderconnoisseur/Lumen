@@ -67,7 +67,7 @@ TechHub?"). The agent's main skill is choosing the right one, and that choice is
 - **Weakness found by the evals:** the model guesses names ("electric") instead of looking them up, so it
   confidently answers ₹0. The agent's lookup tools fix that.
 
-## 4. Hybrid RAG ⬜ (SPEC-RAG next)
+## 4. Hybrid RAG 🔄 (retrieval, answers, API and page built; measured on dev: right section in top 5 for 67 → 82 → 100 of 104 questions as each stage was added)
 - **What:** search over unstructured documents (PO PDFs, contracts, policies, invoice text). Steps:
   1. **Chunk** documents along their sections, keeping the section id.
   2. **BM25** keyword search: finds exact terms like "PO-U1-202605-06" that vector search misses.
