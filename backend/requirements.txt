@@ -15,7 +15,11 @@ sqlglot>=30,<31
 
 python-dotenv
 
-gunicorn
+# ASGI server: FastAPI in front of the mounted Flask app (asgi.py)
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+a2wsgi>=1.10,<2
+httpx  # FastAPI's TestClient
 
 cryptography
 

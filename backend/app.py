@@ -59,29 +59,34 @@ def handle_unexpected_exception(e: Exception):
     return api_error("An internal error occurred", code="internal_error", log=e)
 
 
+def startup_checks():
+    """Once per server process: here under `python app.py`, and in asgi.py's lifespan under uvicorn."""
+    for key in Config.SHADOWED_ENV_KEYS:
+        logger.warning(
+            "%s is set in your shell/system environment (%s) and overrides "
+            "backend/.env. Remove it there if backend/.env should win.",
+            key, mask_secret(os.environ.get(key)),
+        )
+
+    # Raises on a judge that shares the text model's family (SPEC-LLM);
+    # warns about risky chains such as one containing openrouter/free.
+    for warning in llm_registry().check(llm_tier()):
+        logger.warning("LLM registry: %s", warning)
+    ok, summary = check_api_key()
+    (logger.info if ok else logger.error)(
+        "%s Key %s, text model %s, vision model %s",
+        summary, mask_secret(Config.OPENROUTER_API_KEY),
+        Config.get_llm_text_model(), Config.get_llm_vision_model(),
+    )
+
+
 if __name__ == "__main__":
     # Werkzeug's debug reloader executes __main__ twice (watcher parent +
     # serving child). Do one-time startup work only in the serving process.
     serving_process = not Config.DEBUG or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
 
     if serving_process:
-        for key in Config.SHADOWED_ENV_KEYS:
-            logger.warning(
-                "%s is set in your shell/system environment (%s) and overrides "
-                "backend/.env. Remove it there if backend/.env should win.",
-                key, mask_secret(os.environ.get(key)),
-            )
-
-        # Raises on a judge that shares the text model's family (SPEC-LLM);
-        # warns about risky chains such as one containing openrouter/free.
-        for warning in llm_registry().check(llm_tier()):
-            logger.warning("LLM registry: %s", warning)
-        ok, summary = check_api_key()
-        (logger.info if ok else logger.error)(
-            "%s Key %s, text model %s, vision model %s",
-            summary, mask_secret(Config.OPENROUTER_API_KEY),
-            Config.get_llm_text_model(), Config.get_llm_vision_model(),
-        )
+        startup_checks()
 
     logger.info("Starting LUMEN Financial Intelligence API...")
     # Background polling too, otherwise two pollers race on the same inbox.
