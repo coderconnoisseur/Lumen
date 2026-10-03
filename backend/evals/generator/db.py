@@ -16,7 +16,8 @@ _TABLES = ("users", "transactions", "transaction_items")
 def load_world(engine: Engine, world: dict) -> None:
     """Create the tables if needed and replace the world's users and their rows."""
     tables = {name: db.metadata.tables[name] for name in _TABLES}
-    db.metadata.create_all(engine, tables=list(tables.values()))
+    # transactions.receipt_id references receipts; Postgres needs the table even though it stays empty.
+    db.metadata.create_all(engine, tables=[db.metadata.tables["receipts"], *tables.values()])
     user_ids = [u["id"] for u in world["users"]]
     txn = tables["transactions"]
     item = tables["transaction_items"]
