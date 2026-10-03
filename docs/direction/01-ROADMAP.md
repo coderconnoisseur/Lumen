@@ -256,6 +256,35 @@ Gated = needs the owner. Parallel = can run at the same time as the item above i
 8. **Then build in this order:** Track C (AGT-01..04) and Track B (RAG-01..05) in parallel, then Track D, then Track E, with UI items shipping alongside their backend pieces.
 9. **Ship:** HYG-A, UX-06. Update the resume bullets only with numbers from the eval tables.
 
+## 6b. Builder findings
+
+What the agent that did the production-hardening work learned about the code, mapped to the module list.
+Where the first draft of this mapping needed correcting, the "Correction" column says why.
+
+| # | Finding (from the code, not the docs) | Goes to | Correction / note |
+|---|---|---|---|
+| 1 | Tests that miss a mock can call OpenRouter with the real key: `config.py` loads `backend/.env` (no override), and only `tests/test_ai_analytics.py` blocks network access. | **EVAL-01 prerequisite:** autouse network-block fixture in `tests/conftest.py` | Also set `OPENROUTER_API_KEY` to a dummy value in `conftest.py`, so an unblocked call fails with 401 instead of spending quota. `Config.validate()` needs the key to be non-empty. |
+| 2 | Commit 2e98cb1 silently deleted 8 `@route` decorators in `routes/ai_analytics.py` during an error-handling rewrite. Today's guard test covers only that blueprint. | **HYG** (new item): extend the guard test to every blueprint | No correction. |
+| 3 | Local `ENABLE_CHROMA=true` makes `rag_system.py` embed through OpenRouter (`OpenAIEmbeddingFunction` on `OPENROUTER_BASE_URL`): one request per upload. It also opens a new `PersistentClient` on every save and hard-codes "INR" in the indexed text. | **RAG-02:** local `fastembed` | Store `embedding_model` per chunk (already in 4.1), and stop building the RAG client per save. |
+| 4 | Bare `openrouter/free` sends images to whatever free model accepts them, including a content-safety classifier ("User Safety: safe"). | **LLM-01** | **Mostly done in PR #6:** vision is pinned to `google/gemma-4-31b-it:free`, then `qwen/qwen3.8-27b:free`, then `openrouter/free` as last fallback. Still open: the owner's local `.env` overrides it with `LLM_VISION_MODEL=openrouter/free`; the chain still *ends* in the router; vision on Groq is unchecked. Groq has listed Llama 4 Scout/Maverick multimodal models, but **verify** before relying on them. |
+| 5 | Invoice currency is never stored: a CHF receipt shows as ₹. | **EXT-01** schema: add `currency` | Three places assume INR and must change with it: `Config.DEFAULT_CURRENCY` in the answer prompt (`hybrid_query_engine.py`), the "INR" in `rag_system._create_searchable_text`, and the hard-coded ₹ in the frontend. |
+| 6 | The `sqlglot` function check is a denylist (e.g. `xpath_table` from the xml2 extension would pass if installed). Isolation itself is structural: per-user CTE shadowing, table allowlist, read-only transaction, 5 s `statement_timeout`. | **AGT-03:** read-only DB role | The role should be limited to `SELECT` on `transactions` and `transaction_items` (ideally with RLS), behind its own connection URL, since `SQLAgent` already builds its own engine. Keep the existing checks as a second layer. |
+| 7 | `requests` timeouts are per socket read, not total. `/analyze` with `use_llm=true` has a per-module 60 s LLM deadline, plus an empty-reply retry that isn't fatal, so the worst case is ~120–140 s (gunicorn kills at 120 s). The UI never sends `use_llm=true`. | **AGT-02** | **Partly wrong home.** `/analyze` is the AI-analytics route, not the chat agent. Put a request-scoped deadline *in the client* (**LLM-01**: every call takes the time left in the request and caps total wall time, not just the read), then AGT-02's loop budget and `/analyze` both use it. |
+| 8 | The export dialog calls `/api/v1/invoices/*`, which the backend doesn't have. | **UX-05** (core path): implement or remove | Owner's UX decision. Note that nothing else in the frontend uses `invoiceApi` apart from `exportInvoices`. |
+| 9 | Email polling only runs under `python app.py` or `worker.py`, never under gunicorn, so on Render it needs `render.yaml`'s background worker, which is paid. Gmail OAuth already returns 501. | **Propose: cut from scope** | Also drop the worker and the duplicate `lumen-frontend` service from `render.yaml` (Vercel hosts the frontend). |
+| 10 | `v2/intelligence-agent` carries a "Deploy backend to Fly.io" workflow that fails on `coderconnoisseur/Lumen` (no secrets). | **Propose: disable** | The workflow lives only on that branch and runs only when that branch is pushed; it ran once because of the mirror push. Disabling it in Actions settings is enough; no branch deletion needed. |
+
+Further findings not in the first draft:
+
+| # | Finding | Goes to |
+|---|---|---|
+| 11 | `utils/llm.py` is OpenRouter-specific in three ways: the `models` fallback array (OpenRouter-only, max 3), `reasoning: {enabled: false}` (OpenRouter's field), and `check_api_key` (`/key`). Groq and Ollama need client-side failover and their own reasoning switches (Groq: `reasoning_effort` / `reasoning_format` on reasoning models; Ollama: `think: false`). Keep `LLMError` kinds, `is_fatal`, `retries` and the telemetry line as they are. | **LLM-01** |
+| 12 | The SQL agent falls back to "recent transactions" on any rejected or failed query and still returns `success: true`, with a `note`. An eval that counts `success` would score fallbacks as correct. | **EVAL-01:** count `note`/fallback as a failure; report fallback rate as its own metric |
+| 13 | The SQL prompt's schema is hand-written and already wrong: `created_at` is documented as TEXT but is a timestamp on Postgres. The agent's `get_schema` tool should be generated from the models. | **AGT-01** |
+| 14 | The checked query is rebuilt by sqlglot before it runs, e.g. `::numeric` becomes `CAST(... AS DECIMAL)`. Evals should compare result sets, never SQL text. | **EVAL-02** |
+| 15 | Two sync gunicorn workers means two slow LLM requests block everything, including `/health`. | **AGT-06** (tracing will show it) / deploy decision in IDEA Q7 |
+| 16 | `pgserver` (scratch venv, Postgres 16.2) loads **pgvector 0.6.2**, and an HNSW cosine index builds and queries correctly. `pg_trgm` and ParadeDB `pg_search` are not available, so BM25 stays in Python as 4.1 already says. Render Postgres lists pgvector as supported; confirm on the owner's plan before RAG-02. | **RAG-02** |
+
 ## 7. Risks
 - **Free-tier limits** make evals flaky -> record/replay cache and a small paid-credit fallback.
 - **Small local models** give misleading dev results -> never report numbers from them.
