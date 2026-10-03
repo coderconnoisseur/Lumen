@@ -13,7 +13,8 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
 | 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
 | 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | 34d2a7f … |
-| — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | 📝 SPEC-RAG drafted, awaiting owner review | |
+| — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 2265bc3 |
+| 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API done; page, generation suite, safety, prod switch left | 75ca045 … |
 
 Last commit: EVAL-03 in progress (see the branch history).
 Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
@@ -185,6 +186,27 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   aligned chunks, fastembed bge-small, per-user BM25, RRF k=60, FlashRank rerank, cited answers with
   abstention, embedding cassette for offline evals, first real FastAPI routes for documents). Four open
   questions at the end.
+
+## What RAG has delivered so far (SPEC-RAG)
+- `backend/rag/`: `chunking.py` (section-aligned chunks; PDF headings parsed, all 20 corpus PDFs split back
+  into their generated sections), `store.py` (documents + chunks tables; pgvector on Postgres, numpy on SQLite,
+  exact search, identical top-k verified on local Postgres 16; every read filtered by user), `embed.py`
+  (bge-small via fastembed, cached and fake embedders), `bm25.py` (per-user index, rebuilt when the chunk set
+  changes; codes like PO numbers kept whole), `retrieve.py` (`dense` / `hybrid` RRF / `hybrid_rerank`),
+  `rerank.py` (FlashRank MiniLM-L-12, top 15; cached and fake rerankers), `answer.py` (cited answers; layered
+  abstention: score cut-off, identifier grounding, NOT_FOUND), `ingest.py`, `service.py`.
+- `backend/api/documents.py`: `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST .../search`,
+  `POST .../ask` (FastAPI, API-01 parity for auth, limits, errors). Smoke-tested with the real models.
+- `evals/suites/retrieval.py` + committed embedding/rerank caches: the ablation (dev): hit@5 67 → 82 → 100/104;
+  `docs/direction/benchmarks/2026-10-04-retrieval-ablation-dev.md`.
+- Pre-LLM abstention on the dev generation set: 26/26 correct decisions (score cut-off alone: 19/26).
+- `init_db` creates the pgvector extension first; if a database refuses it, only document search is disabled.
+- Dependencies: fastembed, pgvector, bm25s, flashrank, python-multipart. Process RSS with both models ~128 MB.
+- **Decisions:** rerank candidates = 15 (dev: same hit@5 as 30, half the latency); MIN_RELEVANCE = 0.5
+  (conservative; little dev data); documents get no FK to `users` (the user filter is on every query).
+- **Left for RAG:** the Documents page (written, being type-checked), the generation suite (LLM + judge; needs
+  quota and the owner's ~20 judge labels), injection planted inside a corpus document (RAG-08), removing Chroma
+  and the `ENABLE_CHROMA` switch (RAG-09), and wiring document answers into chat (that's the agent's job).
 
 ## Next step
 Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):
