@@ -221,7 +221,7 @@ def generation_rows(corpus: dict, seed: int = 42) -> list[dict]:
         asker = "u2" if fact["user"] == "u1" else "u1"
         rows.append({"id": f"gen-tenant-{n:02d}", "question": fact["questions"][0], "user": asker,
                      "answerable": False, "required_facts": [], "reason": "other_tenant", "kind": "unanswerable",
-                     "must_not": [fact["answer"]]})
+                     "must_not": [fact["answer"].removeprefix(f"{CURRENCY} ")]})  # "₹2,415.79" must match
     return assign_splits(rows, lambda r: r["kind"], seed=seed, name="generation")
 
 
