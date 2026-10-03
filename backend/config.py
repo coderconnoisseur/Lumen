@@ -178,7 +178,7 @@ class Config:
     # Tried in order when the primary errors, is rate-limited or retired
     # (comma-separated; OpenRouter uses at most 3 models in total).
     LLM_TEXT_FALLBACK_MODELS = os.getenv(
-        "LLM_TEXT_FALLBACK_MODELS", "nex-agi/nex-n2.5-pro:free"
+        "LLM_TEXT_FALLBACK_MODELS", "qwen/qwen3.8-27b:free"
     )
 
     @classmethod
