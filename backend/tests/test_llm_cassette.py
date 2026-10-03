@@ -54,6 +54,11 @@ def test_mode_defaults_to_off(store, monkeypatch):
     assert store.mode() == "replay"
 
 
+def test_empty_mode_means_off(store, monkeypatch):
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "")
+    assert store.mode() == "off"
+
+
 def test_unknown_mode_is_rejected(store, monkeypatch):
     monkeypatch.setenv("LUMEN_LLM_CACHE", "sometimes")
     with pytest.raises(ValueError):

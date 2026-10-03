@@ -9,7 +9,6 @@ import json
 import logging
 import re
 
-from config import Config
 from utils.llm import LLMError, chat_completion
 
 logger = logging.getLogger(__name__)
@@ -73,12 +72,12 @@ def extract_and_structure_with_openrouter(image_base64, media_type="image/jpeg")
         {"type": "text", "text": EXTRACTION_PROMPT},
         {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_base64}"}},
     ]
-    # At most two HTTP calls of up to 55s each (110s), inside gunicorn's 120s
-    # worker timeout on Render: chat_completion doesn't retry (retries=0), and
-    # the one retry below covers both an empty reply and one without JSON.
+    # An unusable reply costs at most two calls: chat_completion doesn't retry
+    # (retries=0), and the one retry below covers both an empty reply and one
+    # without JSON. Rate limits and retired models fail over along the vision
+    # chain; every call is cut to the request's time budget (llm/deadline.py).
     call = dict(
-        model=Config.get_llm_vision_model(),
-        fallback_models=Config.get_llm_vision_fallback_models(),
+        role="vision",  # chain from llm/registry.yaml (env LLM_VISION_* overrides)
         temperature=0.1,
         max_tokens=2000,
         timeout=55,

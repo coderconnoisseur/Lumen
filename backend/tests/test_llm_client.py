@@ -125,14 +125,18 @@ def test_last_error_is_raised_when_the_chain_is_exhausted(transport):
     assert excinfo.value.kind == LLMError.AUTH
 
 
-def test_bad_response_retries_the_same_entry_then_moves_on(transport):
+def test_bad_response_retries_the_same_entry_then_is_raised(transport):
+    # SPEC-LLM: an unusable reply is retried on the same entry, not failed
+    # over; callers like OCR count on a fixed number of requests per call.
     from llm.client import complete
+    from llm.errors import LLMError
 
     calls, script = transport
-    script.extend([_Resp(200, EMPTY), _Resp(200, EMPTY), _Resp(200, OK)])
-    result = complete(MSGS, chain=chain(("groq", "m1"), ("groq", "m2")), retries=1)
-    assert [c["json"]["model"] for c in calls] == ["m1", "m1", "m2"]
-    assert result.text == "hello"
+    script.extend([_Resp(200, EMPTY), _Resp(200, EMPTY)])
+    with pytest.raises(LLMError) as excinfo:
+        complete(MSGS, chain=chain(("groq", "m1"), ("groq", "m2")), retries=1)
+    assert excinfo.value.kind == LLMError.BAD_RESPONSE
+    assert [c["json"]["model"] for c in calls] == ["m1", "m1"]
 
 
 def test_error_reported_with_http_200(transport):

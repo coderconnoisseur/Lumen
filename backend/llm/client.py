@@ -5,7 +5,8 @@ llm/registry.yaml for the active tier (`LUMEN_LLM_TIER`, default openrouter):
   - RATE_LIMITED / UNAVAILABLE / CONFIG -> next entry (a short Retry-After that
     fits the request budget is waited out on the same entry first);
   - AUTH / CREDITS -> skip that provider for the rest of the call;
-  - BAD_RESPONSE -> retry the same entry `retries` times, then move on;
+  - BAD_RESPONSE -> retry the same entry `retries` times, then raise (callers
+    such as OCR count on a fixed number of requests per call);
   - DEADLINE -> stop: the request's time budget is spent.
 Every attempt is cut to the request budget (llm/deadline.py) and can be
 answered from, or recorded to, a cassette (llm/cassette.py).
@@ -83,7 +84,7 @@ def complete(
             return _complete_entry(entry, messages, request, timeout, retries)
         except LLMError as e:
             last = e
-            if e.kind == LLMError.DEADLINE:
+            if e.kind in (LLMError.DEADLINE, LLMError.BAD_RESPONSE):
                 raise
             if e.kind in (LLMError.AUTH, LLMError.CREDITS):
                 dead_providers.add(entry.provider)

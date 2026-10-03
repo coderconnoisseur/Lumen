@@ -39,7 +39,7 @@ class CassetteMiss(Exception):
 
 
 def mode() -> str:
-    value = os.getenv("LUMEN_LLM_CACHE", "off").strip().lower()
+    value = (os.getenv("LUMEN_LLM_CACHE") or "off").strip().lower()
     if value not in MODES:
         raise ValueError(f"LUMEN_LLM_CACHE must be one of {MODES}, not {value!r}")
     return value

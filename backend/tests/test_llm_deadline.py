@@ -100,3 +100,20 @@ def test_flask_requests_run_under_the_default_deadline(authed_client, monkeypatc
     assert resp.status_code == 200
     assert 95 < seen["remaining"] <= 100
     assert remaining() is None  # reset after the request
+
+
+def test_existing_callers_respect_the_request_budget(clock, monkeypatch):
+    # Every caller goes through utils.llm.chat_completion, so the anomaly loop,
+    # the forecast and the chat steps all stop when the request's time is spent.
+    from utils import llm
+
+    calls = []
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: calls.append(1))
+    from llm.deadline import request_deadline
+
+    with request_deadline(100):
+        clock["t"] += 98
+        with pytest.raises(llm.LLMError) as excinfo:
+            llm.chat_completion("explain this anomaly")
+    assert excinfo.value.kind == llm.LLMError.DEADLINE and excinfo.value.is_fatal
+    assert calls == []

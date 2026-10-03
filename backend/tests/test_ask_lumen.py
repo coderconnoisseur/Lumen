@@ -63,25 +63,31 @@ def test_chat_completion_does_not_retry_fatal_errors(monkeypatch):
     assert len(calls) == 1
 
 
-def test_chat_completion_sends_fallback_chain(monkeypatch):
+def test_chat_completion_fails_over_along_the_configured_chain(monkeypatch):
+    # SPEC-LLM: failover is client-side (one model per request), in registry or
+    # env order, deduplicated; OpenRouter's server-side `models` array is gone.
     from utils import llm
 
     monkeypatch.setenv("LLM_TEXT_MODEL", "primary/model:free")
-    monkeypatch.setenv("LLM_TEXT_FALLBACK_MODELS", "backup/one:free, primary/model:free,backup/two,backup/three")
+    monkeypatch.setenv("LLM_TEXT_FALLBACK_MODELS", "backup/one:free, primary/model:free,backup/two")
     sent = []
 
     def capture(url, headers, json, timeout):
         sent.append(json)
+        if len(sent) < 3:
+            return _FakeResponse(429, {"error": {"message": "Rate limit exceeded", "code": 429}})
         return _FakeResponse(200, {"choices": [{"message": {"content": "ok"}}]})
 
     monkeypatch.setattr(llm.requests, "post", capture)
-    llm.chat_completion("hi")
-    llm.chat_completion("hi", model="explicit/model")
+    assert llm.chat_completion("hi") == "ok"
+    assert [s["model"] for s in sent] == ["primary/model:free", "backup/one:free", "backup/two"]
+    assert all("models" not in s for s in sent)
 
-    # Deduplicated, primary first, capped at OpenRouter's limit of 3.
-    assert sent[0]["models"] == ["primary/model:free", "backup/one:free", "backup/two"]
-    assert "model" not in sent[0]
-    assert sent[1]["model"] == "explicit/model" and "models" not in sent[1]
+    sent.clear()
+    monkeypatch.setattr(llm.requests, "post", lambda url, headers, json, timeout: (
+        sent.append(json) or _FakeResponse(200, {"choices": [{"message": {"content": "ok"}}]})))
+    llm.chat_completion("hi", model="explicit/model")
+    assert [s["model"] for s in sent] == ["explicit/model"]
 
 
 def test_chat_completion_returns_text(monkeypatch):

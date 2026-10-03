@@ -27,6 +27,14 @@ os.environ["ENABLE_CHROMA"] = "false"
 for _key in ("OPENROUTER_API_KEY", "GROQ_API_KEY"):
     os.environ[_key] = f"test-{_key.lower()}"
 
+# Model chains come from llm/registry.yaml, not the developer's backend/.env.
+# Empty means "unset" to the registry, and load_dotenv won't fill it back in.
+for _key in (
+    "LLM_TEXT_MODEL", "LLM_TEXT_FALLBACK_MODELS", "LLM_VISION_MODEL", "LLM_VISION_FALLBACK_MODELS",
+    "LUMEN_LLM_TIER", "LUMEN_LLM_CACHE",
+):
+    os.environ[_key] = ""
+
 _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 _real_connect = socket.socket.connect
 
