@@ -18,6 +18,7 @@ Config.validate()
 
 from routes import register_routes
 from utils.llm import check_api_key
+from llm.deadline import install_flask as install_llm_deadline
 from models.database import init_db
 from utils.scheduler import scheduler
 
@@ -33,6 +34,8 @@ CORS(
 logger.info("CORS allowlist: %s", Config.ALLOWED_ORIGINS)
 
 limiter.init_app(app)
+# Every request gets one time budget for all its LLM calls (llm/deadline.py).
+install_llm_deadline(app)
 
 init_db(app)
 register_routes(app)
