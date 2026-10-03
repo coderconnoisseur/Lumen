@@ -13,7 +13,7 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
 | 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
 | 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | 34d2a7f … |
-| — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | ⬜ | |
+| — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | 📝 SPEC-RAG drafted, awaiting owner review | |
 
 Last commit: EVAL-03 in progress (see the branch history).
 Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
@@ -175,6 +175,16 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   `render.yaml` drop them? (Deploy config, so it's your call.)
 - Groq's reasoning switches (`reasoning_effort` low/none) and Ollama's `think:false` are taken from the provider
   docs and are **unverified**. LLM-02 checks them.
+
+## Also done while waiting for quota (2026-10-03)
+- `evals/report.py`: `python -m evals.report` writes the README table (between `<!-- eval:start/end -->`,
+  new "Evaluation" section) and `results/release-*.md` from the latest committed releases. Every cell shows
+  counts and CIs; each tier column names its release and the models that answered.
+- `docs/direction/SYSTEM-OVERVIEW.md`: the target architecture and the reason behind each part (for the owner).
+- `docs/direction/specs/SPEC-RAG.md`: **draft** for the owner's full review (pgvector + numpy store, section-
+  aligned chunks, fastembed bge-small, per-user BM25, RRF k=60, FlashRank rerank, cited answers with
+  abstention, embedding cassette for offline evals, first real FastAPI routes for documents). Four open
+  questions at the end.
 
 ## Next step
 Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):
