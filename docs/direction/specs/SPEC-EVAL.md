@@ -27,7 +27,7 @@ evals/
   metrics.py            # pure metric functions (no I/O)
   run.py                # python -m evals.run --tier groq --suite all
   report.py             # python -m evals.report: writes results/*.md and the README tables
-  results/              # <date>-<tier>-<git sha>.json (committed for baseline and releases)
+  results/              # release-<n>-<tier>.json committed; dev runs stay local
 ```
 
 **Record/replay cache.** It's implemented in the LLM client (SPEC-LLM); this spec fixes the contract:
@@ -44,9 +44,11 @@ evals/
   - an autouse fixture that makes `requests` / `httpx` network calls raise;
   - a dummy `OPENROUTER_API_KEY` (and the other provider keys).
 
-**Dataset schemas** (JSONL, one object per line; example ids shown):
-- `sql.jsonl`: `{id, question, gold_sql, tags:[agg|filter|date|join|unanswerable], user:"u1"}`. Gold SQL runs
-  on the seeded database, and the **result sets** are compared, not the SQL text (6b #14).
+**Dataset schemas** (JSONL, one object per line). Every row also carries `split: dev|test`:
+- `sql.jsonl`: `{id, question, gold_sql, tags:[agg|filter|date|join|unanswerable], user:"u1"}`. The result
+  sets are compared, not the SQL text (6b #14).
+  - Gold SQL must be **dialect-neutral**: no `strftime`, no `::` casts, no `ILIKE`; use `substr`, `CAST`, `LOWER`.
+  - A CI check runs every gold query on both SQLite and Postgres and requires identical result sets.
 - `extraction.jsonl`: `{id, file, variant: clean|skew|blur|jpeg, gold:{field: value}}`.
 - `retrieval.jsonl`: `{id, question, relevant_chunk_ids:[...], user}`.
 - `generation.jsonl`: `{id, question, user, answerable: bool, required_facts:[...]}`.
@@ -69,6 +71,29 @@ evals/
 **Judge rule:** the judge model must be from a different model family than the system under test, and its
 model id is printed next to every judged metric.
 
+**Judge agreement:**
+- About 20 judged items are labelled by the owner (`evals/data/judge_gold.jsonl`).
+- Each run reports judge-vs-human agreement (% agreement and Cohen's kappa).
+- If agreement falls below the threshold in `gates.yaml` (proposed: kappa 0.6), the judged metrics are printed
+  as "unreliable" and are left out of the README.
+
+**Splits:**
+- About 30% of every dataset is the **test** split, stratified by tag and fault type. The generator assigns it
+  with a fixed seed.
+- While iterating, `evals.run` uses **dev** only. `--split test` is allowed only for release runs, and
+  `evals.run` refuses it unless `--release` is set.
+- dev and test are always reported separately.
+
+**Reporting:** every metric is shown with its counts (e.g. `41/50`) and a 95% Wilson confidence interval; never
+a bare percentage.
+
+**Suites per tier:**
+
+| Suite | Ollama (dev) | Groq (evals/demo) |
+|---|---|---|
+| sql, retrieval, generation, agent, safety, ops | yes | yes |
+| extraction (vision) | no | yes, **if a Groq vision model is confirmed** in LLM-02; otherwise it runs on the OpenRouter vision chain, and the README says so |
+
 ## Data (EVAL-02)
 `evals/generator/` is seeded (`--seed 42` by default) and deterministic. It writes:
 - Seeded DB fixtures: 2+ users, vendors, `purchase_orders` (schema owned by SPEC-EXTRACT), transactions and
@@ -77,24 +102,41 @@ model id is printed next to every judged metric.
   (total mismatch, duplicate, unknown vendor, bad date, injected instructions). Then seeded augmentations
   (skew, blur, JPEG).
 - PO PDFs rendered from the same `purchase_orders` rows, plus contracts and policy PDFs for the RAG corpus.
-- The question sets above. Gold SQL is written by hand for the 50 SQL questions; retrieval labels are
-  LLM-drafted, then owner-verified on at least 30%.
+- The question sets above. Gold SQL is written by hand for the 50 SQL questions.
+- **Retrieval labels by construction:** the generator plants each fact (a PO term, a contract clause, a policy
+  limit) in a known chunk. It emits the question and its `relevant_chunk_ids` from that plant, plus 1–2
+  templated paraphrases of each question. LLM-drafted questions are a supplement only: they're tagged
+  `source: llm`, owner-verified, and reported as their own row.
 - `evals/data/LABELLING.md`: how labels are made and verified, and which files were spot-checked.
 
 Proposed dependencies (to be added at build time, not now): `Faker`, `reportlab`; Pillow is already present.
 
 ## Baseline (EVAL-03)
-Runs the suites that apply to the **current** pipeline (sql, extraction, safety, ops) on both tiers. Retrieval
-is reported as "not applicable: RAG off in production". Writes `docs/direction/BASELINE.md`, plus the committed
-results JSON.
+Runs the suites that apply to the **current** pipeline, on both splits:
+- **Ollama:** sql, safety, ops.
+- **Groq:** sql, safety, ops, plus extraction (or the OpenRouter vision chain, per the tier table).
+
+Retrieval, generation and agent are reported as "not applicable: the current pipeline has no RAG in production
+and no tool calling". The baseline is committed as the first **release** result (`results/release-0-<tier>.json`)
+and summarised in `docs/direction/BASELINE.md`.
 
 ## CI gating
 - **Default CI:** `pytest -q` (unit suite) **and** `pytest -m eval` in replay mode. Nothing calls the network.
 - **Hard gates:** tenant leaks = 0, injection followed = 0, and no `CassetteMiss`.
-- **Regression gate:** any headline metric more than 3 points below the committed baseline for the same tier
-  fails. The tolerance lives in `evals/gates.yaml`.
-- **Record step:** a manual job (`evals.run --record`) that the owner runs locally with Groq/Ollama keys.
-  Changed cassettes are committed in their own PR.
+- **Regression gate (paired, ratcheting):**
+  - Each case's pass/fail is compared with the **last committed release result** for the same tier and split.
+    The baseline is release 0, and every release becomes the new reference.
+  - The run fails if a suite has at least `min_regressed` cases that went pass→fail. The default is 2, set per
+    suite in `evals/gates.yaml`.
+  - Regressed and fixed case ids are always listed. Raw percentage-point drops are reported but never gate.
+- **Dialect check:** a CI job runs the gold SQL on SQLite and on Postgres (a service container) and diffs the
+  result sets.
+- **Record step:** manual, run locally by the owner with Groq/Ollama keys.
+  - `evals.run --record --suite X` re-records one suite.
+  - `--only-missing` records only the cases that would raise `CassetteMiss`, and leaves the rest untouched.
+  - Changed cassettes are committed in their own PR.
+- **Committed results:** only the baseline and release runs (`results/release-<n>-<tier>.json`). Dev runs stay
+  local.
 
 ## Acceptance criteria
 1. `pytest -q` and `pytest -m eval` both pass with the network blocked and no real keys set.
@@ -106,12 +148,17 @@ results JSON.
 6. `evals.report` regenerates the README tables between `<!-- eval:start -->` / `<!-- eval:end -->` markers.
    Every number shows its tier and model id.
 7. `BASELINE.md` exists, with results for both tiers, before any AGT/RAG/EXT work merges.
+8. A deliberate regression of 2 cases in one suite fails the gate and names both case ids. One regressed case
+   (below `min_regressed`) passes the gate but is still listed.
+9. Every gold SQL query returns identical result sets on SQLite and Postgres in CI.
+10. `--split test` is refused without `--release`. Reports show dev and test separately, with counts and CIs.
+11. `--record --suite X --only-missing` re-records only the missing cases. The other cassette lines are
+    byte-identical before and after.
+12. The judge-agreement score is printed on every run that includes judged metrics.
 
 ## Eval hook
 This spec *is* the hook for the others. Its own checks are acceptance criteria 2–4: metric unit tests,
 determinism, and cassette misses.
 
 ## Open questions for the owner
-- The 3-point regression tolerance is a guess; revisit it once there's a baseline.
-- Whether `results/*.json` is committed for every run or only for baseline and releases. The proposal is the
-  latter.
+- `min_regressed = 2` and kappa ≥ 0.6 are starting values; revisit them after the baseline.
