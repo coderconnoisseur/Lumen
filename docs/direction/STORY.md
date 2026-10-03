@@ -102,3 +102,16 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   document, the reranker fixed the section. A latency check showed the reranker at 1.2 s per query, so the
   candidate count was tuned on dev to 15: same accuracy at half the cost (~0.6 s). Memory: ~128 MB.
   Snapshot: `docs/direction/benchmarks/2026-10-04-retrieval-ablation-dev.md`.
+
+## 10. When "relevant" isn't "right": abstention by identifier grounding (RAG-06)
+- **S:** The plan was to abstain ("I couldn't find this in your documents") when the reranker's best score
+  is low. On the dev generation set, the best possible score cut-off got only **19/26** decisions right.
+- **T:** Refuse questions the user's documents can't answer, especially ones about *another user's*
+  documents, without spending LLM calls.
+- **A:** Looked at the misses: asked about another user's "PO-U2-202603-05", the reranker scored the asker's
+  own PO "order total" sections at 0.999. A cross-encoder judges topical relevance, not whether it's the
+  specific document asked for. Added a deterministic rule: if the question names a document code that
+  appears in none of the retrieved passages, abstain. Kept a conservative score cut-off for off-topic
+  questions, and told the model to reply NOT_FOUND as a last layer.
+- **R:** **26/26** correct answer-or-abstain decisions on dev before any LLM call (both layers are local),
+  and abstained questions cost zero credits. Honest limit: only 26 dev questions; the test split is the check.
