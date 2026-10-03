@@ -1,0 +1,40 @@
+{"id": "agent-001", "question": "What did I spend on restaurants in May 2026?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-002", "question": "How many MetroCab rides have I taken this year?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "test"}
+{"id": "agent-003", "question": "What is my total spend at FreshMart Supermarket?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-004", "question": "Which category have I spent the least on?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "test"}
+{"id": "agent-005", "question": "How much GST have I paid so far in 2026?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-006", "question": "List my purchases from UrbanWear Apparel.", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "test"}
+{"id": "agent-007", "question": "What was my biggest expense in March 2026?", "user": "u1", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-008", "question": "How much did I spend at Green Basket Organics last month?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "test"}
+{"id": "agent-009", "question": "What is my average fuel bill?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-010", "question": "How much have my PetPals Clinic visits cost in total?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-011", "question": "What was my total spending in 2025?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-012", "question": "Which month had my highest transport spending?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-013", "question": "How many purchases did I pay for by UPI?", "user": "u2", "expected_tools": ["run_sql"], "expected_first_tool": "run_sql", "answerable": true, "split": "dev"}
+{"id": "agent-014", "question": "What is the termination notice period in our agreement with OfficeNeeds Stationers?", "user": "u1", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-015", "question": "What does the business broadband service contract cost per month?", "user": "u2", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-016", "question": "How much is PO-U2-202509-02 worth in total?", "user": "u2", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-017", "question": "How much is PO-U1-202507-01 worth in total?", "user": "u1", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "test"}
+{"id": "agent-018", "question": "How much is PO-U2-202605-06 worth in total?", "user": "u2", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-019", "question": "What is the termination notice period in our agreement with TechHub Electronics?", "user": "u2", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-020", "question": "What is the delivery deadline on purchase order PO-U2-202605-06?", "user": "u2", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-021", "question": "What does the office supplies contract cost per month?", "user": "u1", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "test"}
+{"id": "agent-022", "question": "How long do we have to pay TechHub Electronics under PO-U1-202511-03?", "user": "u1", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "dev"}
+{"id": "agent-023", "question": "How much is PO-U1-202601-04 worth in total?", "user": "u1", "expected_tools": ["search_documents"], "expected_first_tool": "search_documents", "answerable": true, "split": "test"}
+{"id": "agent-024", "question": "Are there any unusual transactions on my account?", "user": "u1", "expected_tools": ["get_anomalies"], "expected_first_tool": "get_anomalies", "answerable": true, "split": "dev"}
+{"id": "agent-025", "question": "Flag anything suspicious in my recent spending.", "user": "u1", "expected_tools": ["get_anomalies"], "expected_first_tool": "get_anomalies", "answerable": true, "split": "dev"}
+{"id": "agent-026", "question": "Have I been charged twice for anything?", "user": "u2", "expected_tools": ["get_anomalies"], "expected_first_tool": "get_anomalies", "answerable": true, "split": "dev"}
+{"id": "agent-027", "question": "Is any of my spending abnormal compared with what I usually spend?", "user": "u2", "expected_tools": ["get_anomalies"], "expected_first_tool": "get_anomalies", "answerable": true, "split": "test"}
+{"id": "agent-028", "question": "How much am I likely to spend next month?", "user": "u1", "expected_tools": ["forecast"], "expected_first_tool": "forecast", "answerable": true, "split": "dev"}
+{"id": "agent-029", "question": "Forecast my grocery spending for July 2026.", "user": "u1", "expected_tools": ["forecast"], "expected_first_tool": "forecast", "answerable": true, "split": "dev"}
+{"id": "agent-030", "question": "What will my utility bills come to over the next three months?", "user": "u2", "expected_tools": ["forecast"], "expected_first_tool": "forecast", "answerable": true, "split": "dev"}
+{"id": "agent-031", "question": "Predict my total spending for next month.", "user": "u2", "expected_tools": ["forecast"], "expected_first_tool": "forecast", "answerable": true, "split": "test"}
+{"id": "agent-032", "question": "Show me the details of invoice TH-202602-U10144.", "user": "u1", "expected_tools": ["get_invoice"], "expected_first_tool": "get_invoice", "answerable": true, "split": "test"}
+{"id": "agent-033", "question": "Show me the details of invoice UW-202602-U20121.", "user": "u2", "expected_tools": ["get_invoice"], "expected_first_tool": "get_invoice", "answerable": true, "split": "dev"}
+{"id": "agent-034", "question": "Show me the details of invoice SF-202605-U10205.", "user": "u1", "expected_tools": ["get_invoice"], "expected_first_tool": "get_invoice", "answerable": true, "split": "dev"}
+{"id": "agent-035", "question": "What will the Sensex close at tomorrow?", "user": "u1", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "test"}
+{"id": "agent-036", "question": "What is my current bank balance?", "user": "u1", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "dev"}
+{"id": "agent-037", "question": "Write a short poem about my cat.", "user": "u1", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "test"}
+{"id": "agent-038", "question": "How much interest do I still owe on my home loan?", "user": "u2", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "dev"}
+{"id": "agent-039", "question": "What was my salary last month?", "user": "u2", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "dev"}
+{"id": "agent-040", "question": "Who will win the next general election?", "user": "u2", "expected_tools": [], "expected_first_tool": null, "answerable": false, "split": "dev"}
