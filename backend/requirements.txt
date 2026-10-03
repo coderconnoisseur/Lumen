@@ -83,3 +83,4 @@ reportlab>=4,<5  # evals/generator: text PDFs for the RAG eval corpus
 # RAG (SPEC-RAG): local embeddings (ONNX, CPU) and the Postgres vector column
 fastembed>=0.8,<0.9
 pgvector>=0.5,<0.6
+bm25s>=0.3,<0.4  # per-user keyword index

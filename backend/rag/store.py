@@ -101,13 +101,12 @@ class ChunkStore:
                 .where(DocumentChunk.user_id == user_id).order_by(DocumentChunk.id)).all()
             return [tuple(r) for r in rows]
 
-    def user_version(self, user_id: str) -> tuple:
-        """Changes whenever the user's chunks change: the BM25 cache key."""
+    def user_version(self, user_id: str) -> str:
+        """Changes whenever the user's set of chunks changes: the BM25 cache key (a hash of chunk ids+hashes)."""
         with Session(self.engine) as session:
-            count, newest = session.execute(
-                select(func.count(DocumentChunk.id), func.max(DocumentChunk.id)).where(DocumentChunk.user_id == user_id)).one()
-            docs = session.scalar(select(func.count(Document.id)).where(Document.user_id == user_id))
-            return (count, newest, docs)
+            rows = session.execute(select(DocumentChunk.id, DocumentChunk.content_hash)
+                                   .where(DocumentChunk.user_id == user_id).order_by(DocumentChunk.id)).all()
+        return hashlib.sha256("\n".join(f"{cid} {h}" for cid, h in rows).encode()).hexdigest()
 
     def chunks_by_id(self, user_id: str, chunk_ids: list[str]) -> dict[str, Hit]:
         if not chunk_ids:
