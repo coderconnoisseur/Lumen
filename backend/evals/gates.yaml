@@ -1,0 +1,9 @@
+# Regression gates (SPEC-EVAL). A suite fails when at least `min_regressed`
+# cases went pass -> fail against the latest committed release for the same
+# tier and split. Starting values; revisit after the baseline (EVAL-03).
+min_regressed:
+  default: 2
+
+# Judged metrics are printed as "unreliable" (and kept out of the README) when
+# judge-vs-human agreement on evals/data/judge_gold.jsonl falls below this.
+judge_min_kappa: 0.6
