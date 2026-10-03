@@ -4,9 +4,10 @@
 def test_retrieval_suite_scores_every_dev_question_per_mode():
     from evals.suites import retrieval
     from rag.embed import FakeEmbedder
+    from rag.rerank import FakeReranker
     from rag.retrieve import MODES
 
-    out = retrieval.run("openrouter", "dev", emb=FakeEmbedder())
+    out = retrieval.run("openrouter", "dev", emb=FakeEmbedder(), rer=FakeReranker(), alt={})
     assert len(out["cases"]) == 104 and out["hard_gate_failures"] == []
     modes = out["metrics"]["modes"]
     assert set(modes) == set(MODES)
@@ -15,7 +16,7 @@ def test_retrieval_suite_scores_every_dev_question_per_mode():
         assert 0 < m["mrr"] <= 1
     # Bag-of-words still finds most planted facts: the pipeline and labels line up end to end.
     assert modes["dense"]["recall_at_10"] > 0.5
-    assert retrieval.run("openrouter", "dev", emb=FakeEmbedder()) == out
+    assert retrieval.run("openrouter", "dev", emb=FakeEmbedder(), rer=FakeReranker(), alt={}) == out
 
 
 def test_ingest_is_idempotent_and_search_is_tenant_scoped(tmp_path):
@@ -32,6 +33,6 @@ def test_ingest_is_idempotent_and_search_is_tenant_scoped(tmp_path):
     pdf = (DATA_DIR / "corpus" / "contract-u1-netlink.pdf").read_bytes()
     first = ingest_pdf(store, FakeEmbedder(), user_id="u-a", data=pdf, filename="c.pdf", doc_id="c1")
     assert ingest_pdf(store, FakeEmbedder(), user_id="u-a", data=pdf, filename="c.pdf", doc_id="c2") == first
-    assert search_documents(store, FakeEmbedder(), "u-b", "monthly fee NetLink") == []
-    hits = search_documents(store, FakeEmbedder(), "u-a", "termination notice period NetLink", k=3)
+    assert search_documents(store, FakeEmbedder(), "u-b", "monthly fee NetLink", mode="hybrid") == []
+    hits = search_documents(store, FakeEmbedder(), "u-a", "termination notice period NetLink", mode="dense", k=3)
     assert hits[0].chunk_id == "c1#s04" and hits[0].title.startswith("NetLink")

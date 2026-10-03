@@ -87,3 +87,18 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   across runs. First live numbers: `docs/direction/benchmarks/2026-10-03-sql-dev-partial.md`. Headline
   finding: most strict misses are "right rows, extra columns", and the one real wrong answer comes from
   the model guessing a vendor name ("electric") instead of looking it up.
+
+## 9. Hybrid retrieval, proven one stage at a time (RAG-01 … RAG-05)
+- **S:** RAG had been disabled in production (Chroma, dense-only, embeddings over an API). There was no
+  measure of whether retrieval found the right passage at all.
+- **T:** Build retrieval that finds the right section of the right document, show that each stage earns its
+  place, and fit a 512 MB free server.
+- **A:** Section-aligned chunks with title/heading context, local `bge-small` embeddings in pgvector (numpy on
+  SQLite, exact search, so both agree), per-user BM25 with a tokenizer that keeps document codes whole, RRF
+  fusion, and a FlashRank cross-encoder. Each stage was measured on 104 labelled dev questions before the
+  next was added, and every failure analysed.
+- **R:** right section in the top 5 went **67 → 82 → 100 of 104** (recall@5 0.644 → 0.788 → 0.962; MRR
+  0.593 → 0.946). Dense alone got only 16/53 purchase-order questions (it blurs PO numbers); BM25 fixed the
+  document, the reranker fixed the section. A latency check showed the reranker at 1.2 s per query, so the
+  candidate count was tuned on dev to 15: same accuracy at half the cost (~0.6 s). Memory: ~128 MB.
+  Snapshot: `docs/direction/benchmarks/2026-10-04-retrieval-ablation-dev.md`.
