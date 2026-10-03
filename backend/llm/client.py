@@ -159,6 +159,7 @@ def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0) -> LL
     mode = cassette.mode()
     shelf = tier()
     if mode != "off":
+        key = cassette.nth(key)
         hit = cassette.lookup(shelf, key)
         if hit is not None:
             if "error" in hit:

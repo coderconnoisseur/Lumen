@@ -22,6 +22,7 @@ _DEFAULT_DIR = Path(__file__).resolve().parents[1] / "evals" / "cassettes"
 
 _suite: contextvars.ContextVar[str] = contextvars.ContextVar("llm_cassette_suite", default="default")
 _case: contextvars.ContextVar[str | None] = contextvars.ContextVar("llm_cassette_case", default=None)
+_seen: contextvars.ContextVar[dict | None] = contextvars.ContextVar("llm_cassette_seen", default=None)
 _loaded: dict[Path, dict[str, dict]] = {}
 
 
@@ -54,12 +55,27 @@ def make_key(*, provider, model, messages, tools, response_format, temperature, 
 @contextmanager
 def cassette_scope(suite: str, case: str | None = None):
     """Route calls made inside this block to the `suite` cassette."""
-    tokens = (_suite.set(suite), _case.set(case))
+    tokens = (_suite.set(suite), _case.set(case), _seen.set({}))
     try:
         yield
     finally:
         _suite.reset(tokens[0])
         _case.reset(tokens[1])
+        _seen.reset(tokens[2])
+
+
+def nth(key: str) -> str:
+    """The key for this occurrence of an identical request within the current scope.
+
+    A caller that repeats a request (a retry after an unusable reply) gets a fresh reply live, so the
+    second occurrence is its own recording and replay hands them back in the same order.
+    """
+    seen = _seen.get()
+    if seen is None:
+        return key
+    count = seen.get(key, 0)
+    seen[key] = count + 1
+    return key if count == 0 else f"{key}#{count}"
 
 
 def current_suite() -> str:

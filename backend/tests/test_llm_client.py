@@ -304,6 +304,24 @@ def test_unusable_replies_are_recorded_and_replayed_as_the_same_error(transport,
     assert len(calls) == 1
 
 
+def test_identical_calls_in_one_case_are_recorded_and_replayed_in_order(transport, cassettes, monkeypatch):
+    """A caller that retries with the same request (OCR after non-JSON) gets a fresh reply live, so replay must too."""
+    from llm.client import complete
+
+    calls, script = transport
+    second = {**OK, "choices": [{"message": {"content": "second"}, "finish_reason": "stop"}]}
+    script.extend([_Resp(200, OK), _Resp(200, second)])
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "record")
+    with cassettes.cassette_scope("ocr", case="inv-1"):
+        live = [complete(MSGS, chain=chain(("groq", "m1"))).text for _ in range(2)]
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "replay")
+    cassettes.clear_memory()
+    with cassettes.cassette_scope("ocr", case="inv-1"):
+        replayed = [complete(MSGS, chain=chain(("groq", "m1"))).text for _ in range(2)]
+    assert live == replayed == ["hello", "second"]
+    assert len(calls) == 2
+
+
 def test_collect_calls_logs_every_result_including_replays(transport, cassettes, monkeypatch):
     from llm.client import collect_calls, complete
 
