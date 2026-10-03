@@ -11,8 +11,8 @@ Preliminary snapshot kept for the build story. The baseline of record will be `r
 
 | Metric | Value |
 |---|---|
-| Execution accuracy (strict, gated) | **20/30** (95% CI 0.49-0.81) |
-| Relaxed accuracy (diagnostic: right rows once extra columns are dropped) | 28/30 (0.79-0.98) |
+| Strict execution accuracy (identical columns) | 20/30 (95% CI 0.49-0.81) |
+| Column-tolerant execution accuracy (right rows; gated from 2026-10-03) | **28/30** (0.79-0.98) |
 | Fallback rate | 0/30 |
 | Unanswerable questions (3) | 2 answered anyway, 1 fell back |
 | Latency per question (recorded) | p50 2.4 s, p95 15.8 s |

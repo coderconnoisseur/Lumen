@@ -163,12 +163,13 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - **Not yet wired:** `pytest -m eval` replaying the real suites. It needs release-0 first, and the baseline may
   fail a hard gate (injection), which the owner has to decide how to treat.
 
+- **Resolved 2026-10-03 (owner):** `render.yaml`'s text fallback is now `qwen/qwen3.8-27b:free` (Nex died;
+  `openrouter/free` dropped too). SQL scoring decision delegated to the build: the gated SQL metric is
+  column-tolerant execution accuracy, strict reported alongside (SPEC-EVAL amended). Reason: the rows feed an
+  answer-writer, so extra columns don't make an answer wrong, wrong rows do; the row count and every gold
+  column must still match, so returning everything can't pass.
+
 ## Open decisions for the owner
-- **`render.yaml` names a dead fallback:** `LLM_TEXT_FALLBACK_MODELS=nex-agi/nex-n2.5-pro:free,openrouter/free`.
-  Nex is no longer free, so production has no working fallback when Nemotron is overloaded (seen today).
-  Suggest `qwen/qwen3.8-27b:free`. Deploy config, so it's your call.
-- **Strict vs relaxed SQL scoring for "list" questions:** most strict misses are right rows with extra
-  columns. The spec says strict; the relaxed number is shown next to it. Changing the gated metric is your call.
 - `render.yaml` and the local `backend/.env` still set `LLM_TEXT_FALLBACK_MODELS=…,openrouter/free` (and the
   local `.env` sets `LLM_VISION_MODEL=openrouter/free`). The app now logs a startup warning for these. Should
   `render.yaml` drop them? (Deploy config, so it's your call.)

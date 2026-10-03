@@ -27,7 +27,11 @@ def fake_model(monkeypatch):
                 return "Sorry, I can't help with that."
             question = re.search(r"User Question: (.+)", prompt).group(1).strip()
             uid = re.search(r"user_id = '([0-9a-f-]{36})'", prompt).group(1)
-            return (gold[question] or "SELECT 1").replace("{user_id}", uid)
+            sql = (gold[question] or "SELECT 1").replace("{user_id}", uid)
+            if mode == "extra_column":  # right rows, one column too many
+                head = "SELECT DISTINCT " if sql.startswith("SELECT DISTINCT ") else "SELECT "
+                sql = head + "'x' AS extra, " + sql[len(head):]
+            return sql
 
         monkeypatch.setattr(ai.sql_agent, "chat_completion", chat_completion)
         return prompts
@@ -44,11 +48,20 @@ def test_a_perfect_model_scores_full_marks(fake_model):
     answerable = len(out["cases"])
     assert answerable == 32  # 35 dev questions, 3 unanswerable
     assert m["execution_accuracy"]["passed"] == answerable
-    assert m["relaxed_accuracy_diagnostic"]["passed"] == answerable
+    assert m["strict_execution_accuracy"]["passed"] == answerable
     assert m["fallback_rate"]["passed"] == 0
     assert m["unanswerable"]["total"] == 3
     assert out["hard_gate_failures"] == []
     assert all("Current Date: 2026-06-30" in p for p in prompts)  # "today" pinned to AS_OF
+
+
+def test_extra_columns_pass_the_gate_but_not_strict(fake_model):
+    from evals.suites import sql
+
+    fake_model("extra_column")
+    m = sql.run("openrouter", "dev")["metrics"]
+    assert m["execution_accuracy"]["passed"] == m["execution_accuracy"]["total"] == 32
+    assert m["strict_execution_accuracy"]["passed"] == 0
 
 
 def test_a_broken_model_falls_back_and_scores_zero(fake_model):

@@ -1,8 +1,11 @@
 """Text-to-SQL suite: the current Ask Lumen SQL agent against the 50 gold questions (SPEC-EVAL, EVAL-03).
 
 Runs `SQLAgent.query` end to end on a throwaway SQLite copy of the synthetic world, with the prompt's
-"today" pinned to AS_OF so recorded prompts never change. A case passes when the agent's rows equal the
-gold rows (strict: same columns, multiset, ordered only if the gold has ORDER BY) and no fallback was used.
+"today" pinned to AS_OF so recorded prompts never change. A case passes (gated `execution_accuracy`) when no
+fallback was used and the agent's rows equal the gold rows once extra columns are dropped: every gold column
+must match some returned column, with the same rows (multiset, ordered only if the gold has ORDER BY). The
+answer is written from these rows, so extra columns don't make it wrong; wrong rows do. Owner decision
+2026-10-03. `strict_execution_accuracy` (identical columns too) is always reported next to it.
 Unanswerable questions are reported separately; they don't count towards execution accuracy.
 """
 from __future__ import annotations
@@ -37,7 +40,7 @@ def run(tier: str, split: str) -> dict:
     load_world(engine, world)
     agent = SQLAgent(db_path=str(db_path))
 
-    cases, relaxed, fallbacks, errors, misses, calls = {}, 0, 0, [], [], {}
+    cases, strict, fallbacks, errors, misses, calls = {}, 0, 0, [], [], {}
     unanswerable = {"total": 0, "fallback": 0, "answered": 0}
     with mock.patch.object(SQLAgent, "_today", staticmethod(lambda: AS_OF.isoformat())):
         for row in load_rows(SUITE, split):
@@ -61,10 +64,10 @@ def run(tier: str, split: str) -> dict:
                 gold = [tuple(r) for r in conn.execute(text(row["gold_sql"].replace("{user_id}", uid)))]
             ordered = "ORDER BY" in row["gold_sql"].upper()
             pred = _rows(result)
-            ok = result is not None and not fallback and result_sets_equal(gold, pred, ordered=ordered)
-            cases[row["id"]] = ok
+            usable = result is not None and not fallback
+            cases[row["id"]] = usable and result_sets_contain(gold, pred, ordered=ordered)
+            strict += usable and result_sets_equal(gold, pred, ordered=ordered)
             fallbacks += fallback
-            relaxed += result is not None and not fallback and result_sets_contain(gold, pred, ordered=ordered)
     engine.dispose()
 
     n = len(cases)
@@ -73,7 +76,7 @@ def run(tier: str, split: str) -> dict:
         "metrics": {
             "execution_accuracy": rate(sum(cases.values()), n),
             "fallback_rate": rate(fallbacks, n),
-            "relaxed_accuracy_diagnostic": rate(relaxed, n),
+            "strict_execution_accuracy": rate(strict, n),
             "provider_errors": errors,
             "unanswerable": unanswerable,
             "ops": ops_metrics(calls),
