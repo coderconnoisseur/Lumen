@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import statistics
 import json
-import requests
-import os
+import time
 from models.database import db
+from utils.llm import LLMError, chat_completion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,11 +25,6 @@ except ImportError:
 class FraudDetectionAgent:
     """Multi-layer anomaly detection system"""
 
-    from config import Config as _Config  # local import to avoid module-level cycles
-    OPENROUTER_API_KEY = _Config.OPENROUTER_API_KEY
-    OPENROUTER_MODEL = _Config.LLM_TEXT_MODEL
-    OPENROUTER_CHAT_URL = _Config.OPENROUTER_CHAT_URL
-    
     def __init__(self):
         """
         Initialize fraud detection agent
@@ -134,14 +129,19 @@ class FraudDetectionAgent:
                 flags.append("first_time_merchant")
                 risk_score += 0.15
             
-            # Time-based anomaly (midnight to 5am)
-            try:
-                txn_datetime = datetime.fromisoformat(txn['date'])
-                if 0 <= txn_datetime.hour < 5:
-                    flags.append("unusual_time_midnight")
-                    risk_score += 0.2
-            except:
-                pass
+            # Time-based anomaly (midnight to 5am) -- only applies when the
+            # date string actually carries a time-of-day. A bare ISO date
+            # ("YYYY-MM-DD", 10 chars) parses to hour 0 and must never be
+            # treated as a midnight purchase.
+            date_str = txn.get('date') or ''
+            if len(date_str) > 10:
+                try:
+                    txn_datetime = datetime.fromisoformat(date_str)
+                    if 0 <= txn_datetime.hour < 5:
+                        flags.append("unusual_time_midnight")
+                        risk_score += 0.2
+                except:
+                    pass
             
             # Duplicate detection (same amount within 24 hours)
             key = f"{vendor}_{txn['total_amount']}"
@@ -237,18 +237,13 @@ class FraudDetectionAgent:
         
         return anomalies
     
-    def llm_reasoning(self, anomaly: Dict) -> Dict:
-        """
-        Layer 4: LLM contextual reasoning
-        Provides human-readable explanations
-        """
-        if not self.OPENROUTER_API_KEY:
-            anomaly['llm_explanation'] = anomaly['explanation']
-            anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
-            return anomaly
-        
+    def _apply_llm_reasoning(self, anomaly: Dict) -> None:
+        """Call the LLM for one anomaly and update it in place. Raises
+        LLMError on failure -- callers decide whether to fall back silently
+        (llm_reasoning) or stop the whole loop (detect_anomalies, for a
+        fatal error)."""
         txn = anomaly['transaction']
-        
+
         prompt = f"""You are a fraud detection expert analyzing a flagged transaction.
 
 Transaction Details:
@@ -276,45 +271,43 @@ Respond in JSON format:
   "recommendation": "MONITOR/REVIEW/ALERT",
   "risk_level": "LOW/MEDIUM/HIGH"
 }}"""
-        
+
+        # timeout=20: keeps a single call well under gunicorn's 120s worker
+        # timeout even when several anomalies are processed in one request.
+        # After PR #6 merges, pass retries=0 here (this base's chat_completion
+        # has no such argument; it already retries an empty reply once).
+        content = chat_completion(prompt, temperature=0.3, max_tokens=300, timeout=20)
+
+        # Clean JSON
+        content = content.replace('```json', '').replace('```', '').strip()
+        llm_result = json.loads(content)
+
+        # Update anomaly with LLM reasoning
+        anomaly['llm_explanation'] = llm_result['explanation']
+        anomaly['llm_confidence'] = llm_result['confidence']
+        anomaly['recommendation'] = llm_result['recommendation']
+        anomaly['risk_level'] = llm_result['risk_level']
+
+        # Adjust risk score based on LLM
+        if not llm_result['is_suspicious']:
+            anomaly['risk_score'] *= 0.5  # Reduce if LLM thinks it's false positive
+
+    def llm_reasoning(self, anomaly: Dict) -> Dict:
+        """
+        Layer 4: LLM contextual reasoning
+        Provides human-readable explanations
+        """
         try:
-            response = requests.post(
-                self.OPENROUTER_CHAT_URL,
-                headers={
-                    "Authorization": f"Bearer {self.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": _Config.get_llm_text_model(),
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 300
-                },
-                timeout=30
-            )
-            
-            result = response.json()
-            content = result['choices'][0]['message']['content'].strip()
-            
-            # Clean JSON
-            content = content.replace('```json', '').replace('```', '').strip()
-            llm_result = json.loads(content)
-            
-            # Update anomaly with LLM reasoning
-            anomaly['llm_explanation'] = llm_result['explanation']
-            anomaly['llm_confidence'] = llm_result['confidence']
-            anomaly['recommendation'] = llm_result['recommendation']
-            anomaly['risk_level'] = llm_result['risk_level']
-            
-            # Adjust risk score based on LLM
-            if not llm_result['is_suspicious']:
-                anomaly['risk_score'] *= 0.5  # Reduce if LLM thinks it's false positive
-        
-        except Exception as e:
-            logger.info(f"LLM reasoning failed: {str(e)}")
+            self._apply_llm_reasoning(anomaly)
+        except LLMError as e:
+            logger.warning("LLM reasoning failed: %s", e.kind)
             anomaly['llm_explanation'] = anomaly['explanation']
             anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
-        
+        except Exception as e:
+            logger.warning("LLM reasoning failed: %s", type(e).__name__)
+            anomaly['llm_explanation'] = anomaly['explanation']
+            anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+
         return anomaly
     
     def _calculate_risk_level(self, risk_score: float) -> str:
@@ -385,11 +378,42 @@ Respond in JSON format:
         # Sort by risk score
         final_anomalies.sort(key=lambda x: x['risk_score'], reverse=True)
         
-        # Layer 4: LLM reasoning on top anomalies (limit to save time/cost)
+        # Layer 4: LLM reasoning on top anomalies (limit to save time/cost).
+        # Stop calling the LLM for the rest of this run as soon as a call
+        # comes back with a fatal error (timeout/auth/rate-limit -- those
+        # fail every later call too) or the stage has spent more than 60s
+        # of wall clock since its first call, so one slow/broken run can't
+        # chain enough LLM calls to blow past gunicorn's 120s worker timeout.
         if use_llm:
             logger.info(f"   Applying LLM reasoning to top {min(len(final_anomalies), 5)} anomalies...")
+            llm_stage_start = None
+            stop_calling_llm = False
             for anomaly in final_anomalies[:5]:
-                self.llm_reasoning(anomaly)
+                if stop_calling_llm:
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    continue
+
+                if llm_stage_start is None:
+                    llm_stage_start = time.monotonic()
+                elif time.monotonic() - llm_stage_start > 60:
+                    stop_calling_llm = True
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    continue
+
+                try:
+                    self._apply_llm_reasoning(anomaly)
+                except LLMError as e:
+                    logger.warning("LLM reasoning failed: %s", e.kind)
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
+                    if e.is_fatal:
+                        stop_calling_llm = True
+                except Exception as e:
+                    logger.warning("LLM reasoning failed: %s", type(e).__name__)
+                    anomaly['llm_explanation'] = anomaly['explanation']
+                    anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
         else:
             for anomaly in final_anomalies:
                 anomaly['risk_level'] = self._calculate_risk_level(anomaly['risk_score'])
@@ -408,11 +432,31 @@ Respond in JSON format:
         }
     
     def save_anomalies_to_db(self, user_id, anomalies: List[Dict]):
-        """Save anomalies to database via SQLAlchemy."""
+        """Save anomalies to database via SQLAlchemy. A run replaces the
+        user's existing row for the same (transaction_id, anomaly_type)
+        instead of inserting a new one every time, so re-running analysis
+        (or just viewing the dashboard again) doesn't duplicate anomalies
+        and inflate the risk score from repeat visits alone."""
         from models import FraudAnomaly
         import uuid
 
         for anomaly in anomalies:
+            existing = FraudAnomaly.query.filter_by(
+                user_id=str(user_id),
+                transaction_id=anomaly["transaction_id"],
+                anomaly_type=anomaly.get("anomaly_type"),
+            ).first()
+
+            if existing is not None:
+                existing.detection_method = anomaly.get("detection_method")
+                existing.risk_score = int(anomaly["risk_score"] * 100)
+                existing.risk_level = anomaly.get("risk_level", "LOW")
+                existing.explanation = anomaly.get("explanation")
+                existing.flags = json.dumps(anomaly.get("flags", []))
+                existing.llm_explanation = anomaly.get("llm_explanation")
+                existing.recommendation = anomaly.get("recommendation")
+                continue
+
             db.session.add(
                 FraudAnomaly(
                     id=str(uuid.uuid4()),
