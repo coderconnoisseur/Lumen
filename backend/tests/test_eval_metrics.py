@@ -171,3 +171,17 @@ def test_paired_regressions_list_ids_and_gate_on_count():
     assert changes == {"regressed": ["q1", "q4"], "fixed": ["q3"], "new": ["q5"]}
     assert gate_regressions(changes, min_regressed=2) is False
     assert gate_regressions({"regressed": ["q1"], "fixed": [], "new": []}, min_regressed=2) is True
+
+
+def test_relaxed_compare_accepts_extra_columns_but_not_wrong_values():
+    from evals.metrics import result_sets_contain
+
+    gold = [(1200.0,)]
+    assert result_sets_contain(gold, [("FreshMart", 1200.0)], ordered=False)  # extra column
+    assert not result_sets_contain(gold, [("FreshMart", 1199.0)], ordered=False)  # wrong value
+    assert not result_sets_contain(gold, [], ordered=False)
+    # Two gold columns may come back in any column order, but rows must still match as a set.
+    gold2 = [("Groceries", 10.0), ("Transport", 5.0)]
+    assert result_sets_contain(gold2, [(5.0, "Transport", 2), (10.0, "Groceries", 3)], ordered=False)
+    assert not result_sets_contain(gold2, [(5.0, "Transport", 2), (10.0, "Groceries", 3)], ordered=True)
+    assert not result_sets_contain(gold2, [("Groceries", 10.0)], ordered=False)  # a row is missing

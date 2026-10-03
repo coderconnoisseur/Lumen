@@ -34,9 +34,9 @@ SuiteFn = Callable[[str, str], dict]
 
 
 def default_suites() -> dict[str, SuiteFn]:
-    from evals.suites import selftest
+    from evals.suites import selftest, sql
 
-    return {"selftest": selftest.run}
+    return {"selftest": selftest.run, "sql": sql.run}
 
 
 def _parse(argv) -> argparse.Namespace:
