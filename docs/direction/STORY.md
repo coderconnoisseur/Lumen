@@ -75,3 +75,15 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   same overloaded upstream). The recorder resumes with `--only-missing`, keeping the good recordings.
 - **R:** Production's `render.yaml` still names the dead model: a real outage risk, found by the eval, not by
   a user. (Changing deploy config is the owner's call; flagged in PROGRESS.)
+
+## 8. Eval results that depended on whose laptop ran them (`evals/run.py`)
+- **S:** The first offline replay of the SQL recordings reported 12 "missing recordings", exactly the 12
+  questions the Qwen fallback had answered. The replay had read the developer's local `backend/.env`, which
+  still listed an older model chain, so it looked for the wrong models.
+- **T:** The same command must give the same numbers on any machine.
+- **A:** `evals.run` now blanks the env model overrides for the duration of a run, so suites use only the
+  committed `llm/registry.yaml` chains (with a regression test).
+- **R:** Replay now reproduces the live run exactly (20/30 strict, 28/30 relaxed) and is byte-identical
+  across runs. First live numbers: `docs/direction/benchmarks/2026-10-03-sql-dev-partial.md`. Headline
+  finding: most strict misses are "right rows, extra columns", and the one real wrong answer comes from
+  the model guessing a vendor name ("electric") instead of looking it up.

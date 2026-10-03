@@ -31,6 +31,9 @@ GATES_PATH = EVALS_DIR / "gates.yaml"
 TIERS = ("openrouter", "groq", "ollama")
 
 SuiteFn = Callable[[str, str], dict]
+# Env overrides of the openrouter chains (Config). Blanked during a run so results depend only on the
+# committed llm/registry.yaml, never on a developer's backend/.env (empty = "use the registry").
+MODEL_OVERRIDES = ("LLM_TEXT_MODEL", "LLM_TEXT_FALLBACK_MODELS", "LLM_VISION_MODEL", "LLM_VISION_FALLBACK_MODELS")
 
 
 def default_suites() -> dict[str, SuiteFn]:
@@ -90,9 +93,11 @@ def main(argv=None, *, suites: Mapping[str, SuiteFn] | None = None, results_dir:
 
     gates = _gates()
     reference = _latest_release(results_dir, args.tier, args.split, before=args.release)
-    saved_env = {k: os.environ.get(k) for k in ("LUMEN_LLM_CACHE", "LUMEN_LLM_TIER")}
+    saved_env = {k: os.environ.get(k) for k in ("LUMEN_LLM_CACHE", "LUMEN_LLM_TIER", *MODEL_OVERRIDES)}
     os.environ["LUMEN_LLM_CACHE"] = "record" if args.record else "replay"
     os.environ["LUMEN_LLM_TIER"] = args.tier
+    for key in MODEL_OVERRIDES:
+        os.environ[key] = ""
     report: dict = {"tier": args.tier, "split": args.split, "release": args.release, "suites": {}}
     failures: list[str] = []
     try:
