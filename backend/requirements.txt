@@ -73,3 +73,4 @@ email-validator
 
 imapclient
 
+PyYAML>=6,<7  # llm/registry.yaml
