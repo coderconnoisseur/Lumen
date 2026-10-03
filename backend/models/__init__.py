@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Boolean, LargeBinary
+from sqlalchemy.types import TypeDecorator
 from models.database import db
 import json
 
@@ -201,3 +202,71 @@ class EmailConfig(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship("User")
+
+
+class EmbeddingVector(TypeDecorator):
+    """A 384-d embedding: pgvector's `vector` on Postgres (searched in SQL), float32 bytes elsewhere
+    (searched with numpy). Both are exact, so SQLite evals and Postgres agree (SPEC-RAG)."""
+
+    impl = LargeBinary
+    cache_ok = True
+    dim = 384
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            from pgvector.sqlalchemy import Vector
+
+            return dialect.type_descriptor(Vector(self.dim))
+        return dialect.type_descriptor(LargeBinary())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        import numpy as np
+
+        array = np.asarray(value, dtype=np.float32)
+        return array if dialect.name == "postgresql" else array.tobytes()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        import numpy as np
+
+        if dialect.name == "postgresql":
+            return np.asarray(value, dtype=np.float32)
+        return np.frombuffer(value, dtype=np.float32)
+
+
+class Document(db.Model):
+    """An uploaded document indexed for retrieval (SPEC-RAG). One per (user, content): re-uploads are no-ops."""
+
+    __tablename__ = "documents"
+
+    id = db.Column(db.String(100), primary_key=True)
+    user_id = db.Column(String(36), nullable=False, index=True)
+    title = db.Column(db.String, nullable=False)
+    doc_type = db.Column(db.String(32), nullable=False, default="other")
+    filename = db.Column(db.String, nullable=True)
+    content_hash = db.Column(db.String(64), nullable=False)
+    embedding_model = db.Column(db.String(100), nullable=False)
+    chunk_count = db.Column(Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "content_hash", name="u_document_user_content"),)
+
+
+class DocumentChunk(db.Model):
+    """A section-aligned piece of a document, with its embedding (`<doc id>#sNN[-k]`)."""
+
+    __tablename__ = "document_chunks"
+
+    id = db.Column(db.String(120), primary_key=True)
+    document_id = db.Column(db.String(100), db.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = db.Column(String(36), nullable=False, index=True)  # copied from the document: the tenant filter
+    section_no = db.Column(Integer, nullable=False)
+    piece_no = db.Column(Integer, nullable=False, default=0)
+    heading = db.Column(db.String, nullable=True)
+    text = db.Column(Text, nullable=False)
+    content_hash = db.Column(db.String(64), nullable=False)
+    embedding = db.Column(EmbeddingVector, nullable=False)
+    embedding_model = db.Column(db.String(100), nullable=False)
