@@ -256,6 +256,66 @@ def test_replay_miss_raises_and_never_calls(transport, cassettes, monkeypatch):
     assert calls == []
 
 
+def test_replay_follows_a_recorded_failover(transport, cassettes, monkeypatch):
+    """Entry 1 timed out while recording, so the cassette holds entry 2's reply: replay must find it."""
+    from llm.client import complete
+
+    calls, script = transport
+    script.extend([_Resp(429, {"error": {"message": "busy"}}), _Resp(200, OK)])
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "record")
+    with cassettes.cassette_scope("sql"):
+        complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "replay")
+    cassettes.clear_memory()
+    with cassettes.cassette_scope("sql"):
+        replayed = complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    assert replayed.cached is True and replayed.provider == "openrouter"
+    assert len([c for c in calls if "url" in c]) == 2  # both live calls happened while recording only
+
+
+def test_replay_miss_on_every_entry_names_the_case(transport, cassettes, monkeypatch):
+    from llm.cassette import CassetteMiss
+    from llm.client import complete
+
+    calls, script = transport
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "replay")
+    with cassettes.cassette_scope("sql", case="q-02"):
+        with pytest.raises(CassetteMiss, match="q-02"):
+            complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    assert calls == []
+
+
+def test_unusable_replies_are_recorded_and_replayed_as_the_same_error(transport, cassettes, monkeypatch):
+    from llm.client import complete
+    from llm.errors import LLMError
+
+    calls, script = transport
+    script.append(_Resp(200, EMPTY))
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "record")
+    with cassettes.cassette_scope("sql"):
+        with pytest.raises(LLMError) as live:
+            complete(MSGS, chain=chain(("groq", "m1")), retries=0)
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "replay")
+    cassettes.clear_memory()
+    with cassettes.cassette_scope("sql"):
+        with pytest.raises(LLMError) as replayed:
+            complete(MSGS, chain=chain(("groq", "m1")), retries=0)
+    assert live.value.kind == replayed.value.kind == LLMError.BAD_RESPONSE
+    assert len(calls) == 1
+
+
+def test_collect_calls_logs_every_result_including_replays(transport, cassettes, monkeypatch):
+    from llm.client import collect_calls, complete
+
+    calls, script = transport
+    script.extend([_Resp(200, OK), _Resp(200, OK)])
+    with collect_calls() as log:
+        complete(MSGS, chain=chain(("groq", "m1")))
+        complete([{"role": "user", "content": "again"}], chain=chain(("groq", "m1")))
+    assert [r.text for r in log] == ["hello", "hello"]
+    assert all(r.usage["prompt"] == 5 for r in log)
+
+
 def test_telemetry_line_names_provider_and_cache(transport, caplog):
     from llm.client import complete
 

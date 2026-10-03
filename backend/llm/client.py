@@ -9,13 +9,18 @@ llm/registry.yaml for the active tier (`LUMEN_LLM_TIER`, default openrouter):
     such as OCR count on a fixed number of requests per call);
   - DEADLINE -> stop: the request's time budget is spent.
 Every attempt is cut to the request budget (llm/deadline.py) and can be
-answered from, or recorded to, a cassette (llm/cassette.py).
+answered from, or recorded to, a cassette (llm/cassette.py). Unusable replies are
+recorded too (they are model behaviour), and replay walks the chain like a live
+call, so a reply recorded after a failover is still found. `collect_calls()`
+gathers every result for the eval suites' latency and token metrics.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import requests
@@ -43,6 +48,20 @@ class LLMResult:
     latency_s: float = 0.0
     cached: bool = False
     finish_reason: str | None = None
+
+
+_collector: contextvars.ContextVar[list | None] = contextvars.ContextVar("llm_calls", default=None)
+
+
+@contextmanager
+def collect_calls():
+    """Yield a list that receives every successful LLMResult made inside the block."""
+    calls: list[LLMResult] = []
+    token = _collector.set(calls)
+    try:
+        yield calls
+    finally:
+        _collector.reset(token)
 
 
 def tier() -> str:
@@ -77,11 +96,16 @@ def complete(
                    max_tokens=max_tokens, reasoning=reasoning, seed=seed)
     dead_providers: set[str] = set()
     last: LLMError | None = None
+    first_miss: cassette.CassetteMiss | None = None
     for entry in entries:
         if entry.provider in dead_providers:
             continue
         try:
-            return _complete_entry(entry, messages, request, timeout, retries)
+            result = _complete_entry(entry, messages, request, timeout, retries)
+        except cassette.CassetteMiss as miss:
+            # While recording, this entry may have failed over to the next one: look there too.
+            first_miss = first_miss or miss
+            continue
         except LLMError as e:
             last = e
             if e.kind in (LLMError.DEADLINE, LLMError.BAD_RESPONSE):
@@ -89,7 +113,12 @@ def complete(
             if e.kind in (LLMError.AUTH, LLMError.CREDITS):
                 dead_providers.add(entry.provider)
             logger.warning("LLM %s:%s failed [%s]; trying the next model", entry.provider, entry.model, e.kind)
-    raise last
+            continue
+        calls = _collector.get()
+        if calls is not None:
+            calls.append(result)
+        return result
+    raise first_miss or last
 
 
 def _complete_entry(entry: Entry, messages, request, timeout, retries) -> LLMResult:
@@ -97,7 +126,7 @@ def _complete_entry(entry: Entry, messages, request, timeout, retries) -> LLMRes
     attempt = 0
     while True:
         try:
-            return _call_once(entry, messages, request, timeout)
+            return _call_once(entry, messages, request, timeout, attempt)
         except LLMError as e:
             if e.kind == LLMError.BAD_RESPONSE and attempt < retries:
                 attempt += 1
@@ -118,18 +147,22 @@ def _fits(wait: float | None) -> bool:
     return left is None or wait + MIN_CALL_SECONDS + MARGIN_SECONDS <= left
 
 
-def _call_once(entry: Entry, messages, request, timeout) -> LLMResult:
+def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0) -> LLMResult:
     provider = PROVIDERS[entry.provider]
     key = cassette.make_key(
         provider=entry.provider, model=entry.model, messages=messages, tools=request["tools"],
         response_format=request["response_format"], temperature=request["temperature"],
         max_tokens=request["max_tokens"], seed=request["seed"],
     )
+    if attempt:  # a retry is its own recording, so replay repeats the live sequence
+        key = f"{key}:retry{attempt}"
     mode = cassette.mode()
     shelf = tier()
     if mode != "off":
         hit = cassette.lookup(shelf, key)
         if hit is not None:
+            if "error" in hit:
+                raise LLMError(hit["error"], hit.get("detail", "recorded unusable reply"))
             return _from_entry(hit, cached=True)
         if mode == "replay":
             raise cassette.CassetteMiss(suite=cassette.current_suite(), key=key, case=cassette.current_case())
@@ -154,7 +187,13 @@ def _call_once(entry: Entry, messages, request, timeout) -> LLMResult:
         raise LLMError(LLMError.UNAVAILABLE, f"{provider.name} request failed: {e}") from e
     latency = time.monotonic() - start
 
-    result = _parse(provider, entry, resp, latency, request["max_tokens"])
+    try:
+        result = _parse(provider, entry, resp, latency, request["max_tokens"])
+    except LLMError as e:
+        if mode == "record" and e.kind == LLMError.BAD_RESPONSE:
+            cassette.record(shelf, key, {"error": e.kind, "detail": e.detail, "provider": entry.provider,
+                                         "model": entry.model, "latency_s": round(latency, 3)})
+        raise
     if mode == "record":
         cassette.record(shelf, key, _to_entry(result))
     return result
