@@ -1,7 +1,7 @@
 # Build progress
 
 Resume from this file plus `IDEA.md` and `specs/`. Branch: `feat/ai-eng-direction` (not pushed).
-Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` (plus `pytest -m eval` once EVAL-01 lands).
+Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... python -m pytest -q -m eval` (CI runs both).
 
 ## Status
 
@@ -9,12 +9,13 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` (plus `pyte
 |---|---|---|---|
 | 1 | Network block + dummy keys (6b #1) | ✅ done | 278e229 |
 | 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 87c5b45 … 2480fda |
-| 3 | EVAL-01 harness skeleton | ⏳ next | |
-| 4 | API-01 FastAPI step 1 + uvicorn | ⬜ | |
+| 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
+| 4 | API-01 FastAPI step 1 + uvicorn | ⏳ next | |
 | 5 | EVAL-02 generator + datasets, EVAL-03 baseline, LLM-02 bench | ⬜ | |
 | — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | ⬜ | |
 
-Last commit: `2480fda` Route existing LLM callers through the new client. Suite: 318 passed.
+Last commit: `71b9dae` Add the eval runner with paired regression gating and pytest -m eval.
+Suite: 342 passed, 1 deselected; `pytest -m eval`: 1 passed.
 
 ## What LLM-01 delivered
 - `backend/llm/`:
@@ -30,6 +31,27 @@ Last commit: `2480fda` Route existing LLM callers through the new client. Suite:
   `role="vision"`).
 - `app.py` runs the registry check at startup and installs the per-request deadline.
 - `PyYAML>=6,<7` added to `requirements.txt` (needed for `llm/registry.yaml`).
+
+## What EVAL-01 delivered
+- `backend/evals/metrics.py`: pure functions, each with a hand-computed unit test.
+  - SQL: result-set compare (multiset, 2 dp, aliases ignored); a fallback counts as a failure; fallback rate.
+  - Extraction: field-level P/R/F1 with normalisation.
+  - Retrieval: recall@k, MRR, nDCG@10.
+  - Agent: tool-selection and abstention accuracy.
+  - Reporting: nearest-rank percentiles, Cohen's kappa, Wilson 95% CIs, paired regression changes and gate.
+- `backend/evals/run.py`:
+  - dev split by default; `--split test` is refused without `--release N`;
+  - replay mode by default; `--record` re-records a suite from scratch, `--record --only-missing` keeps
+    existing lines;
+  - deterministic results JSON;
+  - gate against the latest committed `release-*-<tier>-<split>.json` (`min_regressed` in `evals/gates.yaml`,
+    default 2); hard-gate failures fail the run;
+  - regressed and fixed case ids are always printed.
+- `evals/suites/selftest.py`: a model-free suite, so `pytest -m eval` exercises the harness end to end.
+- Wiring: `pytest.ini` excludes `eval` by default; CI runs `pytest -q -m eval`; `.gitignore` ignores local
+  `evals/results/dev-*.json`.
+- Deferred to EVAL-02/03 (they need datasets): `evals/report.py` (README tables between markers), the judge-
+  agreement check, the gold-SQL dialect check on SQLite + Postgres, and the real suites.
 
 ## Decisions made while building (routine; recorded for review)
 - **BAD_RESPONSE is not failed over.** After `retries`, it's raised, per the SPEC-LLM wording. This keeps OCR at
@@ -54,5 +76,6 @@ Last commit: `2480fda` Route existing LLM callers through the new client. Suite:
   docs and are **unverified**. LLM-02 checks them.
 
 ## Next step
-EVAL-01: `backend/evals/` skeleton, `metrics.py` with hand-computed unit tests, `run.py`, `pytest -m eval`
-wiring (default runs exclude the marker).
+API-01: `backend/asgi.py` (FastAPI outer app, Flask mounted via `a2wsgi`), uvicorn with 1 worker, and the parity
+tests for auth, rate limits, CORS and the error body. Stop at step 1. New dependencies when it lands:
+`fastapi`, `uvicorn[standard]`, `a2wsgi`, plus `slowapi` or a small `limits` decorator.
