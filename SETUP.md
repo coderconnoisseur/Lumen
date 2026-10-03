@@ -511,7 +511,8 @@ python app.py  # Will reinitialize
 2. Connect repository to hosting platform
 3. Configure environment variables
 4. Set build command: `pip install -r requirements.txt`
-5. Set start command: `python app.py`
+5. Set start command: `uvicorn asgi:app --host 0.0.0.0 --port $PORT --workers 1` (`python app.py` is the
+   local dev server only)
 
 ---
 
