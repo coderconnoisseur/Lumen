@@ -115,3 +115,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   questions, and told the model to reply NOT_FOUND as a last layer.
 - **R:** **26/26** correct answer-or-abstain decisions on dev before any LLM call (both layers are local),
   and abstained questions cost zero credits. Honest limit: only 26 dev questions; the test split is the check.
+
+## 11. Eval hygiene: two recording mistakes and the guards they produced (`3854ad4` and the safety fix)
+- **S:** With 50 free requests a day, every wasted call delays the baseline. Two mistakes in one morning:
+  (1) re-recording with `--only-missing` called the first model again for 12 questions whose fallback reply was
+  already recorded; (2) the safety suite inherited a developer setting (`ENABLE_CHROMA=true`) that production
+  doesn't use, which added a classifier call per question and a few paid embedding calls (total cost
+  $0.0000008), and made the recording unrepresentative.
+- **T:** Make both mistakes impossible to repeat, not just "be more careful".
+- **A:** The client now looks along the whole failover chain for an existing recording before any live call
+  in record mode; the safety suite forces production's chat configuration and a test proves the old classifier
+  never runs. The unrepresentative recording was thrown away rather than used.
+- **R:** Re-recording costs exactly the missing calls. Measurements can no longer silently differ from
+  production because of a local `.env`. (Story point: an eval is only as trustworthy as its parity with
+  production; both guards are tested.)
