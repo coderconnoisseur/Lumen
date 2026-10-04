@@ -143,3 +143,37 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** Short questions are answered; refusing an off-topic question now costs one LLM call instead of zero.
   Lesson for the story: an offline eval only covers the questions you wrote, so the first real user is part
   of the eval. Next: generic, underspecified questions go into the generation suite.
+
+## 13. Choosing models from data, not reputation (LLM-02)
+- **S:** With a Groq key available, three candidate models (gpt-oss-120b, qwen3.8-27b, gpt-oss-20b) and an
+  OpenRouter baseline (free Nemotron 3 Ultra). Groq's free tier caps tokens per minute (8K).
+- **T:** Pick each tier's default model with evidence, and record without the rate limits distorting results.
+- **A:** `python -m evals.bench` runs a suite once per candidate, each alone in the chain (no fallback), and
+  writes `docs/direction/LLM-BENCH.md`. A "patient" record mode waits out per-minute limits on the same model
+  instead of failing over mid-baseline.
+- **R:** On the 32 dev SQL questions all three Groq models tie (28-29/32, overlapping CIs); gpt-oss-120b leads
+  with zero fallbacks. Same accuracy as Nemotron, **3-10× faster** (p95 3.0 s vs 8.9 s). Story point: the
+  honest conclusion was "they're tied, pick on secondary criteria", and the choice is re-checked on tool calling.
+
+## 14. The agent's first measurement found a wasted-call design flaw (AGT-07)
+- **S:** The first agent recording showed most `run_sql` calls rejected: "Query must filter by authenticated
+  user_id". The model never sees the user id (by design), so it couldn't write the filter.
+- **T:** Keep tenant isolation intact without making the model guess an id it isn't allowed to know.
+- **A:** The filter requirement was defence in depth on top of server-side scoping (`_scope_to_user` already
+  restricts every table to the user's rows). The agent's `run_sql` now relies on that scoping; a literal reference
+  to any *other* user id is still rejected, and the rejection reason goes back to the model so it can correct
+  itself. Recording was stopped and redone rather than measuring a broken design.
+- **R:** Rejections dropped from most SQL calls to a handful; the existing SQL-isolation tests pass unchanged,
+  plus new tests proving an unfiltered query only sees the caller's rows.
+
+## 15. A recorder bug that would have made CI lie, caught by replaying once (AGT-07)
+- **S:** The agent recording finished (22/24 routing, 28/28 abstention), but replaying it offline failed for 25 of
+  28 cases with "missing recording".
+- **T:** Recordings must replay exactly, or every CI number built on them is fiction.
+- **A:** Found the cause: when Groq said "wait 3 s", the retried request was counted as a *second identical
+  request*, so its reply was stored under `key#1`, which replay never asks for. The same bug had hit the Groq SQL
+  bench. Fixed it (a logical call is counted once, however many rate-limit retries), added a regression test, and
+  repaired the existing recordings (renamed 53 + 56 entries) instead of spending another day of tokens.
+- **R:** Every recording now replays to exactly the live numbers (agent 22/24 and 28/28, Groq SQL 29/32, OpenRouter
+  SQL 29/32, bench tables byte-identical). Story point: "record once, replay forever" only holds if you verify
+  the replay immediately after recording.

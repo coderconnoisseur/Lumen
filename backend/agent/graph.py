@@ -134,6 +134,8 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
                       if s["tool"] == "propose_action" and "proposal_id" in s["result"]],
         "sources": [{"chunk_id": c, "title": retrieved[c]["title"], "section": retrieved[c]["section"],
                      "text": retrieved[c]["text"]} for c in citations],
+        "rows": next((s["result"]["rows"] for s in reversed(final["steps"])
+                      if s["tool"] == "run_sql" and "rows" in s["result"]), None),  # last successful query's rows
         "stopped": final["stopped"],
         "llm_calls": final["llm_calls"],
         "tools_used": [s["tool"] for s in final["steps"]],
