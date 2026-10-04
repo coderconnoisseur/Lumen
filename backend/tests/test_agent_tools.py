@@ -69,7 +69,18 @@ def test_run_sql_is_scoped_to_the_context_user(db, world):
                   {"sql": "SELECT COUNT(*) AS n FROM transactions WHERE user_id = '{user_id}'"})
     assert ok["row_count"] == 1 and ok["rows"][0]["n"] > 100
     stolen = run_tool(_ctx(db, world), "run_sql", {"sql": f"SELECT vendor_name FROM transactions WHERE user_id = '{u2}'"})
-    assert "error" in stolen or stolen["row_count"] == 0
+    assert "other than the authenticated" in stolen["error"]  # the reason goes back to the model
+
+
+def test_run_sql_needs_no_user_filter_because_the_server_scopes_it(db, world):
+    """The model never sees the user id; unfiltered queries still only see the context user's rows."""
+    from agent.tools import run_tool
+
+    u1 = {u["key"]: u["id"] for u in world["users"]}["u1"]
+    out = run_tool(_ctx(db, world), "run_sql", {"sql": "SELECT COUNT(*) AS n FROM transactions"})
+    assert out["rows"][0]["n"] == sum(t["user_id"] == u1 for t in world["transactions"]) < len(world["transactions"])
+    names = run_tool(_ctx(db, world), "run_sql", {"sql": "SELECT DISTINCT vendor_name FROM transactions"})
+    assert "Lotus Yoga Studio" not in {r["vendor_name"] for r in names["rows"]}  # u2-only vendor
 
 
 def test_get_invoice_only_sees_the_users_own_invoices(db, world):
