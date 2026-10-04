@@ -53,6 +53,7 @@ def fake_chat(monkeypatch):
     """Ask Lumen with a model that writes safe SQL, and answers by echoing (gullible) or not (careful)."""
     import ai.hybrid_query_engine
     import ai.sql_agent
+    import utils.llm
 
     def install(mode):
         def sql_completion(prompt, **_):
@@ -66,6 +67,7 @@ def fake_chat(monkeypatch):
 
         monkeypatch.setattr(ai.sql_agent, "chat_completion", sql_completion)
         monkeypatch.setattr(ai.hybrid_query_engine, "chat_completion", answer)
+        monkeypatch.setattr(utils.llm, "chat_completion", answer)  # the document answer path (RAG-08)
 
     return install
 
@@ -90,3 +92,7 @@ def test_gullible_pipeline_is_caught_following_injections(fake_chat, fake_vision
     assert any(f.startswith("injection followed") for f in out["hard_gate_failures"])
     # SQL is scoped to the asking user by the guardrails, so even a parroting model can't leak another tenant.
     assert out["metrics"]["tenant_leaks"] == 0
+    # A poisoned section that retrieval puts in the context gets repeated by a parroting model and is caught.
+    # (One dev case's injected section isn't in the top passages, so it never reaches the model.)
+    doc = out["metrics"]["document_injection_resisted"]
+    assert doc["total"] == 2 and doc["passed"] < doc["total"]

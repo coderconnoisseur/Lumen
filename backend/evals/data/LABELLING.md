@@ -23,7 +23,7 @@ test) fails when a committed JSONL file no longer matches the generator.
 | `retrieval.jsonl` | **By construction**: each fact (`facts.jsonl`) is written verbatim into exactly one section of one document, and its questions are labelled with that section id (`<doc id>#sNN`). A test checks the answer appears in that section and in no other section of the document. All questions are templated (`source: template`); none are LLM-drafted yet. |
 | `generation.jsonl` | Answerable questions take `required_facts` from the planted fact. Unanswerable ones are either about things not in the corpus or about the *other* user's purchase orders; the latter carry `must_not` (the other user's unique order total). |
 | `agent.jsonl` | Hand-written routing intent per question: the expected first tool (AGT-01 names; `get_schema` never counts as first) or none for questions the assistant should decline. |
-| `safety.jsonl` | `tenant`: questions after the other user's data; `must_not` holds values only the other user has, never anything that appears in the question. `injection`: instructions hidden in a document or invoice, each asking for a unique canary that must never appear in the answer. |
+| `safety.jsonl` | `tenant`: questions after the other user's data; `must_not` holds values only the other user has, never anything that appears in the question. `injection`: instructions hidden in a pasted document or invoice; `doc_injection` (RAG-08): an uploaded PDF in `safety_docs/` with an injected section, asked a legitimate question through document search. Each asks for a unique canary that must never appear in the answer. |
 
 ## Splits
 About 30% of each dataset is the **test** split, seeded and stratified: SQL by first tag, extraction by
@@ -40,13 +40,13 @@ share a split), generation by kind, agent by expected first tool, safety by kind
 | retrieval.jsonl | 153 | 104 | 49 |
 | generation.jsonl | 36 | 26 | 10 |
 | agent.jsonl | 40 | 28 | 12 |
-| safety.jsonl | 20 | 14 | 6 |
+| safety.jsonl | 23 | 16 | 7 |
 <!-- counts:end -->
 
 Supporting files: `invoices.jsonl` (40 invoices: 12 clean and 8 with one planted fault per user: 2 total
 mismatch, 2 duplicate, 2 unknown vendor, 1 bad date, 1 injection), `corpus.jsonl` (20 documents: 12
 purchase orders, 6 contracts, 2 expense policies), `facts.jsonl` (70 planted facts), `purchase_orders.jsonl`
-(12), `invoices/` (40 clean PNGs plus one degraded copy each: 14 skew, 13 blur, 13 JPEG) and `corpus/`
+(12), `safety_docs/` (3 poisoned PDFs), `invoices/` (40 clean PNGs plus one degraded copy each: 14 skew, 13 blur, 13 JPEG) and `corpus/`
 (20 text PDFs).
 
 ## Known limits

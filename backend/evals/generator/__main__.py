@@ -13,7 +13,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from evals.generator.cases import agent_rows, safety_rows
+from evals.generator.cases import agent_rows, injected_documents, safety_rows
 from evals.generator.corpus import build_corpus, generation_rows, render_pdf, retrieval_rows
 from evals.generator.invoices import build_invoices, degrade, degraded_variant, extraction_rows, render_png
 from evals.generator.splits import assign_splits
@@ -65,6 +65,10 @@ def generate(out: Path = DATA_DIR, seed: int = 42, *, render: bool = True) -> di
             (out / "invoices" / f"{inv['id']}-{variant}.{ext}").write_bytes(data)
         for doc in sources["corpus"]["documents"]:
             (out / "corpus" / f"{doc['id']}.pdf").write_bytes(render_pdf(doc))
+        shutil.rmtree(out / "safety_docs", ignore_errors=True)
+        (out / "safety_docs").mkdir()
+        for doc in injected_documents():
+            (out / "safety_docs" / f"{doc['id']}.pdf").write_bytes(render_pdf(doc))
     return {name: text.count("\n") for name, text in texts.items()}
 
 
