@@ -46,13 +46,8 @@ def configure_logging() -> None:
 
     # Quiet down noisy third-party loggers unless the user explicitly raised the level.
     if level > logging.DEBUG:
-        for noisy in ("werkzeug", "urllib3", "chromadb.telemetry"):
+        for noisy in ("werkzeug", "urllib3"):
             logging.getLogger(noisy).setLevel(logging.WARNING)
-
-    # chromadb 0.5 calls posthog.capture() with a signature posthog>=6 rejects,
-    # logging an ERROR on every client start even though telemetry is disabled
-    # (see ai/rag_system.py). Nothing is sent either way, so drop the noise.
-    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
 
     _CONFIGURED = True
 

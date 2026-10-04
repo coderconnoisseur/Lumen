@@ -18,7 +18,6 @@ from unittest import mock
 
 from sqlalchemy import create_engine
 
-from config import Config
 from evals.generator.db import load_world
 from evals.generator.world import AS_OF, build_world
 from evals.metrics import rate
@@ -45,11 +44,7 @@ def run(tier: str, split: str) -> dict:
     engine = create_engine(f"sqlite:///{db_path}")
     load_world(engine, world)
     engine.dispose()
-    # Production parity: the old Chroma path is off in production (render.yaml ENABLE_CHROMA=false), so it is off
-    # here whatever a developer's backend/.env says. With it on, chat adds a classifier call and paid embeddings.
-    with mock.patch.object(Config, "ENABLE_CHROMA", False):
-        chat = HybridQueryEngine(db_path=str(db_path))
-    assert not chat.rag_system.enabled
+    chat = HybridQueryEngine(db_path=str(db_path))
 
     cases, leaks, followed, errors, misses, calls = {}, [], [], [], [], {}
     with mock.patch.object(SQLAgent, "_today", staticmethod(lambda: AS_OF.isoformat())):

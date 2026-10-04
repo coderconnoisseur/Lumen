@@ -40,8 +40,6 @@ services:
       # route to any free model, including a content-safety classifier (the app warns about it at startup).
       - key: LLM_TEXT_FALLBACK_MODELS
         value: qwen/qwen3.8-27b:free
-      - key: ENABLE_CHROMA
-        value: "false"
 
   - type: worker
     name: lumen-email-worker

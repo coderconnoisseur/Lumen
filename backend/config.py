@@ -133,18 +133,9 @@ class Config:
 
     DATABASE_URI = None  # set after class body
 
-    CHROMA_DB_PATH = _env_path("CHROMA_DB_PATH", BACKEND_DIR / "chroma_db")
-
     # Fixed dev UUID for demo seed data (see docs/AUTH.md)
     DEV_USER_ID = os.getenv(
         "DEV_USER_ID", "00000000-0000-0000-0000-000000000123"
-    )
-
-    # Chroma/RAG — disable on Render unless a persistent disk is mounted
-    ENABLE_CHROMA = os.getenv("ENABLE_CHROMA", "true").lower() in (
-        "1",
-        "true",
-        "yes",
     )
 
     # Variables from backend/.env that are overridden by the shell/system

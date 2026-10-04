@@ -88,26 +88,6 @@ def save_transaction_detailed(user_id, normalized, email=None):
 
         db.session.commit()
 
-        try:
-            from ai.rag_system import RAGSystem
-
-            rag = RAGSystem()
-            rag.add_transaction(
-                {
-                    "id": tx.id,
-                    "user_id": uid,
-                    "vendor_name": tx.vendor_name,
-                    "category": tx.category,
-                    "total_amount": tx.total_amount,
-                    "date": tx.date,
-                    "items": normalized["items"],
-                    "payment_method": tx.payment_method,
-                    "invoice_number": tx.invoice_number,
-                    "address": tx.address,
-                }
-            )
-        except Exception as e:
-            logger.warning("Failed to add transaction to ChromaDB: %s", e)
 
         logger.info(
             "Created transaction %s for user %s (invoice %s)",

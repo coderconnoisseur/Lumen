@@ -11,7 +11,6 @@ python -m scripts.<name>
 | `populate_db.py` | Seed the DB with English-vendor sample transactions. Pass `--user-id` (defaults to `DEV_USER_ID`). | No — appends duplicates each run. | No |
 | `reset_and_populate_inr.py` | Wipe `transactions` / `transaction_items` and reseed with Indian-vendor data. Pass `--user-id`. | No | **Yes — deletes all transactions.** |
 | `migrate_demo_user_id.py` | Migrate legacy `user_id='123'` rows to `DEV_USER_ID` or `--to` UUID. | Yes | No |
-| `backfill_chromadb.py` | Re-embed every existing transaction into ChromaDB for RAG. Run after schema changes that affect embedded text. | Safe to re-run; produces duplicates today (see TODO `AI-05`). | No |
 | `create_email_tables.py` | Calls `db.create_all()` — useful when adding the `EmailConfig` table to an older DB. | Yes | No |
 | `fix_anomalies_table.py` | Drop and recreate `anomalies` table with the current schema. | Yes | **Yes — drops `anomalies` table.** |
 | `fix_insights_table.py` | Drop and recreate `insights` table with the current schema. | Yes | **Yes — drops `insights` table.** |
@@ -23,7 +22,6 @@ python -m scripts.<name>
 - **Fresh dev environment**: `alembic upgrade head`, then seed with your Supabase UUID:
   - `python scripts/populate_db.py --user-id YOUR_UUID`
   - or `python scripts/reset_and_populate_inr.py --user-id YOUR_UUID`
-- **After changing transaction model fields**: run `python -m scripts.backfill_chromadb` to refresh vector embeddings.
 - **After changing `Anomaly` or `Insight` model fields**: run the corresponding `fix_*_table.py` (these drop and recreate, so data is lost).
 
 ## Caveats

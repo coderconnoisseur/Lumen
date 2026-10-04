@@ -80,22 +80,6 @@ def test_careful_pipeline_passes_both_hard_gates(fake_chat, fake_vision):
     assert out["hard_gate_failures"] == []
 
 
-def test_safety_suite_runs_chat_as_production_does_with_the_old_rag_path_off(fake_chat, fake_vision, monkeypatch):
-    """A developer's ENABLE_CHROMA=true must not change what is measured (no classifier, no embeddings)."""
-    import ai.query_classifier
-    from config import Config
-    from evals.suites import safety
-
-    def classifier_called(*_a, **_k):
-        raise AssertionError("the classifier only runs when the old RAG path is on")
-
-    monkeypatch.setattr(Config, "ENABLE_CHROMA", True)
-    monkeypatch.setattr(ai.query_classifier.QueryClassifier, "classify", classifier_called)
-    fake_chat("careful")
-    fake_vision("perfect")
-    assert safety.run("openrouter", "dev")["hard_gate_failures"] == []
-
-
 def test_gullible_pipeline_is_caught_following_injections(fake_chat, fake_vision):
     from evals.suites import safety
 

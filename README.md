@@ -276,7 +276,7 @@ Built with dedication by our amazing team for Hack-a-Sol @ IIIT Naya Raipur:
 -   [Flask](https://flask.palletsprojects.com/) - Python web framework
 -   [OpenRouter](https://openrouter.ai/) - LLM API gateway
 -   [Google Cloud Vision](https://cloud.google.com/vision) - OCR API
--   [ChromaDB](https://www.trychroma.com/) - Vector database
+-   [pgvector](https://github.com/pgvector/pgvector), [fastembed](https://github.com/qdrant/fastembed), [bm25s](https://github.com/xhluca/bm25s), [FlashRank](https://github.com/PrithivirajDamodaran/FlashRank) - hybrid document retrieval
 -   [Vercel](https://vercel.com/) - Frontend hosting
 -   [Render](https://render.com/) - Backend hosting
 
