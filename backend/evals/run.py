@@ -94,8 +94,11 @@ def main(argv=None, *, suites: Mapping[str, SuiteFn] | None = None, results_dir:
 
     gates = _gates()
     reference = _latest_release(results_dir, args.tier, args.split, before=args.release)
-    saved_env = {k: os.environ.get(k) for k in ("LUMEN_LLM_CACHE", "LUMEN_LLM_TIER", *MODEL_OVERRIDES)}
+    saved_env = {k: os.environ.get(k) for k in ("LUMEN_LLM_CACHE", "LUMEN_LLM_TIER", "LUMEN_LLM_PATIENT_S",
+                                                 *MODEL_OVERRIDES)}
     os.environ["LUMEN_LLM_CACHE"] = "record" if args.record else "replay"
+    if args.record:
+        os.environ["LUMEN_LLM_PATIENT_S"] = "65"  # wait out per-minute caps instead of failing over
     os.environ["LUMEN_LLM_TIER"] = args.tier
     for key in MODEL_OVERRIDES:
         os.environ[key] = ""

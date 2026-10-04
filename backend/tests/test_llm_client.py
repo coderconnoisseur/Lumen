@@ -256,6 +256,29 @@ def test_replay_miss_raises_and_never_calls(transport, cassettes, monkeypatch):
     assert calls == []
 
 
+def test_patient_mode_waits_out_longer_rate_limits_on_the_same_model(transport, monkeypatch):
+    """Recording on Groq's free tier hits per-minute token caps; waiting beats switching models mid-baseline."""
+    from llm.client import complete
+
+    calls, script = transport
+    busy = _Resp(429, {"error": {"message": "tokens per minute"}}, {"Retry-After": "30"})
+    script.extend([busy, busy, _Resp(200, OK)])
+    monkeypatch.setenv("LUMEN_LLM_PATIENT_S", "65")
+    result = complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    assert result.provider == "groq"
+    assert [c["slept"] for c in calls if "slept" in c] == [30.0, 30.0]
+
+
+def test_without_patient_mode_long_waits_fail_over(transport, monkeypatch):
+    from llm.client import complete
+
+    calls, script = transport
+    script.extend([_Resp(429, {"error": {"message": "busy"}}, {"Retry-After": "30"}), _Resp(200, OK)])
+    monkeypatch.delenv("LUMEN_LLM_PATIENT_S", raising=False)
+    assert complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2"))).provider == "openrouter"
+    assert not [c for c in calls if "slept" in c]
+
+
 def test_replay_follows_a_recorded_failover(transport, cassettes, monkeypatch):
     """Entry 1 timed out while recording, so the cassette holds entry 2's reply: replay must find it."""
     from llm.client import complete
