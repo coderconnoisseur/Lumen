@@ -45,6 +45,9 @@ uploads/
 !frontend/public/**
 # Generated eval inputs are committed: cassettes are keyed on these exact bytes.
 !backend/evals/data/**
+# Release and bench results are the committed record of eval numbers (dev runs stay local).
+!backend/evals/results/release-*.json
+!backend/evals/results/bench-*.json
 
 # IDE
 .vscode/

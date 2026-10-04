@@ -23,10 +23,15 @@ openrouter:
   judge:
     - {model: google/gemma-4-31b-it:free, family: gemma}
 
+# Chosen by the LLM-02 bench (docs/direction/LLM-BENCH.md). No vision model on Groq: the openrouter chain is used.
 groq:
-  text: []
+  text:
+    - {model: openai/gpt-oss-120b, family: openai}
+    - {model: qwen/qwen3.8-27b, family: qwen}
+    - {model: openai/gpt-oss-20b, family: openai}
   vision: []
-  judge: []
+  judge:
+    - {model: qwen/qwen3.8-27b, family: qwen}
 
 ollama:
   text:
