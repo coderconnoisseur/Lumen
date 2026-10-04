@@ -614,3 +614,49 @@ export const documentsApi = {
 		return response.data;
 	},
 };
+
+export interface AgentStep {
+	tool: string;
+	args: Record<string, unknown>;
+	summary: string;
+	latency_ms: number;
+}
+
+export interface AgentAnswer {
+	answer: string;
+	citations: string[];
+	sources: DocumentSource[];
+	steps: AgentStep[];
+	sql: string[];
+	proposals: string[];
+	stopped: string;
+	llm_calls: number;
+}
+
+export interface Proposal {
+	id: string;
+	type: string;
+	target: string;
+	risk: string;
+	reason: string;
+	payload: Record<string, unknown>;
+	status: string;
+	created_at: string | null;
+}
+
+// The tool-calling agent (SPEC-AGENT), served by the FastAPI routes under /api/agent.
+export const agentApi = {
+	ask: async (question: string): Promise<AgentAnswer> => {
+		const response = await apiClient.post("/api/agent/ask", { question });
+		return response.data;
+	},
+
+	proposals: async (): Promise<Proposal[]> => {
+		const response = await apiClient.get("/api/agent/proposals", { params: { status: "pending" } });
+		return response.data.proposals;
+	},
+
+	decide: async (id: string, decision: "approve" | "reject"): Promise<void> => {
+		await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+	},
+};
