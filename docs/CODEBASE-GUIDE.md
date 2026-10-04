@@ -189,6 +189,21 @@ audit event).
 (3,000 characters; 50 SQL rows; 600 characters per passage) and there are at most 6 tool calls, so one run's
 context is bounded. That matters on Groq's free tier (8K tokens/minute).
 
+**Worked example: "What is my average electricity bill?"** (owner's test, 2026-10-04: 5 LLM calls, 3.2 s total,
+from the server log):
+
+| # | Prompt tokens | The model asked for | What happened |
+|---|---|---|---|
+| 1 | 867 | `lookup_vendors(hint="electricity")` | finds **City Power Ltd** via its "Electricity bill" line items |
+| 2 | 939 | `run_sql` over a `vendors` table | rejected: "Table 'vendors' is not allowed"; the reason goes back to the model |
+| 3 | 1,091 | `get_schema` | learns the real tables and columns |
+| 4 | 1,338 | `run_sql(... vendor_name = 'City Power Ltd')` | the average, scoped to the user server-side |
+| 5 | 1,442 | no tools: the answer | done |
+
+Calls 2-3 are the cost of guessing the schema. The next iteration puts a compact schema in the system prompt, which
+should make this 3 calls (lookup → SQL → answer); it will be measured on the `agent` suite before/after. Note how the
+prompt grows with each tool exchange: that's the context the 6-call cap and result truncation keep bounded.
+
 **How it's measured:** the same datasets as the baseline, replayed from recordings (`evals/cassettes/groq/agent*.jsonl`).
 The model writes its own search queries, so their embeddings are cached during `--record` too.
 

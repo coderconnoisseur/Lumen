@@ -102,7 +102,7 @@ export default function AgentContent() {
 			<Card className="space-y-3 p-6">
 				<h2 className="font-semibold">Pending proposals</h2>
 				{proposals.length === 0 ? (
-					<p className="text-sm text-muted-foreground">None. Try: “The invoice FM-202606-U1N03 looks like it's in the wrong category; propose Shopping.”</p>
+					<p className="text-sm text-muted-foreground">None. Try: “Invoice FM-202606-U10223 looks miscategorised; propose Shopping.” (a seeded demo invoice)</p>
 				) : proposals.map((p) => (
 					<div key={p.id} className="flex flex-col gap-2 rounded border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
 						<div>

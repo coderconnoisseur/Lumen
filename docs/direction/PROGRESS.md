@@ -244,8 +244,34 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   filter; the agent's `run_sql` now relies on server-side scoping (STORY 14).
 - **Demo data:** `scripts/seed_demo_data.py` seeded the owner's local account (235 transactions, 10 documents).
 
+## Owner feedback from testing (2026-10-04 evening) and known issues
+- Agent answers were fine; speed impressive. "Couldn't locate FM-202606-U1N03" was correct: that number was a bad
+  hint (it's from the invoice-image dataset, not stored transactions); hint fixed to the seeded FM-202606-U10223.
+- "Average electricity bill" took 5 LLM calls (lookup → SQL on a nonexistent `vendors` table, rejected → get_schema →
+  SQL → answer). Next iteration: compact schema in the system prompt, measured before/after on the `agent` suite.
+- **Polish backlog for the UI refactor (owner: later):** the UI shows raw UUIDs; answers need markdown rendering;
+  clicking a reference should open the original document (needs the PDF stored, today only text is kept); general
+  formatting; slow tab loads; no separation of concerns in the UI.
+- **Backend issue seen in logs:** Ask Lumen `/chat` synthesis sent a 7,270-token prompt and hit `finish=length` at 500
+  tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
+  cap the rows/raise max_tokens before then.
+- **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 15 entries), `backend/evals/results/` (bench JSON;
+  release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
+
 ## Next step
-Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):
-`python -m evals.run --tier openrouter --suite <sql|safety|extraction> --record --only-missing`, then the test
-split, then a full replay as `--release 0` for both splits, `docs/direction/BASELINE.md`, and the
-`pytest -m eval` wiring. Then LLM-02.
+In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
+1. **Agent prompt iteration:** compact schema in the system prompt; re-record `agent` on Groq; compare tool calls,
+   tokens and accuracy before/after (snapshot + STORY).
+2. **Record `agent_sql` and `agent_safety` on Groq** (`python -m evals.run --tier groq --suite agent_sql --record`;
+   ~200K tokens/day/model, patient mode waits out TPM). Then the agent-vs-pipeline comparison (AGT-07 report).
+   Always replay immediately after recording.
+3. **Groq baseline suites:** `safety` and `sql` test split on Groq; `extraction` stays on OpenRouter vision (50
+   requests/day): record over several days.
+4. **Generation suite** (judge = qwen on Groq) + prompt the owner for ~20 judge labels (`evals/data/judge_gold.jsonl`).
+5. **release-0** for both splits, `docs/direction/BASELINE.md`, `evals.report` → README tables, `pytest -m eval`
+   replaying the committed suites.
+6. **Switch `/chat` to the agent** only if AGT-07 shows it's no worse on SQL and passes both safety gates; that also
+   fixes the 7,270-token synthesis prompt.
+7. **SPEC-EXTRACT build** (structured extraction, rule checks, confidence, review queue; auto-approve high confidence).
+8. UI refactor (owner-led, last).
