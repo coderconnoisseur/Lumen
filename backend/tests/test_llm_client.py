@@ -273,6 +273,22 @@ def test_replay_follows_a_recorded_failover(transport, cassettes, monkeypatch):
     assert len([c for c in calls if "url" in c]) == 2  # both live calls happened while recording only
 
 
+def test_recording_reuses_a_reply_recorded_after_failover_instead_of_calling_again(transport, cassettes, monkeypatch):
+    """`--record --only-missing` must not spend quota on a case whose fallback reply is already recorded."""
+    from llm.client import complete
+
+    calls, script = transport
+    script.extend([_Resp(429, {"error": {"message": "busy"}}), _Resp(200, OK)])
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "record")
+    with cassettes.cassette_scope("sql"):
+        complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    cassettes.clear_memory()
+    with cassettes.cassette_scope("sql"):
+        again = complete(MSGS, chain=chain(("groq", "m1"), ("openrouter", "m2")))
+    assert again.cached is True and again.provider == "openrouter"
+    assert len([c for c in calls if "url" in c]) == 2  # nothing new after the first recording
+
+
 def test_replay_miss_on_every_entry_names_the_case(transport, cassettes, monkeypatch):
     from llm.cassette import CassetteMiss
     from llm.client import complete

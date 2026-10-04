@@ -64,6 +64,13 @@ def cassette_scope(suite: str, case: str | None = None):
         _seen.reset(tokens[2])
 
 
+def peek(key: str) -> str:
+    """The key `nth(key)` would return next, without counting this occurrence."""
+    seen = _seen.get()
+    count = 0 if seen is None else seen.get(key, 0)
+    return key if count == 0 else f"{key}#{count}"
+
+
 def nth(key: str) -> str:
     """The key for this occurrence of an identical request within the current scope.
 
