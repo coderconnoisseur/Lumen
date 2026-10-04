@@ -7,14 +7,14 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 
 | Step | Module | State | Commits |
 |---|---|---|---|
-| 1 | Network block + dummy keys (6b #1) | ✅ done | 278e229 |
-| 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 87c5b45 … 2480fda |
-| 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
-| 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
-| 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
-| 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | 34d2a7f … |
-| — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 2265bc3 |
-| 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API, page, RAG-08 cases, RAG-09 (Chroma removed) done; generation suite left | 75ca045 … |
+| 1 | Network block + dummy keys (6b #1) | ✅ done | ae7798f |
+| 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 11e0e52 … 6f12f3c |
+| 3 | EVAL-01 harness skeleton | ✅ done | ac908d2, bb1a7a9 |
+| 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 0a421ae, 2122600, 6f9e1d8 |
+| 5a | EVAL-02 generator + datasets | ✅ done | d5c9cd6 … 2eb87ab |
+| 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | a9a9f55 … |
+| — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 64fa55f |
+| 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API, page, RAG-08 cases, RAG-09 (Chroma removed) done; generation suite left | 1d38309 … |
 | — | SPEC-AGENT / SPEC-EXTRACT / SPEC-UX one-pagers | 📝 drafted 2026-10-04, awaiting owner review | |
 
 Last commit: EVAL-03 in progress (see the branch history).
@@ -147,7 +147,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   Live calls happen only in the explicit `--record` step.
 - **Free-tier limit: 50 requests/day** (key status checked, no quota used). The record plan spans days:
   SQL dev (done except 2), safety (~27 dev calls), extraction (56 dev + 24 test vision calls), SQL test (15).
-- **Client fixes for faithful replay** (`34d2a7f`, `0a3c7b1`): replay walks the failover chain; unusable
+- **Client fixes for faithful replay** (`a9a9f55`, `47188e8`): replay walks the failover chain; unusable
   replies are recorded and replayed as errors; repeated identical calls within a case get their own
   recordings; `collect_calls()` feeds the ops metrics.
 - **Suites:** `evals/suites/sql.py` (strict execution accuracy, gated; relaxed accuracy as a diagnostic;
