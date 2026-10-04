@@ -129,3 +129,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** Re-recording costs exactly the missing calls. Measurements can no longer silently differ from
   production because of a local `.env`. (Story point: an eval is only as trustworthy as its parity with
   production; both guards are tested.)
+
+## 12. The eval set was more specific than real users (RAG-06 fix)
+- **S:** The owner's first manual test of document Q&A: the upload worked, but the question got "I couldn't find
+  this in your documents". Offline, abstention had scored 26/26 on dev.
+- **T:** Find out why a measured-good component failed its first real user.
+- **A:** Replayed plausible questions against the uploaded contract. Retrieval found the right section every
+  time, but the reranker scored short generic questions near zero ("What is the notice period?" 0.003, "What is
+  the monthly fee?" 0.414) and the 0.5 cut-off refused them. Every eval question had named its vendor or PO,
+  which keeps cross-encoder scores high. Removed the score cut-off (off-topic questions also score ~0.000, so no
+  cut-off separates them), kept identifier grounding and the model's NOT_FOUND, logged every abstention reason,
+  and added a regression test with the exact failing question.
+- **R:** Short questions are answered; refusing an off-topic question now costs one LLM call instead of zero.
+  Lesson for the story: an offline eval only covers the questions you wrote, so the first real user is part
+  of the eval. Next: generic, underspecified questions go into the generation suite.

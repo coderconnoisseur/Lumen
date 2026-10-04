@@ -85,6 +85,8 @@ RAG-09 production switch. The ablation numbers come out of this order naturally:
    and connect through Supabase's IPv4 session pooler. Nothing in code or tests depends on either service.
 2. **Documents page:** a minimal upload/list/delete page ships with RAG; UX polish comes later.
 3. **Judge labels:** the owner labels ~20 answers when prompted.
-4. **Abstention:** decided by the reranker's top score (local, no LLM credits), with the cut-off tuned on the
-   dev split only; the answer prompt also tells the model to abstain when the evidence doesn't answer.
+4. **Abstention:** ~~decided by the reranker's top score~~ **Amended 2026-10-04 after the owner's first test:**
+   no score cut-off. Short, generic questions ("What is the notice period?") retrieved the right section but
+   scored ~0.003, the same range as off-topic questions, so a cut-off refused good questions. Abstention is now:
+   no evidence → identifier grounding (a named PO/invoice code absent from the evidence) → the model's NOT_FOUND.
 5. **Live deployments are assumed broken** unless the owner says otherwise; verification is local.
