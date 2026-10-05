@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Any, Callable, TypedDict
 
-from agent.prompts import FORCE_ANSWER, SYSTEM_PROMPT
+from agent.prompts import FORCE_ANSWER, system_prompt
 from agent.tools import ToolContext, run_tool, tool_schemas
 
 MAX_TOOL_CALLS = 6
@@ -116,7 +116,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
     state: AgentState = {
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT.format(today=ctx.today.isoformat())},
+        "messages": [{"role": "system", "content": system_prompt(ctx.today)},
                      {"role": "user", "content": question}],
         "steps": [], "tool_calls": 0, "answer": None, "stopped": None, "llm_calls": 0,
     }
