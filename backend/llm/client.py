@@ -127,8 +127,20 @@ def complete(
     raise first_miss or last
 
 
+PATIENT_WAITS = 3  # rate-limit waits per entry in patient mode
+
+
+def _patience() -> float:
+    """Longest Retry-After waited out on the same entry. `LUMEN_LLM_PATIENT_S` (set by `evals.run --record`)
+    raises it: recording on free tiers hits per-minute caps, and waiting beats switching models mid-baseline."""
+    try:
+        return float(os.getenv("LUMEN_LLM_PATIENT_S") or MAX_RETRY_AFTER_SECONDS)
+    except ValueError:
+        return MAX_RETRY_AFTER_SECONDS
+
+
 def _complete_entry(entry: Entry, messages, request, timeout, retries) -> LLMResult:
-    waited = False
+    waits = 0
     attempt = 0
     while True:
         try:
@@ -139,15 +151,16 @@ def _complete_entry(entry: Entry, messages, request, timeout, retries) -> LLMRes
                 logger.info("Retrying LLM call after unusable reply: %s", e.detail)
                 continue
             wait = getattr(e, "retry_after", None)
-            if e.kind == LLMError.RATE_LIMITED and not waited and _fits(wait):
-                waited = True
+            allowed = PATIENT_WAITS if _patience() > MAX_RETRY_AFTER_SECONDS else 1
+            if e.kind == LLMError.RATE_LIMITED and waits < allowed and _fits(wait):
+                waits += 1
                 _sleep(wait)
                 continue
             raise
 
 
 def _fits(wait: float | None) -> bool:
-    if wait is None or wait > MAX_RETRY_AFTER_SECONDS:
+    if wait is None or wait > _patience():
         return False
     left = remaining()
     return left is None or wait + MIN_CALL_SECONDS + MARGIN_SECONDS <= left
