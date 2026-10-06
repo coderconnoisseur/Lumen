@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 16 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 17 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -267,15 +267,18 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - `agent` dev on Groq, before -> after: calls 73 -> 54, tokens/question 2,961 -> 2,233, p95 5.5 s -> 3.3 s, failed
   SQL 8 -> 0, `get_schema` calls 7 -> 0; routing 22/24 -> 21/24, abstention 28/28 -> 26/28 as scored.
   `docs/direction/benchmarks/2026-10-06-agent-prompt-schema-dev.md`, STORY 16.
-- **Open for the owner (metric change):** all five remaining misses are scorer/label artefacts: (a) answering a
-  vendor total from `lookup_vendors` counts as a wrong route (003, 009, 010); (b) the abstention regex reads a
-  grounded "I couldn't find any duplicate charges" as a refusal (026) and misses "I don't have information to
-  answer that" (040).
+- **Grader fixed (owner OK):** lookup-vendor answers count as the SQL route; "not found" after the right tool is
+  an answer. Re-scored offline: before and v2 both 24/24 routing, 28/28 abstention (v1 21/24, 26/28). STORY 17.
+- **Found while checking:** `get_anomalies` returns vendor/date/amount as null and formats amounts with a euro
+  sign (the data is INR). Fix with the deploy work.
+- **PRs #2-#16 merged into `refactor`** (owner OK). #16 fixed CI: SQLAlchemy 2.1 switches `postgresql://` to
+  psycopg 3 (not installed), and the RAG tests need a pgvector image. SPEC-DEPLOY approved (#17).
 
 ## Next step
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
-1. **Owner decision on the two scorer fixes above**; if approved, change the scorer, replay (no new recording
-   needed), and update the snapshot.
+1. **Deploy (SPEC-DEPLOY):** render.yaml + keep-warm + CI-gated deploys; demo button (anonymous sign-in + seeded
+   data, 20 questions/visitor/day), waking-up banner; fix `get_anomalies` fields; release `refactor` -> `main`;
+   owner does the dashboard/DNS steps.
 2. **Record `agent_sql` and `agent_safety` on Groq** (`python -m evals.run --tier groq --suite agent_sql --record`;
    ~200K tokens/day/model, patient mode waits out TPM). Then the agent-vs-pipeline comparison (AGT-07 report).
    Always replay immediately after recording.

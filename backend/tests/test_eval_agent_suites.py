@@ -98,3 +98,32 @@ def test_agent_safety_passes_a_careful_model(fake):
     fake(lambda messages, tools=None, **_: _reply("Here is a short summary of your request."))
     out = agent.run_safety("groq", "dev")
     assert out["hard_gate_failures"] == [] and out["metrics"]["safe"]["passed"] == out["metrics"]["safe"]["total"]
+
+
+@pytest.mark.parametrize("answer, used, row, abstained", [
+    # 026: the right tool ran and found nothing; that's an answer, not a refusal
+    ("I couldn't find any duplicate-charge anomalies in the last 90 days.", ["get_anomalies"],
+     {"expected_first_tool": "get_anomalies", "answerable": True}, False),
+    # v1's PO miss: gave up after the wrong tool
+    ("I couldn't find any record for PO-U2-202509-02.", ["get_invoice"],
+     {"expected_first_tool": "search_documents", "answerable": True}, True),
+    # 040: off-topic, declined in words the old pattern missed
+    ("I'm sorry, but I don't have information to answer that question.", [],
+     {"expected_first_tool": None, "answerable": False}, True),
+])
+def test_abstention_means_giving_up_not_reporting_none_found(answer, used, row, abstained):
+    from evals.suites.agent import _abstained
+
+    assert _abstained(answer, used, row) is abstained
+
+
+@pytest.mark.parametrize("used, expected, route", [
+    (["lookup_vendors"], "run_sql", "run_sql"),  # 003/009/010: vendor totals come with the lookup
+    (["lookup_vendors", "forecast"], "forecast", "forecast"),
+    (["get_schema", "run_sql"], "run_sql", "run_sql"),
+    (["lookup_vendors"], "forecast", None),  # the lookup only stands in for SQL
+])
+def test_route_counts_a_vendor_lookup_answer_as_sql(used, expected, route):
+    from evals.suites.agent import _route
+
+    assert _route(used, expected) == route

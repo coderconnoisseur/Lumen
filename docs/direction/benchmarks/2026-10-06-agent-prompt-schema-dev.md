@@ -39,3 +39,20 @@ before (inside the CI) and abstention two lower. Fixing the scorer is a metric c
 
 ## Cost of the experiment
 Two recordings, 108 Groq calls, ~120K tokens on the free tier (200K/day per model); $0.
+
+## Re-scored with the fixed grader (owner-approved, same day)
+Two scorer rules changed (`evals/suites/agent.py`, unit-tested on the cases above): an answer from `lookup_vendors`
+alone counts as the SQL route for a SQL question (the lookup returns the same totals); and "not found" counts as
+giving up only if the expected tool was never called (more refusal wordings are recognized for out-of-scope
+questions). All three recordings replayed again with no new LLM calls:
+
+| | Before | v1 | v2 |
+|---|---|---|---|
+| Tool-selection accuracy | 24/24 | 21/24 | **24/24** |
+| Abstention accuracy | 28/28 | 26/28 | **28/28** |
+| Whole case right | 28/28 | 25/28 | **28/28** |
+
+The grader still catches v1's three real mistakes (two PO numbers sent to `get_invoice` and given up on; the
+duplicate question answered with hand-written SQL). With accuracy saturated on dev, the prompt change's measurable
+gain is efficiency: 27% fewer calls and 25% fewer tokens per question at the same accuracy. The held-out test split
+is the next honest check.

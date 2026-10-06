@@ -191,3 +191,15 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   failed SQL, zero `get_schema` calls; routing 21/24 (was 22/24, inside the CI). Every remaining miss read by hand
   is a label or scorer artefact, which is a metric decision left to the owner. Story point: a prompt fix has side
   effects elsewhere; only an eval that covers every route shows them.
+
+## 17. Fixing the grader without flattering the model (AGT-07)
+- **S:** After the prompt change, all five remaining "misses" turned out, read by hand, to be grader errors: correct
+  vendor totals answered from the vendor lookup, a grounded "no duplicate charges found" read as a refusal, and a
+  polite refusal the regex didn't recognize.
+- **T:** Fix the grader so it measures the agent, not its phrasing, without inflating the numbers.
+- **A:** Two rules, each unit-tested on the real cases: the lookup answer counts as the SQL route; "not found" is a
+  refusal only if the right tool was never called. Re-scored *all* recordings (before, v1, v2) with the same grader,
+  offline, and checked it still catches v1's three real routing mistakes.
+- **R:** Before and v2 both 24/24 routing, 28/28 abstention; v1 21/24 and 26/28. Same accuracy, 27% fewer calls and
+  25% fewer tokens: the prompt change is a pure efficiency win. Story point: when a metric moves, read the misses
+  before believing it, and re-score the baseline with any grader change.

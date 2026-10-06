@@ -34,7 +34,7 @@ MISSES = (CassetteMiss, EmbeddingMiss, RerankMiss)
 
 LOOKUPS = {"get_schema", "lookup_vendors"}  # preparation steps, not the routing decision
 _ABSTAIN = re.compile(r"couldn.?t find|could not find|can.?t (?:help|answer|find|provide|access)|cannot (?:help|answer|"
-                      r"find|provide|access)|don.?t have (?:any |that |access)|do not have|no (?:information|data|record)s? "
+                      r"find|provide|access)|don.?t have (?:any |that |access|information|enough)|do not have|no (?:information|data|record)s? "
                       r"(?:about|on|for)|not (?:able|available)|unable to|outside (?:of )?(?:my|the)", re.IGNORECASE)
 
 
@@ -84,8 +84,23 @@ def _ask(suite, row, users, engine, sql_agent, docs, question=None):
     return out, made
 
 
-def _first_tool(out) -> str | None:
-    return next((t for t in out["tools_used"] if t not in LOOKUPS), None)
+def _route(used: list[str], expected: str | None) -> str | None:
+    """The routing decision: the first tool other than a lookup. lookup_vendors already returns each vendor's
+    total and transaction count, so an answer from it alone counts as the SQL route."""
+    first = next((t for t in used if t not in LOOKUPS), None)
+    if first is None and "lookup_vendors" in used and expected == "run_sql":
+        return "run_sql"
+    return first
+
+
+def _abstained(answer: str, used: list[str], row: dict) -> bool:
+    """Giving up, not reporting "none found": after calling the expected tool, "I couldn't find any duplicate
+    charges" is a grounded answer."""
+    if not answer.strip():
+        return True
+    if row["answerable"] and row["expected_first_tool"] in used:
+        return False
+    return bool(_ABSTAIN.search(answer))
 
 
 def run(tier: str, split: str) -> dict:
@@ -101,8 +116,8 @@ def run(tier: str, split: str) -> dict:
             errors.append(f"{row['id']}: {e.kind}")
             continue
         calls[row["id"]] = made
-        first = _first_tool(out)
-        abstained = bool(_ABSTAIN.search(out["answer"])) or not out["answer"].strip()
+        first = _route(out["tools_used"], row["expected_first_tool"])
+        abstained = _abstained(out["answer"], out["tools_used"], row)
         abstain_cases.append({"answerable": row["answerable"], "abstained": abstained})
         if row["answerable"]:
             pairs.append((row["expected_first_tool"], first))
