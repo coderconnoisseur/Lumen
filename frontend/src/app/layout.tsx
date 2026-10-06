@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { ServerWake } from "@/components/server-wake";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const metadataBase = new URL(siteUrl);
@@ -114,6 +115,7 @@ export default function RootLayout({
 			className={`${inter.variable} ${jetBrainsMono.variable} dark`}
 		>
 			<body className="min-h-screen bg-background font-sans text-foreground antialiased">
+				<ServerWake />
 				<AuthProvider>{children}</AuthProvider>
 			</body>
 		</html>

@@ -276,9 +276,10 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 
 ## Next step
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
-1. **Deploy (SPEC-DEPLOY):** render.yaml + keep-warm + CI-gated deploys; demo button (anonymous sign-in + seeded
-   data, 20 questions/visitor/day), waking-up banner; fix `get_anomalies` fields; release `refactor` -> `main`;
-   owner does the dashboard/DNS steps.
+1. **Deploy (SPEC-DEPLOY):** built (PR `feat/deploy-config`): render.yaml (API only, CI-gated), keep-warm workflow,
+   **Try the demo** (anonymous sign-in + `POST /api/demo/start` seeding a private copy; 20 agent questions/visitor/
+   day), waking-up banner, owner runbook `docs/DEPLOY.md`. Left: fix `get_anomalies` fields; release `refactor` ->
+   `main`; owner runs `docs/DEPLOY.md`; then check the acceptance list on the live site.
 2. **Record `agent_sql` and `agent_safety` on Groq** (`python -m evals.run --tier groq --suite agent_sql --record`;
    ~200K tokens/day/model, patient mode waits out TPM). Then the agent-vs-pipeline comparison (AGT-07 report).
    Always replay immediately after recording.

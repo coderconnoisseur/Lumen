@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.engine import Engine
@@ -53,7 +53,16 @@ class Question(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
 
 
-@router.post("/ask", dependencies=[Depends(rate_limit("10 per minute"))])
+DEMO_QUESTIONS_PER_DAY = 20  # all visitors share one free Groq quota (~1K requests/day; SPEC-DEPLOY)
+
+
+def demo_quota(request: Request, response: Response, claims: dict = Depends(current_user)) -> None:
+    """Anonymous demo visitors get a daily question cap; signed-up accounts don't."""
+    if claims.get("is_anonymous"):
+        rate_limit(f"{DEMO_QUESTIONS_PER_DAY} per day")(request, response)
+
+
+@router.post("/ask", dependencies=[Depends(rate_limit("10 per minute")), Depends(demo_quota)])
 def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = Depends(get_agent_deps)):
     from agent.graph import run_agent
     from agent.tools import ToolContext
