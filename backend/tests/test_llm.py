@@ -89,11 +89,11 @@ def test_successful_call_logs_served_model_and_latency(monkeypatch, caplog):
     }
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _FakeResponse(200, body))
 
-    with caplog.at_level(logging.INFO, logger="utils.llm"):
+    with caplog.at_level(logging.INFO, logger="llm.client"):
         result = llm.chat_completion("classify")
 
     assert result == "ANALYTICAL"
-    records = [r for r in caplog.records if r.name == "utils.llm"]
+    records = [r for r in caplog.records if r.name == "llm.client"]
     assert any(
         "served=cohere/north-mini-code:free" in r.getMessage() and "latency=" in r.getMessage()
         for r in records
@@ -124,11 +124,11 @@ def test_non_dict_usage_degrades_telemetry_to_none_counts(monkeypatch, caplog):
     }
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _FakeResponse(200, body))
 
-    with caplog.at_level(logging.INFO, logger="utils.llm"):
+    with caplog.at_level(logging.INFO, logger="llm.client"):
         result = llm.chat_completion("hi")
 
     assert result == "ok"
-    records = [r for r in caplog.records if r.name == "utils.llm"]
+    records = [r for r in caplog.records if r.name == "llm.client"]
     assert any(
         "tokens(prompt=None, completion=None, reasoning=None)" in r.getMessage() for r in records
     )
@@ -148,11 +148,11 @@ def test_non_dict_completion_tokens_details_degrades_reasoning_count_to_none(mon
     }
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _FakeResponse(200, body))
 
-    with caplog.at_level(logging.INFO, logger="utils.llm"):
+    with caplog.at_level(logging.INFO, logger="llm.client"):
         result = llm.chat_completion("hi")
 
     assert result == "ok"
-    records = [r for r in caplog.records if r.name == "utils.llm"]
+    records = [r for r in caplog.records if r.name == "llm.client"]
     assert any(
         "tokens(prompt=5, completion=2, reasoning=None)" in r.getMessage() for r in records
     )

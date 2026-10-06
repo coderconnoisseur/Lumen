@@ -196,28 +196,31 @@ def test_vision_reply_text_stays_out_of_info_logs(monkeypatch, caplog):
 
 
 @pytest.mark.parametrize(
-    "status, body, kind",
+    "status, body, kind, expected_calls",
     [
-        (401, {"error": {"message": "User not found.", "code": 401}}, "auth"),
-        (429, {"error": {"message": "Rate limit exceeded", "code": 429}}, "rate_limited"),
-        (404, {"error": {"message": "No endpoints found", "code": 404}}, "config"),
+        # A dead key skips the provider at once; a rate limit or a retired
+        # model moves to the next model in the registry's vision chain
+        # (gemma, then qwen), never retrying the same model.
+        (401, {"error": {"message": "User not found.", "code": 401}}, "auth", 1),
+        (429, {"error": {"message": "Rate limit exceeded", "code": 429}}, "rate_limited", 2),
+        (404, {"error": {"message": "No endpoints found", "code": 404}}, "config", 2),
     ],
 )
-def test_vision_call_raises_typed_errors(monkeypatch, status, body, kind):
+def test_vision_call_raises_typed_errors(monkeypatch, status, body, kind, expected_calls):
     from utils import llm
     from utils.openrouter import extract_and_structure_with_openrouter
 
     calls = []
 
-    def post(*a, **k):
-        calls.append(1)
+    def post(url, headers, json, timeout):
+        calls.append(json["model"])
         return _FakeResponse(status, body)
 
     monkeypatch.setattr(llm.requests, "post", post)
     with pytest.raises(llm.LLMError) as excinfo:
         extract_and_structure_with_openrouter("aGk=", "image/png")
     assert excinfo.value.kind == kind
-    assert len(calls) == 1  # fatal errors are not retried: each try costs quota
+    assert calls == ["google/gemma-4-31b-it:free", "qwen/qwen3.8-27b:free"][:expected_calls]
 
 
 def test_vision_call_sends_image_and_retries_unparseable_reply(monkeypatch):
@@ -236,7 +239,8 @@ def test_vision_call_sends_image_and_retries_unparseable_reply(monkeypatch):
     monkeypatch.setattr(llm.requests, "post", post)
     assert extract_and_structure_with_openrouter("aGk=", "image/png") == {"vendor_name": "A"}
     assert len(sent) == 2
-    assert sent[0]["models"] == ["vision/primary:free", "vision/backup:free", "openrouter/free"]
+    # The configured chain is tried client-side, primary first (SPEC-LLM).
+    assert [s["model"] for s in sent] == ["vision/primary:free", "vision/primary:free"]
     parts = sent[0]["messages"][0]["content"]
     assert parts[1] == {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGk="}}
 

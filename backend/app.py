@@ -18,6 +18,8 @@ Config.validate()
 
 from routes import register_routes
 from utils.llm import check_api_key
+from llm.client import registry as llm_registry, tier as llm_tier
+from llm.deadline import install_flask as install_llm_deadline
 from models.database import init_db
 from utils.scheduler import scheduler
 
@@ -33,6 +35,8 @@ CORS(
 logger.info("CORS allowlist: %s", Config.ALLOWED_ORIGINS)
 
 limiter.init_app(app)
+# Every request gets one time budget for all its LLM calls (llm/deadline.py).
+install_llm_deadline(app)
 
 init_db(app)
 register_routes(app)
@@ -68,6 +72,10 @@ if __name__ == "__main__":
                 key, mask_secret(os.environ.get(key)),
             )
 
+        # Raises on a judge that shares the text model's family (SPEC-LLM);
+        # warns about risky chains such as one containing openrouter/free.
+        for warning in llm_registry().check(llm_tier()):
+            logger.warning("LLM registry: %s", warning)
         ok, summary = check_api_key()
         (logger.info if ok else logger.error)(
             "%s Key %s, text model %s, vision model %s",
