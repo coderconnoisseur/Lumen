@@ -174,7 +174,11 @@ def verify_token(token: str) -> dict[str, Any]:
 
 
 def _extract_bearer_token() -> str | None:
-    header = request.headers.get("Authorization", "")
+    return parse_bearer(request.headers.get("Authorization", ""))
+
+
+def parse_bearer(header: str) -> str | None:
+    """The token from an `Authorization: Bearer <token>` value, else None."""
     if not header:
         return None
     parts = header.split(None, 1)

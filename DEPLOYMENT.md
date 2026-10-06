@@ -125,12 +125,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 #### Update `requirements.txt`
 
-Add production dependencies:
-
-```txt
-gunicorn==21.2.0
-psycopg2-binary==2.9.9
-```
+Production dependencies (already listed): `fastapi`, `uvicorn[standard]`, `a2wsgi` and `psycopg2-binary`.
+The server is uvicorn: `asgi.py` is a FastAPI app with the Flask app mounted behind it.
 
 #### Create `render.yaml`
 
@@ -140,7 +136,7 @@ services:
       name: lumen-backend
       env: python
       buildCommand: pip install -r requirements.txt
-      startCommand: gunicorn app:app
+      startCommand: uvicorn asgi:app --host 0.0.0.0 --port $PORT --workers 1
       envVars:
           - key: PYTHON_VERSION
             value: 3.11.0
@@ -158,7 +154,7 @@ services:
     - **Name**: lumen-backend
     - **Environment**: Python 3
     - **Build Command**: `pip install -r requirements.txt`
-    - **Start Command**: `gunicorn app:app -b 0.0.0.0:$PORT`
+    - **Start Command**: `uvicorn asgi:app --host 0.0.0.0 --port $PORT --workers 1`
     - **Root Directory**: `backend`
 
 ### Step 3: Add PostgreSQL Database
@@ -426,9 +422,10 @@ jobs:
         return get_analytics()
     ```
 
-3. **Use Gunicorn Workers**
+3. **Add uvicorn workers** (each one is a separate process with its own memory and rate-limit buckets;
+   move the limiter to Redis first)
     ```bash
-    gunicorn -w 4 -k gevent app:app
+    uvicorn asgi:app --workers 2
     ```
 
 ---

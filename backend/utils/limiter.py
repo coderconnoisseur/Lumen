@@ -30,7 +30,11 @@ from flask_limiter.util import get_remote_address
 
 def _rate_limit_key() -> str:
     """Return a stable per-user (or per-IP) bucket key for the current request."""
-    header = request.headers.get("Authorization", "")
+    return rate_limit_key(request.headers.get("Authorization", ""), get_remote_address())
+
+
+def rate_limit_key(header: str, remote_address: str) -> str:
+    """The bucket key for an Authorization header value, shared with FastAPI (api/deps.py)."""
     if header.startswith("Bearer "):
         token = header[7:].strip()
         try:
@@ -40,7 +44,7 @@ def _rate_limit_key() -> str:
                 return f"user:{sub}"
         except jwt.PyJWTError:
             pass
-    return f"ip:{get_remote_address()}"
+    return f"ip:{remote_address}"
 
 
 limiter = Limiter(

@@ -10,12 +10,12 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 1 | Network block + dummy keys (6b #1) | ✅ done | 278e229 |
 | 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 87c5b45 … 2480fda |
 | 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
-| 4 | API-01 FastAPI step 1 + uvicorn | ⏳ next | |
-| 5 | EVAL-02 generator + datasets, EVAL-03 baseline, LLM-02 bench | ⬜ | |
+| 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
+| 5 | EVAL-02 generator + datasets, EVAL-03 baseline, LLM-02 bench | ⏳ next (EVAL-02) | |
 | — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | ⬜ | |
 
-Last commit: `71b9dae` Add the eval runner with paired regression gating and pytest -m eval.
-Suite: 342 passed, 1 deselected; `pytest -m eval`: 1 passed.
+Last commit: `e66a81e` Run uvicorn with one worker instead of gunicorn.
+Suite: 378 passed, 1 deselected; `pytest -m eval`: 1 passed.
 
 ## What LLM-01 delivered
 - `backend/llm/`:
@@ -53,7 +53,37 @@ Suite: 342 passed, 1 deselected; `pytest -m eval`: 1 passed.
 - Deferred to EVAL-02/03 (they need datasets): `evals/report.py` (README tables between markers), the judge-
   agreement check, the gold-SQL dialect check on SQLite + Postgres, and the real suites.
 
+## What API-01 delivered (step 1 only; porting blueprints is the cut line)
+- `backend/asgi.py`: `create_app(*routers)` builds the FastAPI outer app; `app = create_app()` is what uvicorn
+  serves. The Flask app is mounted last at `/` through `a2wsgi.WSGIMiddleware`, so every current URL resolves
+  as before. No production FastAPI routes yet; the parity tests use a test router.
+- `backend/api/deps.py`: `current_user` (same `utils.auth.verify_token`, same 401/500 bodies), `rate_limit(spec)`
+  (same per-user key, 60/min default, Flask-Limiter's own storage and `enabled` switch, same X-RateLimit-* and
+  Retry-After headers, same 429 body), `llm_deadline` (100 s budget on every FastAPI route).
+- `backend/api/errors.py`: the `{success:false, error, code}` body for HTTP errors, unexpected errors and
+  `LLMError` (429/502/503, via the shared `utils.errors.llm_error_status`).
+- CORS is decided once, by FastAPI's CORSMiddleware with `ALLOWED_ORIGINS`; Flask-CORS's headers are dropped
+  from mounted Flask responses.
+- `app.startup_checks()` (shadowed env keys, registry judge-family check, key check) now runs in the uvicorn
+  lifespan too. Before this it only ran under `python app.py`, so production never ran it.
+- `render.yaml`, `DEPLOYMENT.md`, `SETUP.md`: `uvicorn asgi:app --host 0.0.0.0 --port $PORT --workers 1`.
+- Dependencies: `fastapi`, `uvicorn[standard]`, `a2wsgi`, `httpx` (TestClient) added; `gunicorn` removed. No
+  `slowapi`: `api/deps.py` uses `limits` (already installed with Flask-Limiter) directly.
+- `tests/test_asgi.py`: 36 tests. A local uvicorn smoke run (throwaway SQLite, dummy key) served `/health`, the
+  preflight, the Flask 401 and `/api/docs`.
+
 ## Decisions made while building (routine; recorded for review)
+- **API-01 "byte-identical" means status, body bytes and every non-CORS header.** With one allowed origin,
+  Flask-CORS sends `Access-Control-Allow-Origin` even on requests with no `Origin`; CORSMiddleware only answers
+  requests that carry one. CORS headers are covered by their own parity tests instead.
+- **Disallowed-origin preflight returns 400 from CORSMiddleware** (Flask-CORS returned 200 without the allow
+  headers). Browsers block both. CORSMiddleware also adds `Access-Control-Max-Age: 600`.
+- **FastAPI validation errors** return 422 `{success:false, error:"Invalid request", code:"invalid_request"}`
+  (a new code; Flask has no equivalent).
+- **A wrong method on a FastAPI path falls through to Flask** (404 body), because the Flask mount matches every
+  path. Revisit when real FastAPI routes land.
+- **FastAPI rate-limit buckets are per route** (`fastapi:<route path>`), like Flask-Limiter's per-endpoint
+  buckets.
 - **BAD_RESPONSE is not failed over.** After `retries`, it's raised, per the SPEC-LLM wording. This keeps OCR at
   most 2 calls per unusable reply. Rate limits, outages and CONFIG errors do fail over.
 - **Tests that encoded OpenRouter's server-side failover were updated** to SPEC-LLM's client-side failover:
@@ -76,6 +106,5 @@ Suite: 342 passed, 1 deselected; `pytest -m eval`: 1 passed.
   docs and are **unverified**. LLM-02 checks them.
 
 ## Next step
-API-01: `backend/asgi.py` (FastAPI outer app, Flask mounted via `a2wsgi`), uvicorn with 1 worker, and the parity
-tests for auth, rate limits, CORS and the error body. Stop at step 1. New dependencies when it lands:
-`fastapi`, `uvicorn[standard]`, `a2wsgi`, plus `slowapi` or a small `limits` decorator.
+EVAL-02: the seeded generator and datasets with a dev/test split (SPEC-EVAL). Then EVAL-03 (baseline in
+`BASELINE.md`), then LLM-02.

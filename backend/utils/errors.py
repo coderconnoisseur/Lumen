@@ -34,13 +34,17 @@ def llm_api_error(e, messages: dict[str, str], *, context: str = "") -> tuple[An
     maps "rate_limited", "bad_response" and "unavailable" to user-facing text;
     operator detail (which key, which model) goes only to the server log.
     """
+    status, code, key = llm_error_status(e)
+    logger.error("%sLLM %s: %s", f"{context}: " if context else "", e.kind, e.detail)
+    return api_error(messages[key], status=status, code=code)
+
+
+def llm_error_status(e) -> tuple[int, str, str]:
+    """(HTTP status, error code, message key) for an LLMError; shared with FastAPI."""
     from utils.llm import LLMError
 
     if e.kind == LLMError.RATE_LIMITED:
-        status, code, key = 429, "llm_rate_limited", "rate_limited"
-    elif e.kind == LLMError.BAD_RESPONSE:
-        status, code, key = 502, "llm_bad_response", "bad_response"
-    else:
-        status, code, key = 503, "llm_unavailable", "unavailable"
-    logger.error("%sLLM %s: %s", f"{context}: " if context else "", e.kind, e.detail)
-    return api_error(messages[key], status=status, code=code)
+        return 429, "llm_rate_limited", "rate_limited"
+    if e.kind == LLMError.BAD_RESPONSE:
+        return 502, "llm_bad_response", "bad_response"
+    return 503, "llm_unavailable", "unavailable"
