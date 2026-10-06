@@ -86,6 +86,9 @@ def get_dashboard():
     
     except Exception as e:
         return api_error("Could not load dashboard", code="dashboard_failed", log=e)
+
+
+@ai_analytics_bp.route('/reminders', methods=['GET'])
 @require_auth
 def get_reminders():
     """Get smart reminders for the authenticated user.
@@ -109,6 +112,9 @@ def get_reminders():
     
     except Exception as e:
         return api_error("Could not load reminders", code="reminders_failed", log=e)
+
+
+@ai_analytics_bp.route('/anomalies', methods=['GET'])
 @require_auth
 def get_anomalies():
     """Get detected anomalies for the authenticated user.
@@ -132,6 +138,9 @@ def get_anomalies():
     
     except Exception as e:
         return api_error("Could not load anomalies", code="anomalies_failed", log=e)
+
+
+@ai_analytics_bp.route('/forecast', methods=['GET'])
 @require_auth
 def get_forecast():
     """Get spending forecast for the authenticated user.
@@ -154,6 +163,9 @@ def get_forecast():
     
     except Exception as e:
         return api_error("Could not load forecast", code="forecast_failed", log=e)
+
+
+@ai_analytics_bp.route('/risk-score', methods=['GET'])
 @require_auth
 def get_risk_score():
     """Get financial health risk score for the authenticated user."""
@@ -171,6 +183,9 @@ def get_risk_score():
     
     except Exception as e:
         return api_error("Could not load risk score", code="risk_score_failed", log=e)
+
+
+@ai_analytics_bp.route('/insights', methods=['GET'])
 @require_auth
 def get_insights():
     """Get all insights for the authenticated user.
@@ -211,6 +226,9 @@ def get_insights():
     
     except Exception as e:
         return api_error("Could not load insights", code="insights_failed", log=e)
+
+
+@ai_analytics_bp.route('/insights/<int:insight_id>/read', methods=['POST'])
 @require_auth
 def mark_insight_read(insight_id):
     """Mark an insight as read. Only succeeds if the insight belongs to the
@@ -219,9 +237,9 @@ def mark_insight_read(insight_id):
     try:
         result = db.session.execute(db.text("""
             UPDATE insights
-            SET is_read = 1
+            SET is_read = :is_read
             WHERE id = :insight_id AND user_id = :user_id
-        """), {'insight_id': insight_id, 'user_id': g.user_id})
+        """), {'is_read': True, 'insight_id': insight_id, 'user_id': g.user_id})
 
         if result.rowcount == 0:
             db.session.rollback()
@@ -236,6 +254,9 @@ def mark_insight_read(insight_id):
     
     except Exception as e:
         return api_error("Could not update insight", code="insight_update_failed", log=e)
+
+
+@ai_analytics_bp.route('/patterns', methods=['GET'])
 @require_auth
 def get_patterns():
     """Get detected spending patterns for the authenticated user.
@@ -247,8 +268,8 @@ def get_patterns():
         user_id = g.user_id
         pattern_type = request.args.get('pattern_type', None)
         
-        query_text = "SELECT * FROM spending_patterns WHERE user_id = :user_id AND is_active = 1"
-        params = {'user_id': user_id}
+        query_text = "SELECT * FROM spending_patterns WHERE user_id = :user_id AND is_active = :is_active"
+        params = {'user_id': user_id, 'is_active': True}
         
         if pattern_type:
             query_text += " AND pattern_type = :pattern_type"
@@ -267,6 +288,9 @@ def get_patterns():
     
     except Exception as e:
         return api_error("Could not load patterns", code="patterns_failed", log=e)
+
+
+@ai_analytics_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy'}), 200

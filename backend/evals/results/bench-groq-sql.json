@@ -1,0 +1,170 @@
+{
+  "models": {
+    "openai/gpt-oss-120b": {
+      "hard_gate_failures": [],
+      "metrics": {
+        "as_of": "2026-06-30",
+        "execution_accuracy": {
+          "ci95": [
+            0.7578184527161212,
+            0.9675984487016337
+          ],
+          "passed": 29,
+          "total": 32,
+          "value": 0.90625
+        },
+        "fallback_rate": {
+          "ci95": [
+            0.0,
+            0.1071791982550706
+          ],
+          "passed": 0,
+          "total": 32,
+          "value": 0.0
+        },
+        "ops": {
+          "cost_usd_per_question_list_price": 0.0,
+          "latency_s_recorded": {
+            "p50": 0.859,
+            "p95": 3.0
+          },
+          "llm_calls": 35,
+          "models": {
+            "openai/gpt-oss-120b": 35
+          },
+          "questions_with_llm_calls": 35,
+          "tokens_per_question_mean": 691.4,
+          "unpriced_models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "provider_errors": [],
+        "strict_execution_accuracy": {
+          "ci95": [
+            0.4831108797896222,
+            0.7958956207556682
+          ],
+          "passed": 21,
+          "total": 32,
+          "value": 0.65625
+        },
+        "unanswerable": {
+          "answered": 3,
+          "fallback": 0,
+          "total": 3
+        }
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "hard_gate_failures": [],
+      "metrics": {
+        "as_of": "2026-06-30",
+        "execution_accuracy": {
+          "ci95": [
+            0.7193169451834978,
+            0.9502986561251991
+          ],
+          "passed": 28,
+          "total": 32,
+          "value": 0.875
+        },
+        "fallback_rate": {
+          "ci95": [
+            0.005537860164003122,
+            0.15744263820012558
+          ],
+          "passed": 1,
+          "total": 32,
+          "value": 0.03125
+        },
+        "ops": {
+          "cost_usd_per_question_list_price": 0.0,
+          "latency_s_recorded": {
+            "p50": 0.625,
+            "p95": 0.843
+          },
+          "llm_calls": 35,
+          "models": {
+            "openai/gpt-oss-20b": 35
+          },
+          "questions_with_llm_calls": 35,
+          "tokens_per_question_mean": 672.7,
+          "unpriced_models": [
+            "openai/gpt-oss-20b"
+          ]
+        },
+        "provider_errors": [],
+        "strict_execution_accuracy": {
+          "ci95": [
+            0.4831108797896222,
+            0.7958956207556682
+          ],
+          "passed": 21,
+          "total": 32,
+          "value": 0.65625
+        },
+        "unanswerable": {
+          "answered": 3,
+          "fallback": 0,
+          "total": 3
+        }
+      }
+    },
+    "qwen/qwen3.8-27b": {
+      "hard_gate_failures": [],
+      "metrics": {
+        "as_of": "2026-06-30",
+        "execution_accuracy": {
+          "ci95": [
+            0.7193169451834978,
+            0.9502986561251991
+          ],
+          "passed": 28,
+          "total": 32,
+          "value": 0.875
+        },
+        "fallback_rate": {
+          "ci95": [
+            0.005537860164003122,
+            0.15744263820012558
+          ],
+          "passed": 1,
+          "total": 32,
+          "value": 0.03125
+        },
+        "ops": {
+          "cost_usd_per_question_list_price": 0.000552,
+          "latency_s_recorded": {
+            "p50": 0.437,
+            "p95": 0.593
+          },
+          "llm_calls": 35,
+          "models": {
+            "qwen/qwen3.8-27b": 35
+          },
+          "questions_with_llm_calls": 35,
+          "tokens_per_question_mean": 632.5,
+          "unpriced_models": []
+        },
+        "provider_errors": [],
+        "strict_execution_accuracy": {
+          "ci95": [
+            0.4525440735307745,
+            0.7706611269054578
+          ],
+          "passed": 20,
+          "total": 32,
+          "value": 0.625
+        },
+        "unanswerable": {
+          "answered": 2,
+          "fallback": 1,
+          "total": 3
+        }
+      }
+    }
+  },
+  "split": "dev",
+  "suite": "sql",
+  "tier": "groq"
+}

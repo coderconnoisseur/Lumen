@@ -133,18 +133,9 @@ class Config:
 
     DATABASE_URI = None  # set after class body
 
-    CHROMA_DB_PATH = _env_path("CHROMA_DB_PATH", BACKEND_DIR / "chroma_db")
-
     # Fixed dev UUID for demo seed data (see docs/AUTH.md)
     DEV_USER_ID = os.getenv(
         "DEV_USER_ID", "00000000-0000-0000-0000-000000000123"
-    )
-
-    # Chroma/RAG — disable on Render unless a persistent disk is mounted
-    ENABLE_CHROMA = os.getenv("ENABLE_CHROMA", "true").lower() in (
-        "1",
-        "true",
-        "yes",
     )
 
     # Variables from backend/.env that are overridden by the shell/system
@@ -157,10 +148,16 @@ class Config:
     OPENROUTER_CHAT_URL = f"{OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
 
     # Vision-capable model used for OCR / invoice extraction (`utils/openrouter.py`).
-    # `openrouter/free` routes to whichever free model accepts images right now.
+    # Not `openrouter/free` first: it picks any free model that accepts images,
+    # including ones that reply empty and a content-safety classifier that
+    # answers "User Safety: safe", so each invoice cost up to 3 requests.
     # Individual free models get retired or rate-limited without notice (the
-    # previous default, nvidia/nemotron-nano-12b-v2-vl:free, now returns 404).
-    LLM_VISION_MODEL = os.getenv("LLM_VISION_MODEL") or "openrouter/free"
+    # old nvidia/nemotron-nano-12b-v2-vl:free now returns 404), so the router
+    # stays as the last fallback.
+    LLM_VISION_MODEL = os.getenv("LLM_VISION_MODEL") or "google/gemma-4-31b-it:free"
+    LLM_VISION_FALLBACK_MODELS = os.getenv(
+        "LLM_VISION_FALLBACK_MODELS", "qwen/qwen3.8-27b:free"
+    )
     # Text model used for chat synthesis, SQL generation, classification,
     # anomaly explanation, forecasting reasoning. Must be ONE model id.
     #
@@ -172,7 +169,7 @@ class Config:
     # Tried in order when the primary errors, is rate-limited or retired
     # (comma-separated; OpenRouter uses at most 3 models in total).
     LLM_TEXT_FALLBACK_MODELS = os.getenv(
-        "LLM_TEXT_FALLBACK_MODELS", "nex-agi/nex-n2.5-pro:free,openrouter/free"
+        "LLM_TEXT_FALLBACK_MODELS", "qwen/qwen3.8-27b:free"
     )
 
     @classmethod
@@ -184,6 +181,16 @@ class Config:
     def get_llm_text_fallback_models(cls) -> list[str]:
         raw = os.getenv("LLM_TEXT_FALLBACK_MODELS", cls.LLM_TEXT_FALLBACK_MODELS)
         return [m.strip() for m in raw.split(",") if m.strip()]
+
+    @classmethod
+    def get_llm_vision_model(cls) -> str:
+        return os.getenv("LLM_VISION_MODEL") or cls.LLM_VISION_MODEL
+
+    @classmethod
+    def get_llm_vision_fallback_models(cls) -> list[str]:
+        raw = os.getenv("LLM_VISION_FALLBACK_MODELS", cls.LLM_VISION_FALLBACK_MODELS)
+        return [m.strip() for m in raw.split(",") if m.strip()]
+
     # Embedding model used by the RAG store.
     LLM_EMBEDDING_MODEL = os.getenv("LLM_EMBEDDING_MODEL", "openai/text-embedding-3-small")
 

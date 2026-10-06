@@ -14,9 +14,8 @@ def test_patterns():
     print("=" * 60)
     
     with app.app_context():
-        db_path = os.path.join(os.path.dirname(__file__), 'instance', 'lumen.db')
-        agent = PatternDetectionAgent(db_path)
-        
+        agent = PatternDetectionAgent()
+
         print("\n📊 Analyzing patterns for user 123...")
         results = agent.analyze_user(123)
         

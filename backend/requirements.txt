@@ -8,20 +8,23 @@ Flask-SQLAlchemy
 
 Flask-Limiter
 
-SQLAlchemy
+SQLAlchemy>=2.0,<2.1  # 2.1 defaults postgresql:// to psycopg 3; we ship psycopg2
+
+# Parses Ask Lumen's model-written SQL to check it and scope it to the user
+sqlglot>=30,<31
 
 python-dotenv
 
-gunicorn
+# ASGI server: FastAPI in front of the mounted Flask app (asgi.py)
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+a2wsgi>=1.10,<2
+httpx  # FastAPI's TestClient
 
 cryptography
 
 
 
-# Vector Database
-# Pinned to a minor range: chromadb's on-disk format changes between minors
-# (a 0.4 index is unreadable by 0.5 — fails with KeyError '_type').
-chromadb>=0.5.11,<0.6
 
 
 
@@ -39,7 +42,8 @@ openai
 
 # PDF/Image processing
 
-pdf2image
+pypdfium2>=5,<6  # renders PDF pages; bundles pdfium, no Poppler needed
+python-dateutil
 
 Pillow
 
@@ -69,3 +73,15 @@ email-validator
 
 imapclient
 
+PyYAML>=6,<7  # llm/registry.yaml
+reportlab>=4,<5  # evals/generator: text PDFs for the RAG eval corpus
+
+# RAG (SPEC-RAG): local embeddings (ONNX, CPU) and the Postgres vector column
+fastembed>=0.8,<0.9
+pgvector>=0.5,<0.6
+bm25s>=0.3,<0.4  # per-user keyword index
+flashrank>=0.2,<0.3  # cross-encoder reranker (ONNX, CPU)
+python-multipart>=0.0.20  # FastAPI file uploads (POST /api/documents)
+
+# Agent (SPEC-AGENT): the bounded tool-calling loop
+langgraph>=0.2.34,<0.3

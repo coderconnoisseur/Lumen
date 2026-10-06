@@ -1,0 +1,6 @@
+# Datasets, cassettes and results are compared byte for byte, so keep LF on every checkout.
+*.jsonl text eol=lf
+*.json text eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary

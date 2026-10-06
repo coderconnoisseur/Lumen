@@ -4,6 +4,7 @@ import * as React from "react";
 import {
 	BookOpen,
 	Bot,
+	FileText,
 	PieChart,
 	LayoutDashboard,
 } from "lucide-react";
@@ -63,6 +64,16 @@ const data = {
 		{
 			name: "Ask Lumen",
 			url: "/chatbot",
+			icon: Bot,
+		},
+		{
+			name: "Documents",
+			url: "/documents",
+			icon: FileText,
+		},
+		{
+			name: "Agent (test)",
+			url: "/agent",
 			icon: Bot,
 		},
 	],

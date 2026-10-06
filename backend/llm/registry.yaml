@@ -1,0 +1,40 @@
+# Model chains per tier and role (SPEC-LLM). The client tries a tier's chain in
+# order, then the openrouter chain for the same role. `family` feeds the judge
+# rule: a judge must not share a family with the text model it grades.
+#
+# Groq ids are left empty until the LLM-02 mini-bench picks them from data
+# (docs/direction/LLM-BENCH.md). Ollama is for plumbing only; no reported
+# numbers come from it. `openrouter/free` is deliberately absent: it routes
+# images to any free model, including a content-safety classifier (6b #4).
+#
+# For openrouter, LLM_TEXT_MODEL / LLM_TEXT_FALLBACK_MODELS and
+# LLM_VISION_MODEL / LLM_VISION_FALLBACK_MODELS override these lists.
+
+openrouter:
+  text:
+    - {model: nvidia/nemotron-3-ultra-550b-a55b:free, family: nemotron}
+    # nex-agi/nex-n2.5-pro:free stopped being free on 2026-10-03 (404 "use the paid slug").
+    - {model: qwen/qwen3.8-27b:free, family: qwen}
+  vision:
+    - {model: google/gemma-4-31b-it:free, family: gemma}
+    - {model: qwen/qwen3.8-27b:free, family: qwen}
+  # Provisional until LLM-02. Not qwen: the ollama tier's text model is qwen,
+  # and its judge falls back to this one.
+  judge:
+    - {model: google/gemma-4-31b-it:free, family: gemma}
+
+# Chosen by the LLM-02 bench (docs/direction/LLM-BENCH.md). No vision model on Groq: the openrouter chain is used.
+groq:
+  text:
+    - {model: openai/gpt-oss-120b, family: openai}
+    - {model: qwen/qwen3.8-27b, family: qwen}
+    - {model: openai/gpt-oss-20b, family: openai}
+  vision: []
+  judge:
+    - {model: qwen/qwen3.8-27b, family: qwen}
+
+ollama:
+  text:
+    - {model: "qwen2.5:3b", family: qwen}
+  vision: []
+  judge: []

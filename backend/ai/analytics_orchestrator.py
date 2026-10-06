@@ -8,7 +8,7 @@ from ai.forecasting_agent import ForecastingAgent
 from ai.risk_assessment import RiskAssessmentEngine
 from typing import Dict, Any, List
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from models.database import db
 import logging
 
@@ -18,30 +18,23 @@ logger = logging.getLogger(__name__)
 class AnalyticsOrchestrator:
     """Coordinates all analytics agents and provides unified interface"""
 
-    def __init__(self, db_path: str | None = None):
-        """
-        Initialize analytics orchestrator
-
-        Args:
-            db_path: Path to SQLite database. Defaults to Config.DATABASE_PATH.
-        """
-        from config import Config
-        resolved = db_path or str(Config.DATABASE_PATH)
-        logger.info("🚀 Initializing Analytics Orchestrator (db=%s)", resolved)
+    def __init__(self):
+        """Initialize analytics orchestrator"""
+        logger.info("🚀 Initializing Analytics Orchestrator")
 
         # Initialize all agents
-        self.pattern_agent = PatternDetectionAgent(resolved)
+        self.pattern_agent = PatternDetectionAgent()
         logger.info("   ✅ Pattern Detection Agent ready")
-        
+
         self.fraud_agent = FraudDetectionAgent()
         logger.info("   ✅ Fraud Detection Agent ready")
-        
+
         self.forecast_agent = ForecastingAgent()
         logger.info("   ✅ Forecasting Agent ready")
-        
-        self.risk_engine = RiskAssessmentEngine(db_path)
+
+        self.risk_engine = RiskAssessmentEngine()
         logger.info("   ✅ Risk Assessment Engine ready")
-        
+
         logger.info("✅ Analytics Orchestrator initialized!\n")
     
     def run_complete_analysis(self, 
@@ -105,7 +98,9 @@ class AnalyticsOrchestrator:
         if include_forecasting:
             logger.info("\n[3/4] Spending Forecast...")
             try:
-                forecast_results = self.forecast_agent.forecast_spending(user_id, days_ahead=30)
+                forecast_results = self.forecast_agent.forecast_spending(
+                    user_id, days_ahead=30, use_llm=use_llm_reasoning
+                )
                 results['forecast'] = forecast_results
                 if forecast_results.get('success'):
                     total = forecast_results['forecast']['total_predicted']
@@ -151,14 +146,15 @@ class AnalyticsOrchestrator:
         reminders = pattern_results['reminders'][:5]  # Top 5
         
         # Check for recent anomalies
+        since_7 = datetime.utcnow() - timedelta(days=7)
         result = db.session.execute(db.text("""
             SELECT COUNT(*) as count
             FROM anomalies a
             JOIN transactions t ON a.transaction_id = t.id
             WHERE t.user_id = :user_id
-            AND a.created_at >= datetime('now', '-7 days')
+            AND a.created_at >= :since_7
             AND a.risk_score >= 80
-        """), {'user_id': str(user_id)})
+        """), {'user_id': str(user_id), 'since_7': since_7})
         
         high_risk_anomalies = result.scalar() or 0
         
@@ -221,16 +217,35 @@ class AnalyticsOrchestrator:
         return self.risk_engine.calculate_overall_risk(user_id)
     
     def save_insight(self, user_id, insight: Dict):
-        """Save an insight to the database for display."""
+        """Save an insight to the database for display. Skips creating a
+        duplicate when the user already has an unread insight with the same
+        type and title -- otherwise re-running /analyze piles up repeats of
+        the same reminder/anomaly/forecast insight on every page view."""
         from models import AnalyticsInsight
+
+        insight_type = insight.get("type", "general")
+        title = insight.get("title", "")
+
+        existing = AnalyticsInsight.query.filter_by(
+            user_id=str(user_id),
+            insight_type=insight_type,
+            title=title,
+            is_read=False,
+        ).first()
+        if existing is not None:
+            return
 
         row = AnalyticsInsight(
             user_id=str(user_id),
-            insight_type=insight.get("type", "general"),
-            title=insight.get("title", ""),
+            insight_type=insight_type,
+            title=title,
             description=insight.get("description", ""),
             severity=insight.get("severity", "info"),
-            meta=json.dumps(insight.get("metadata", {})),
+            # default=str: metadata can nest a raw DB row (a reminder's
+            # pattern, an anomaly's transaction). psycopg2 returns real
+            # datetime/Decimal objects for those columns where SQLite hands
+            # back strings, so json.dumps needs a fallback for both.
+            meta=json.dumps(insight.get("metadata", {}), default=str),
             confidence_score=insight.get("confidence", 1.0),
             is_actionable=insight.get("is_actionable", False),
         )

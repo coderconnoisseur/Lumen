@@ -1,72 +1,43 @@
-# hybrid_query_engine.py
+"""Ask Lumen's chat path: the SQL agent fetches the user's data, then the model writes the answer.
+
+Document questions go to the documents API (`/api/documents/ask`, SPEC-RAG) until the agent (SPEC-AGENT)
+chooses between SQL and document search itself. The old Chroma path and its classifier were removed in RAG-09;
+production had them switched off.
+"""
 import json
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 from config import Config
 from utils.llm import chat_completion
 
-from .query_classifier import QueryClassifier
 from .sql_agent import SQLAgent
-from .rag_system import RAGSystem
 
 logger = logging.getLogger(__name__)
 
 
 class HybridQueryEngine:
-    """Orchestrates SQL Agent and RAG System"""
+    """Answers spend questions from the user's transactions."""
 
     def __init__(self, db_path: str | None = None):
-        resolved = db_path or str(Config.DATABASE_PATH)
-        self.classifier = QueryClassifier()
-        self.sql_agent = SQLAgent(resolved)
-        self.rag_system = RAGSystem()
-    
+        # db_path=None -> the app database (Postgres on Render, SQLite locally).
+        self.sql_agent = SQLAgent(db_path)
+
     def query(self, user_query: str, user_id: str) -> Dict[str, Any]:
-        """Classify the question, fetch matching data, and write the answer.
+        """Fetch matching data with SQL and write the answer.
 
         Raises utils.llm.LLMError when the LLM provider can't be used (bad key,
         no credits, rate limit, outage, retired model); the route turns that
         into a user-facing error rather than a fake answer.
         """
-        query_type = self.classifier.classify(user_query)
-        logger.info("Query classified as: %s", query_type)
-
-        results = None
-        context_type = 'sql'
-        if query_type == 'SEMANTIC':
-            results = self._semantic_search(user_query, user_id)
-            context_type = 'semantic'
-        if results is None:
-            # Analytical question, or semantic search unavailable.
-            results = self.sql_agent.query(user_query, user_id)
-            context_type = 'sql'
-
-        response = self._synthesize_response(
-            user_query=user_query,
-            results=results,
-            context_type=context_type,
-        )
-
+        results = self.sql_agent.query(user_query, user_id)
+        response = self._synthesize_response(user_query=user_query, results=results, context_type="sql")
         return {
-            'query': user_query,
-            'query_type': query_type,
-            'raw_results': results,
-            'response': response,
+            "query": user_query,
+            "query_type": "ANALYTICAL",  # kept for API compatibility
+            "raw_results": results,
+            "response": response,
         }
-
-    def _semantic_search(self, user_query: str, user_id: str) -> Dict[str, Any] | None:
-        """Vector search, or None if the index can't serve it (disabled, not
-        built, embedding call failed) so the caller can use SQL instead."""
-        try:
-            results = self.rag_system.search(user_query, user_id)
-        except Exception as e:
-            logger.warning("Semantic search failed (%s); falling back to SQL", e)
-            return None
-        if not results.get("success"):
-            logger.info("Semantic search unavailable (%s); falling back to SQL", results.get("error"))
-            return None
-        return results
 
     def _synthesize_response(self,
                             user_query: str,
@@ -83,7 +54,7 @@ class HybridQueryEngine:
         Query type: {context_type}
 
         Results:
-        {json.dumps(results, indent=2, default=str)}
+        {json.dumps(results, default=str, ensure_ascii=False, separators=(",", ":"))}
 
         Generate a clear, concise answer:
         1. Directly answer the question
@@ -96,4 +67,5 @@ class HybridQueryEngine:
         Answer:
         """
 
-        return chat_completion(synthesis_prompt, temperature=0.7, max_tokens=500)
+        # SQL (30s, no retry) + this (30s, one retry) is about 90s at worst, inside the 100s request deadline.
+        return chat_completion(synthesis_prompt, temperature=0.7, max_tokens=500, timeout=30)

@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Boolean, LargeBinary
+from sqlalchemy.types import TypeDecorator
 from models.database import db
 import json
 
@@ -144,24 +145,6 @@ Insight = AnalyticsInsight
 Anomaly = FraudAnomaly
 
 
-class EmbeddingMeta(db.Model):
-    __tablename__ = "embeddings_metadata"
-
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    transaction_id = db.Column(String(36), db.ForeignKey("transactions.id"))
-
-    # This is the ID you get when adding docs to ChromaDB
-    chroma_doc_id = db.Column(db.String, nullable=False)
-
-    chunk_text = db.Column(db.Text, nullable=True)
-    # `metadata` is a reserved attribute name on Declarative classes (SQLAlchemy).
-    # use `meta` as the Python attribute but keep the DB column name as "metadata"
-    # Store JSON as TEXT in SQLite
-    meta = db.Column("metadata", db.Text)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
 class EmailConfig(db.Model):
     """Email configuration for automated invoice polling"""
     __tablename__ = "email_configs"
@@ -201,3 +184,103 @@ class EmailConfig(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship("User")
+
+
+class EmbeddingVector(TypeDecorator):
+    """A 384-d embedding: pgvector's `vector` on Postgres (searched in SQL), float32 bytes elsewhere
+    (searched with numpy). Both are exact, so SQLite evals and Postgres agree (SPEC-RAG)."""
+
+    impl = LargeBinary
+    cache_ok = True
+    dim = 384
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            from pgvector.sqlalchemy import Vector
+
+            return dialect.type_descriptor(Vector(self.dim))
+        return dialect.type_descriptor(LargeBinary())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        import numpy as np
+
+        array = np.asarray(value, dtype=np.float32)
+        return array if dialect.name == "postgresql" else array.tobytes()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        import numpy as np
+
+        if dialect.name == "postgresql":
+            return np.asarray(value, dtype=np.float32)
+        return np.frombuffer(value, dtype=np.float32)
+
+
+class Document(db.Model):
+    """An uploaded document indexed for retrieval (SPEC-RAG). One per (user, content): re-uploads are no-ops."""
+
+    __tablename__ = "documents"
+
+    id = db.Column(db.String(100), primary_key=True)
+    user_id = db.Column(String(36), nullable=False, index=True)
+    title = db.Column(db.String, nullable=False)
+    doc_type = db.Column(db.String(32), nullable=False, default="other")
+    filename = db.Column(db.String, nullable=True)
+    content_hash = db.Column(db.String(64), nullable=False)
+    embedding_model = db.Column(db.String(100), nullable=False)
+    chunk_count = db.Column(Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "content_hash", name="u_document_user_content"),)
+
+
+class DocumentChunk(db.Model):
+    """A section-aligned piece of a document, with its embedding (`<doc id>#sNN[-k]`)."""
+
+    __tablename__ = "document_chunks"
+
+    id = db.Column(db.String(120), primary_key=True)
+    document_id = db.Column(db.String(100), db.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = db.Column(String(36), nullable=False, index=True)  # copied from the document: the tenant filter
+    section_no = db.Column(Integer, nullable=False)
+    piece_no = db.Column(Integer, nullable=False, default=0)
+    heading = db.Column(db.String, nullable=True)
+    text = db.Column(Text, nullable=False)
+    content_hash = db.Column(db.String(64), nullable=False)
+    embedding = db.Column(EmbeddingVector, nullable=False)
+    embedding_model = db.Column(db.String(100), nullable=False)
+
+
+class Proposal(db.Model):
+    """An action the agent proposes; nothing changes until a human approves it (SPEC-AGENT)."""
+
+    __tablename__ = "proposals"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    type = db.Column(db.String(50), nullable=False)  # e.g. flag_invoice, mark_paid, update_category
+    target = db.Column(db.String(200), nullable=False)  # what it acts on, e.g. an invoice number
+    payload = db.Column(Text, nullable=False, default="{}")  # JSON
+    risk = db.Column(db.String(10), nullable=False)  # low | medium | high
+    reason = db.Column(Text, nullable=False)
+    evidence = db.Column(Text, nullable=False, default="[]")  # JSON list of citations / SQL
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | approved | rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    decided_at = db.Column(db.DateTime, nullable=True)
+
+
+class AuditEvent(db.Model):
+    """Append-only log of proposals and decisions (who, what, when)."""
+
+    __tablename__ = "audit_events"
+
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(String(36), nullable=False, index=True)
+    actor = db.Column(db.String(20), nullable=False)  # agent | user
+    action = db.Column(db.String(50), nullable=False)  # proposal_created | proposal_approved | ...
+    proposal_id = db.Column(String(36), nullable=True, index=True)
+    detail = db.Column(Text, nullable=True)  # JSON
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
