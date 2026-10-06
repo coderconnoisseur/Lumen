@@ -252,3 +252,35 @@ class DocumentChunk(db.Model):
     content_hash = db.Column(db.String(64), nullable=False)
     embedding = db.Column(EmbeddingVector, nullable=False)
     embedding_model = db.Column(db.String(100), nullable=False)
+
+
+class Proposal(db.Model):
+    """An action the agent proposes; nothing changes until a human approves it (SPEC-AGENT)."""
+
+    __tablename__ = "proposals"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    type = db.Column(db.String(50), nullable=False)  # e.g. flag_invoice, mark_paid, update_category
+    target = db.Column(db.String(200), nullable=False)  # what it acts on, e.g. an invoice number
+    payload = db.Column(Text, nullable=False, default="{}")  # JSON
+    risk = db.Column(db.String(10), nullable=False)  # low | medium | high
+    reason = db.Column(Text, nullable=False)
+    evidence = db.Column(Text, nullable=False, default="[]")  # JSON list of citations / SQL
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | approved | rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    decided_at = db.Column(db.DateTime, nullable=True)
+
+
+class AuditEvent(db.Model):
+    """Append-only log of proposals and decisions (who, what, when)."""
+
+    __tablename__ = "audit_events"
+
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(String(36), nullable=False, index=True)
+    actor = db.Column(db.String(20), nullable=False)  # agent | user
+    action = db.Column(db.String(50), nullable=False)  # proposal_created | proposal_approved | ...
+    proposal_id = db.Column(String(36), nullable=True, index=True)
+    detail = db.Column(Text, nullable=True)  # JSON
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
