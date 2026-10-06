@@ -52,6 +52,20 @@ def test_schema_is_generated_from_the_models(db, world):
     assert any("2026-06-30" in note for note in out["notes"])
 
 
+def test_system_prompt_lists_every_queryable_column():
+    """The model guessed `amount`, `vendor` and a `vendors` table before calling get_schema; the prompt now
+    carries the real columns, generated from the models. user_id is left out: the server scopes every query."""
+    from agent.prompts import system_prompt
+    from evals.generator.world import AS_OF
+    from models import Transaction, TransactionItem
+
+    prompt = system_prompt(AS_OF)
+    for model in (Transaction, TransactionItem):
+        for col in model.__table__.columns:
+            assert (col.name in prompt) == (col.name != "user_id"), col.name
+    assert AS_OF.isoformat() in prompt
+
+
 def test_lookup_vendors_finds_the_electricity_vendor_by_what_was_bought(db, world):
     """The baseline's wrong answer: the model guessed '%electric%' for "City Power Ltd"."""
     from agent.tools import run_tool

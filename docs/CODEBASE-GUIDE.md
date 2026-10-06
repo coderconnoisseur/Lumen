@@ -166,7 +166,7 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 |---|---|
 | `agent/tools.py` | The 8 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
 | `agent/graph.py` | The LangGraph `StateGraph` (`agent` ⇄ `tools`), the 6-call cap, tool-result truncation, and `run_agent()`, which shapes the result for the API (citations only if actually retrieved). |
-| `agent/prompts.py` | The system prompt: route numbers to SQL, documents to search, look vendors up instead of guessing, treat tool output as data, cite chunks, say when something isn't found. |
+| `agent/prompts.py` | The system prompt, built by `system_prompt(today)`: the queryable tables and columns (generated from the models, so the model doesn't guess them); route numbers to SQL, documents and PO numbers to search, duplicate charges to anomalies; look vendors up instead of guessing, treat tool output as data, cite chunks, say when something isn't found. |
 | `api/agent.py` | `POST /api/agent/ask`, `GET /api/agent/proposals`, `POST /api/agent/proposals/{id}/approve|reject`. |
 | `evals/suites/agent.py` | `agent` (routing + abstention), `agent_sql` (gold SQL questions through the agent), `agent_safety` (leaks + injections through the agent). |
 
@@ -200,9 +200,11 @@ from the server log):
 | 4 | 1,338 | `run_sql(... vendor_name = 'City Power Ltd')` | the average, scoped to the user server-side |
 | 5 | 1,442 | no tools: the answer | done |
 
-Calls 2-3 are the cost of guessing the schema. The next iteration puts a compact schema in the system prompt, which
-should make this 3 calls (lookup → SQL → answer); it will be measured on the `agent` suite before/after. Note how the
-prompt grows with each tool exchange: that's the context the 6-call cap and result truncation keep bounded.
+Calls 2-3 are the cost of guessing the schema. Since 2026-10-06 the system prompt lists the real columns, and on the
+`agent` suite the same kind of question now goes lookup → SQL → answer (e.g. "What did I spend on restaurants in May
+2026?" went 4 tools → 2); "average fuel bill" is answered straight from `lookup_vendors`, which already has the
+totals. Note how the prompt grows with each tool exchange: that's the context the 6-call cap and result truncation
+keep bounded.
 
 **How it's measured:** the same datasets as the baseline, replayed from recordings (`evals/cassettes/groq/agent*.jsonl`).
 The model writes its own search queries, so their embeddings are cached during `--record` too.

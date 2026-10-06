@@ -93,3 +93,6 @@ tmp/
 
 # Local eval runs; only release results are committed (SPEC-EVAL)
 backend/evals/results/dev-*.json
+
+# local code-graph output (graphify)
+graphify-out/

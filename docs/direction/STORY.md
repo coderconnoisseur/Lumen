@@ -177,3 +177,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** Every recording now replays to exactly the live numbers (agent 22/24 and 28/28, Groq SQL 29/32, OpenRouter
   SQL 29/32, bench tables byte-identical). Story point: "record once, replay forever" only holds if you verify
   the replay immediately after recording.
+
+## 16. Giving the agent the schema up front: a quarter fewer tokens, and a lesson in prompt side effects (AGT-07)
+- **S:** The agent guessed columns (`amount`, `vendor`, `tax_type`) and even a `vendors` table: 8 rejected or failed
+  queries and 7 `get_schema` calls across 28 dev questions; "average electricity bill" took 5 LLM calls.
+- **T:** Cut the wasted calls without losing routing accuracy, measured before/after on the recorded `agent` suite.
+- **A:** Put a compact schema in the system prompt, generated from the models so it can't drift (a test checks
+  every column is listed and `user_id` isn't). The first recording cut calls but broke routing (18/24): seeing an
+  `invoice_number` column, the model sent PO numbers to `get_invoice` and gave up. Read each miss, added general
+  routing lines (PO numbers -> documents, duplicate charges -> anomalies, try the other likely tool before giving
+  up), re-recorded, replayed both recordings offline to identical numbers.
+- **R:** Calls 73 -> 54 (2.6 -> 1.9 per question), tokens/question 2,961 -> 2,233 (-25%), p95 5.5 s -> 3.3 s, zero
+  failed SQL, zero `get_schema` calls; routing 21/24 (was 22/24, inside the CI). Every remaining miss read by hand
+  is a label or scorer artefact, which is a metric decision left to the owner. Story point: a prompt fix has side
+  effects elsewhere; only an eval that covers every route shows them.

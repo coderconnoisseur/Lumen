@@ -248,7 +248,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - Agent answers were fine; speed impressive. "Couldn't locate FM-202606-U1N03" was correct: that number was a bad
   hint (it's from the invoice-image dataset, not stored transactions); hint fixed to the seeded FM-202606-U10223.
 - "Average electricity bill" took 5 LLM calls (lookup → SQL on a nonexistent `vendors` table, rejected → get_schema →
-  SQL → answer). Next iteration: compact schema in the system prompt, measured before/after on the `agent` suite.
+  SQL → answer). Done 2026-10-06: compact schema in the system prompt (see below).
 - **Polish backlog for the UI refactor (owner: later):** the UI shows raw UUIDs; answers need markdown rendering;
   clicking a reference should open the original document (needs the PDF stored, today only text is kept); general
   formatting; slow tab loads; no separation of concerns in the UI.
@@ -256,13 +256,26 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 15 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 16 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
+
+## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
+- History of #13/#14 rewritten and force-pushed (owner OK) to drop an old wording from three commits; backups
+  `backup/agent-evals-pre-scrub`, `backup/agent-test-page-pre-scrub` (local only).
+- The system prompt now carries the two tables and their columns (generated from the models, `user_id` left out),
+  plus routing lines: PO numbers -> documents, duplicate charges -> anomalies, try the other likely tool first.
+- `agent` dev on Groq, before -> after: calls 73 -> 54, tokens/question 2,961 -> 2,233, p95 5.5 s -> 3.3 s, failed
+  SQL 8 -> 0, `get_schema` calls 7 -> 0; routing 22/24 -> 21/24, abstention 28/28 -> 26/28 as scored.
+  `docs/direction/benchmarks/2026-10-06-agent-prompt-schema-dev.md`, STORY 16.
+- **Open for the owner (metric change):** all five remaining misses are scorer/label artefacts: (a) answering a
+  vendor total from `lookup_vendors` counts as a wrong route (003, 009, 010); (b) the abstention regex reads a
+  grounded "I couldn't find any duplicate charges" as a refusal (026) and misses "I don't have information to
+  answer that" (040).
 
 ## Next step
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
-1. **Agent prompt iteration:** compact schema in the system prompt; re-record `agent` on Groq; compare tool calls,
-   tokens and accuracy before/after (snapshot + STORY).
+1. **Owner decision on the two scorer fixes above**; if approved, change the scorer, replay (no new recording
+   needed), and update the snapshot.
 2. **Record `agent_sql` and `agent_safety` on Groq** (`python -m evals.run --tier groq --suite agent_sql --record`;
    ~200K tokens/day/model, patient mode waits out TPM). Then the agent-vs-pipeline comparison (AGT-07 report).
    Always replay immediately after recording.
