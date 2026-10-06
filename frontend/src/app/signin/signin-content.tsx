@@ -62,12 +62,34 @@ export default function SignInContent() {
 	const [isStartingGoogle, setIsStartingGoogle] = useState(false);
 	const [authError, setAuthError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [startingDemo, setStartingDemo] = useState(false);
 
 	useEffect(() => {
-		if (!loading && user) {
+		if (!loading && user && !startingDemo) {
 			router.replace(next);
 		}
-	}, [loading, next, router, user]);
+	}, [loading, next, router, user, startingDemo]);
+
+	// One-click demo (SPEC-DEPLOY): a throwaway anonymous account with its own copy of the demo data.
+	const handleDemo = async () => {
+		setStartingDemo(true);
+		setAuthError(null);
+		try {
+			const supabase = getSupabaseBrowserClient();
+			const { data, error } = await supabase.auth.signInAnonymously();
+			if (error || !data.session) throw error ?? new Error("No session");
+			const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demo/start`, {
+				method: "POST",
+				headers: { Authorization: `Bearer ${data.session.access_token}` },
+			});
+			if (!res.ok) throw new Error(`Demo setup failed (${res.status})`);
+			router.replace("/agent");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Something went wrong.";
+			setAuthError(`Couldn't start the demo. ${message}`);
+			setStartingDemo(false);
+		}
+	};
 
 	const reasonCopy = useMemo(() => {
 		const reason = searchParams.get("reason");
@@ -374,6 +396,16 @@ export default function SignInContent() {
 								</Button>
 							</>
 						) : null}
+
+						<Button
+							type="button"
+							size="lg"
+							onClick={handleDemo}
+							disabled={startingDemo}
+							className="w-full rounded-xl"
+						>
+							{startingDemo ? "Setting up your demo…" : "Try the demo (no sign-up)"}
+						</Button>
 
 						<div className="grid gap-3 sm:grid-cols-2">
 							<Button

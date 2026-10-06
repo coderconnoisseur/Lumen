@@ -44,6 +44,7 @@ search. The agent's job (next) is to pick the right one.
 | `api/deps.py` | FastAPI dependencies that behave exactly like the Flask side: `current_user` (same JWT check and 401 bodies), `rate_limit(spec)` (same per-user key and storage as Flask-Limiter), `llm_deadline` (100 s budget per request). |
 | `api/errors.py` | Maps errors to the app-wide body `{success: false, error, code}`; `LLMError` → 429/502/503. |
 | `api/documents.py` | `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST /api/documents/search`, `POST /api/documents/ask`. Gets the RAG service via `Depends(get_service)`, which tests override with fakes. |
+| `api/demo.py` | `POST /api/demo/start`: for anonymous (demo) accounts only, seeds the caller's own copy of the demo data once (`scripts/seed_demo_data.seed`). `api/agent.py` caps demo accounts at `DEMO_QUESTIONS_PER_DAY` (20) agent questions a day. |
 | `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen + history), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
 
 ### Auth and tenancy (the rule everything follows)
@@ -211,7 +212,16 @@ The model writes its own search queries, so their embeddings are cached during `
 
 ## 7. Local demo data
 `python -m scripts.seed_demo_data --user-id <your Supabase user id>` copies the eval world's user u1 (a year of
-transactions, line items, 10 documents) into your local account, touching only the seeded rows.
+transactions, line items, 10 documents) into your local account, touching only the seeded rows. The same `seed()`
+backs the live **Try the demo** button: the sign-in page signs the visitor in anonymously (Supabase) and calls
+`POST /api/demo/start`, so every visitor gets a private copy.
+
+## 7b. Deployment (SPEC-DEPLOY, owner runbook in `docs/DEPLOY.md`)
+- `lumen.nishantbuilds.me` → Vercel (`frontend/`, production branch `main`); `api.lumen.nishantbuilds.me` → Render
+  (`render.yaml`: one free web service, deploys a push to `main` only after CI passes); Supabase for auth + Postgres.
+- `.github/workflows/ci.yml`: backend tests on Postgres 16 + pgvector, offline eval replay, frontend lint.
+  `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
+- `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
 
 ## 8. Coming next (filled in as it ships)
 - **Extraction** (SPEC-EXTRACT): schema-validated invoices, rule checks, confidence, review queue (auto-approve
