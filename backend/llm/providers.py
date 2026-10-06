@@ -122,14 +122,16 @@ class _OpenRouter(Provider):
         if resp.status_code != 200:
             return False, f"OpenRouter rejected the key (HTTP {resp.status_code}: {_safe_message(resp)}).{self.auth_hint()}"
         data = resp.json().get("data") or {}
-        tier = "free tier" if data.get("is_free_tier") else "paid"
+        free = bool(data.get("is_free_tier"))
+        # `limit_remaining` is the key's dollar credit, not a request count. The ~50/day cap on `:free` models
+        # (no credits bought) isn't reported by this endpoint.
         remaining = data.get("limit_remaining")
-        suffix = (
-            f", about {round(remaining)} requests left in the current limit window"
-            if isinstance(remaining, (int, float))
-            else ""
-        )
-        return True, f"OpenRouter key OK ({tier}{suffix})."
+        parts = ["free tier" if free else "paid"]
+        if isinstance(remaining, (int, float)):
+            parts.append(f"${remaining:.2f} of credit left")
+        if free:
+            parts.append("free models are limited per day")
+        return True, f"OpenRouter key OK ({', '.join(parts)})."
 
 
 class _Groq(Provider):

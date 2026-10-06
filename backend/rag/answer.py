@@ -1,12 +1,16 @@
 """Cited answers from retrieved chunks, with abstention (SPEC-RAG, RAG-06).
 
 Abstention happens in layers, cheapest first, and the first two cost no LLM call:
-  1. no evidence, or the reranker's best score is below MIN_RELEVANCE (clearly off-topic);
+  1. no evidence at all (the user has no documents);
   2. **identifier grounding:** the question names a document code (a PO or invoice number) that appears in
      none of the retrieved chunks. The reranker can't catch this: asked about another user's
      "PO-U2-202603-05", it scores the asker's own PO "order total" sections at 0.999 (topically perfect,
-     wrong document). On the dev generation set, a score cut-off alone separated only 19/26 questions;
+     wrong document);
   3. the model is told to reply NOT_FOUND when the passages don't answer the question.
+There is deliberately no reranker-score cut-off. One existed (0.5) and refused good questions in the owner's
+first test: "What is the notice period?" retrieved the right section but scored 0.003, because the MS MARCO
+cross-encoder's scores collapse for short, generic questions, the same range as truly off-topic ones (0.000).
+The eval questions all named their vendor or PO, so they hadn't shown it.
 Every citation must be a retrieved chunk id; invented ones are dropped.
 """
 from __future__ import annotations
@@ -15,10 +19,6 @@ import re
 
 from rag.store import Hit
 
-# The reranker's top score below which a question is treated as off-topic. Set conservatively: on the dev
-# set answerable questions scored >= 0.95 and the one off-topic question 0.00, but with only two "not in the
-# documents" dev questions there is too little data to tune it finely (owner agreed, 2026-10-04).
-MIN_RELEVANCE = 0.5
 CONTEXT_CHUNKS = 5
 NOT_FOUND = "NOT_FOUND"
 ABSTAIN_MESSAGE = "I couldn't find this in your documents."
@@ -46,8 +46,6 @@ def document_codes(text: str) -> set[str]:
 def abstain_reason(question: str, hits: list[Hit]) -> str | None:
     if not hits:
         return "no_evidence"
-    if hits[0].score < MIN_RELEVANCE:
-        return "low_relevance"
     evidence = " ".join(f"{h.title} {h.text}" for h in hits).upper()
     if any(code not in evidence for code in document_codes(question)):
         return "unknown_reference"

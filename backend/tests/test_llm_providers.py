@@ -87,6 +87,18 @@ def test_groq_key_check_lists_models(monkeypatch):
     assert seen == ["https://api.groq.com/openai/v1/models"]
 
 
+def test_openrouter_key_check_reports_credit_not_requests(monkeypatch):
+    """`limit_remaining` is the key's dollar credit, not the free-model request quota (~50/day)."""
+    from llm import providers
+
+    body = {"data": {"is_free_tier": True, "limit_remaining": 49.9999973}}
+    monkeypatch.setattr(providers.requests, "get", lambda *a, **k: _Resp(200, body))
+    ok, summary = providers.PROVIDERS["openrouter"].check_key()
+    assert ok and "$50.00 of credit left" in summary
+    assert "requests left" not in summary
+    assert "free models are limited per day" in summary
+
+
 def test_key_check_reports_rejection(monkeypatch):
     from llm import providers
 

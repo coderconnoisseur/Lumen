@@ -18,13 +18,21 @@ def test_document_codes_are_found_in_questions():
 
 @pytest.mark.parametrize("question, hits, reason", [
     ("What is the warranty on gift cards?", [], "no_evidence"),
-    ("What is the warranty on gift cards?", [_hit("a#s01", "Order total: INR 10.00", score=0.02)], "low_relevance"),
     ("What is the order total on PO-U2-202603-05?", [_hit("a#s01", "Order total: INR 10.00")], "unknown_reference"),
 ])
 def test_abstains_without_calling_the_model(question, hits, reason):
     from rag.answer import abstain_reason
 
     assert abstain_reason(question, hits) == reason
+
+
+def test_short_generic_questions_are_not_refused_for_a_low_reranker_score():
+    """Owner's test, 2026-10-04: "What is the notice period?" retrieved the right section but the cross-encoder
+    scored it 0.003, and a score cut-off refused it. The score can't separate short questions from off-topic
+    ones (both near 0), so it no longer gates; the model's NOT_FOUND does."""
+    from rag.answer import abstain_reason
+
+    assert abstain_reason("What is the notice period?", [_hit("c#s04", "60 days' written notice.", score=0.003)]) is None
 
 
 def test_answers_when_the_named_document_was_retrieved():

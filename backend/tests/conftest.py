@@ -19,7 +19,6 @@ if str(BACKEND_ROOT) not in sys.path:
 TEST_DB_DIR = Path(tempfile.mkdtemp(prefix="lumen-tests-"))
 os.environ["DATABASE_URL"] = ""
 os.environ["DATABASE_PATH"] = str(TEST_DB_DIR / "lumen-test.db")
-os.environ["ENABLE_CHROMA"] = "false"
 
 # Provider keys are dummies, set before `config` loads backend/.env (which
 # never overrides), so even an unmocked call can't spend the real free-tier

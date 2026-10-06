@@ -7,14 +7,15 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 
 | Step | Module | State | Commits |
 |---|---|---|---|
-| 1 | Network block + dummy keys (6b #1) | ✅ done | 278e229 |
-| 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 87c5b45 … 2480fda |
-| 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
-| 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
-| 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
-| 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | 34d2a7f … |
-| — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 2265bc3 |
-| 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API done; page, generation suite, safety, prod switch left | 75ca045 … |
+| 1 | Network block + dummy keys (6b #1) | ✅ done | ae7798f |
+| 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 11e0e52 … 6f12f3c |
+| 3 | EVAL-01 harness skeleton | ✅ done | ac908d2, bb1a7a9 |
+| 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 0a421ae, 2122600, 6f9e1d8 |
+| 5a | EVAL-02 generator + datasets | ✅ done | d5c9cd6 … 2eb87ab |
+| 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | a9a9f55 … |
+| — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 64fa55f |
+| 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API, page, RAG-08 cases, RAG-09 (Chroma removed) done; generation suite left | 1d38309 … |
+| — | SPEC-AGENT / SPEC-EXTRACT / SPEC-UX one-pagers | 📝 drafted 2026-10-04, awaiting owner review | |
 
 Last commit: EVAL-03 in progress (see the branch history).
 Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
@@ -146,7 +147,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   Live calls happen only in the explicit `--record` step.
 - **Free-tier limit: 50 requests/day** (key status checked, no quota used). The record plan spans days:
   SQL dev (done except 2), safety (~27 dev calls), extraction (56 dev + 24 test vision calls), SQL test (15).
-- **Client fixes for faithful replay** (`34d2a7f`, `0a3c7b1`): replay walks the failover chain; unusable
+- **Client fixes for faithful replay** (`a9a9f55`, `47188e8`): replay walks the failover chain; unusable
   replies are recorded and replayed as errors; repeated identical calls within a case get their own
   recordings; `collect_calls()` feeds the ops metrics.
 - **Suites:** `evals/suites/sql.py` (strict execution accuracy, gated; relaxed accuracy as a diagnostic;
@@ -207,6 +208,21 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - **Left for RAG:** the Documents page (written, being type-checked), the generation suite (LLM + judge; needs
   quota and the owner's ~20 judge labels), injection planted inside a corpus document (RAG-08), removing Chroma
   and the `ENABLE_CHROMA` switch (RAG-09), and wiring document answers into chat (that's the agent's job).
+
+## 2026-10-04 (morning)
+- SQL dev recordings complete: **29/32** column-tolerant, 21/32 strict, 0 fallbacks, p50 2.9 s / p95 8.9 s (all
+  Nemotron today).
+- Fixed: `--only-missing` re-called the first model for cases already recorded under the fallback (cost ~12
+  requests); the client now searches the whole chain for a recording before any live call.
+- Fixed: the safety suite inherited `ENABLE_CHROMA=true` from the local `.env` (extra classifier calls, $0.0000008
+  of paid embeddings); that recording was discarded, and the suite now runs production's chat configuration.
+  Then RAG-09 removed the Chroma path entirely (`rag_system.py`, classifier, backfill script, `chromadb`).
+- Startup key check now reports OpenRouter **credit**, not "requests left" (the daily free cap isn't exposed).
+- RAG-08: three poisoned uploaded PDFs in `safety.jsonl` (`doc_injection`), run through document search and the
+  cited-answer path; local model caches recorded; LLM recording pending.
+- Local dev servers: a local, git-ignored launch config runs `uvicorn asgi:app` on :5000 with registry chains and
+  the Next.js dev server on :3000. The owner tests at http://localhost:3000/documents.
+- Specs drafted for review: `SPEC-AGENT.md`, `SPEC-EXTRACT.md`, `SPEC-UX.md`.
 
 ## Next step
 Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):

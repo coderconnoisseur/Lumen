@@ -97,6 +97,12 @@ def complete(
     dead_providers: set[str] = set()
     last: LLMError | None = None
     first_miss: cassette.CassetteMiss | None = None
+    if cassette.mode() == "record":
+        index = _recorded_entry(entries, messages, request)
+        if index is not None:
+            for skipped in entries[:index]:  # count them as replay would (it tries and misses each one)
+                cassette.nth(_base_key(skipped, messages, request))
+            entries = entries[index:]
     for entry in entries:
         if entry.provider in dead_providers:
             continue
@@ -147,13 +153,30 @@ def _fits(wait: float | None) -> bool:
     return left is None or wait + MIN_CALL_SECONDS + MARGIN_SECONDS <= left
 
 
-def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0) -> LLMResult:
-    provider = PROVIDERS[entry.provider]
-    key = cassette.make_key(
+def _base_key(entry: Entry, messages, request) -> str:
+    return cassette.make_key(
         provider=entry.provider, model=entry.model, messages=messages, tools=request["tools"],
         response_format=request["response_format"], temperature=request["temperature"],
         max_tokens=request["max_tokens"], seed=request["seed"],
     )
+
+
+def _recorded_entry(entries: list[Entry], messages, request) -> int | None:
+    """Recording: the index of the first chain entry that already has a recording for this call.
+
+    A reply recorded after a failover lives under a later entry; `--only-missing` must reuse it instead of
+    spending quota calling the first entry again.
+    """
+    shelf = tier()
+    for index, entry in enumerate(entries):
+        if cassette.lookup(shelf, cassette.peek(_base_key(entry, messages, request))) is not None:
+            return index
+    return None
+
+
+def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0) -> LLMResult:
+    provider = PROVIDERS[entry.provider]
+    key = _base_key(entry, messages, request)
     if attempt:  # a retry is its own recording, so replay repeats the live sequence
         key = f"{key}:retry{attempt}"
     mode = cassette.mode()

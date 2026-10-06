@@ -145,24 +145,6 @@ Insight = AnalyticsInsight
 Anomaly = FraudAnomaly
 
 
-class EmbeddingMeta(db.Model):
-    __tablename__ = "embeddings_metadata"
-
-    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    transaction_id = db.Column(String(36), db.ForeignKey("transactions.id"))
-
-    # This is the ID you get when adding docs to ChromaDB
-    chroma_doc_id = db.Column(db.String, nullable=False)
-
-    chunk_text = db.Column(db.Text, nullable=True)
-    # `metadata` is a reserved attribute name on Declarative classes (SQLAlchemy).
-    # use `meta` as the Python attribute but keep the DB column name as "metadata"
-    # Store JSON as TEXT in SQLite
-    meta = db.Column("metadata", db.Text)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
 class EmailConfig(db.Model):
     """Email configuration for automated invoice polling"""
     __tablename__ = "email_configs"

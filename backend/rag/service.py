@@ -5,6 +5,7 @@ service through a FastAPI dependency, which tests override with fakes.
 """
 from __future__ import annotations
 
+import logging
 import threading
 
 from rag.answer import CONTEXT_CHUNKS, answer_from_hits
@@ -14,6 +15,7 @@ from rag.rerank import FlashReranker, Reranker
 from rag.retrieve import search_documents
 from rag.store import ChunkStore
 
+logger = logging.getLogger(__name__)
 DOC_TYPES = ("purchase_order", "contract", "policy", "invoice", "other")
 
 
@@ -39,6 +41,8 @@ class RagService:
     def ask(self, user_id: str, question: str) -> dict:
         hits = self.search(user_id, question, k=CONTEXT_CHUNKS)
         out = answer_from_hits(question, hits, llm=self.llm)
+        logger.info("documents ask: abstained=%s reason=%s top_score=%s retrieved=%s cited=%s", out["abstained"],
+                    out["reason"], f"{hits[0].score:.3f}" if hits else None, len(hits), len(out["citations"]))
         by_id = {h.chunk_id: h for h in hits}
         out["sources"] = [{"chunk_id": cid, "document_id": by_id[cid].doc_id, "title": by_id[cid].title,
                            "section": by_id[cid].heading, "text": by_id[cid].text} for cid in out["citations"]]

@@ -6,7 +6,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 
 ---
 
-## 1. Tests that could quietly spend the real API quota (step 1, `278e229`)
+## 1. Tests that could quietly spend the real API quota (step 1, `ae7798f`)
 - **S:** The test suite imported the app with the developer's real OpenRouter key loaded, and nothing stopped
   an unmocked call from going out. The free tier allows ~50 requests a day.
 - **T:** Make it impossible for any test to touch the network or a real key.
@@ -15,7 +15,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** 0 live calls from the suite since then, enforced rather than hoped for. Every later eval (replayed
   from recordings) relies on it.
 
-## 2. One LLM client instead of scattered calls (LLM-01, `87c5b45 … 2480fda`)
+## 2. One LLM client instead of scattered calls (LLM-01, `11e0e52 … 6f12f3c`)
 - **S:** LLM calls were spread across modules, each with its own timeout (60 s per module, so one request
   could take 120-140 s), server-side model failover, and no way to replay a call.
 - **T:** One client with provider adapters, a per-request time budget, failover, and record/replay.
@@ -25,7 +25,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** All 342 existing tests passed unchanged; a hung provider call is now abandoned at its time slice
   instead of holding a worker.
 
-## 3. An eval harness before any "AI improvement" (EVAL-01, `379e94a`, `71b9dae`)
+## 3. An eval harness before any "AI improvement" (EVAL-01, `ac908d2`, `bb1a7a9`)
 - **S:** No way to say whether a change made the AI better or worse.
 - **T:** Pure, unit-tested metrics and a runner that gates on regressions.
 - **A:** `evals/metrics.py` (each metric checked against a hand-computed value), Wilson 95% intervals on
@@ -33,7 +33,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   release run.
 - **R:** `pytest -m eval` runs offline in CI. Numbers are always "41/50 (CI 0.69-0.89)", never a bare %.
 
-## 4. FastAPI without breaking a single URL (API-01, `7e5908b … e66a81e`)
+## 4. FastAPI without breaking a single URL (API-01, `0a421ae … 6f9e1d8`)
 - **S:** Two sync gunicorn workers meant two slow LLM requests blocked everything, including `/health`. New
   agent endpoints were meant to be FastAPI.
 - **T:** Put FastAPI in front of the existing Flask app with identical behaviour for auth, rate limits, CORS
@@ -44,7 +44,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   startup safety checks (LLM registry, key check) had never run in production, because they only ran under
   `python app.py`; they now run in the uvicorn startup hook.
 
-## 5. Synthetic data with labels you can trust (EVAL-02, `f0a9a32 … 9c6479d`)
+## 5. Synthetic data with labels you can trust (EVAL-02, `d5c9cd6 … 2eb87ab`)
 - **S:** No datasets: no gold SQL, no labelled invoices, no RAG corpus.
 - **T:** Seeded, reproducible datasets with a dev/test split, where labels come from construction, not opinion.
 - **A:** A generator for a year of transactions for 2 users, 50 hand-written gold SQL questions, 40 invoices
@@ -54,7 +54,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   key SQLite never enforces, and every gold query now gives identical results on SQLite and Postgres 16.
   **Also caught:** the repo's `.gitignore` silently dropped every eval image and PDF from the first commit.
 
-## 6. Making recordings replay faithfully (EVAL-03 prep, `34d2a7f`, `73fb040`)
+## 6. Making recordings replay faithfully (EVAL-03 prep, `a9a9f55`, `c3d37da`)
 - **S:** Three ways a recorded eval could fail to replay: (1) the SQL prompt contains today's date, so every
   recording would go stale the next day; (2) when the free model times out, the client fails over to another
   model, but replay only looked under the first one; (3) empty model replies weren't recorded at all.
@@ -65,7 +65,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** The SQL suite scores a fake perfect model 32/32 and a broken one 0/32 (with 32 fallbacks), proving the
   scoring before any real model is measured.
 
-## 7. The free fallback model disappeared mid-recording (`21118f7`)
+## 7. The free fallback model disappeared mid-recording (`5ef9a34`)
 - **S:** The first live recording of the SQL baseline hit Nvidia "503: service temporarily overloaded" on the
   free Nemotron 3 Ultra, and the configured fallback, Nex N2.5 Pro, returned 404 "unavailable for free". Free
   models get retired or moved behind payment without notice, so every question used 2 requests and failed.
@@ -115,3 +115,31 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   questions, and told the model to reply NOT_FOUND as a last layer.
 - **R:** **26/26** correct answer-or-abstain decisions on dev before any LLM call (both layers are local),
   and abstained questions cost zero credits. Honest limit: only 26 dev questions; the test split is the check.
+
+## 11. Eval hygiene: two recording mistakes and the guards they produced (`7d6ea83` and the safety fix)
+- **S:** With 50 free requests a day, every wasted call delays the baseline. Two mistakes in one morning:
+  (1) re-recording with `--only-missing` called the first model again for 12 questions whose fallback reply was
+  already recorded; (2) the safety suite inherited a developer setting (`ENABLE_CHROMA=true`) that production
+  doesn't use, which added a classifier call per question and a few paid embedding calls (total cost
+  $0.0000008), and made the recording unrepresentative.
+- **T:** Make both mistakes impossible to repeat, not just "be more careful".
+- **A:** The client now looks along the whole failover chain for an existing recording before any live call
+  in record mode; the safety suite forces production's chat configuration and a test proves the old classifier
+  never runs. The unrepresentative recording was thrown away rather than used.
+- **R:** Re-recording costs exactly the missing calls. Measurements can no longer silently differ from
+  production because of a local `.env`. (Story point: an eval is only as trustworthy as its parity with
+  production; both guards are tested.)
+
+## 12. The eval set was more specific than real users (RAG-06 fix)
+- **S:** The owner's first manual test of document Q&A: the upload worked, but the question got "I couldn't find
+  this in your documents". Offline, abstention had scored 26/26 on dev.
+- **T:** Find out why a measured-good component failed its first real user.
+- **A:** Replayed plausible questions against the uploaded contract. Retrieval found the right section every
+  time, but the reranker scored short generic questions near zero ("What is the notice period?" 0.003, "What is
+  the monthly fee?" 0.414) and the 0.5 cut-off refused them. Every eval question had named its vendor or PO,
+  which keeps cross-encoder scores high. Removed the score cut-off (off-topic questions also score ~0.000, so no
+  cut-off separates them), kept identifier grounding and the model's NOT_FOUND, logged every abstention reason,
+  and added a regression test with the exact failing question.
+- **R:** Short questions are answered; refusing an off-topic question now costs one LLM call instead of zero.
+  Lesson for the story: an offline eval only covers the questions you wrote, so the first real user is part
+  of the eval. Next: generic, underspecified questions go into the generation suite.

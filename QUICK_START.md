@@ -117,7 +117,7 @@ python scripts/migrate_demo_user_id.py
 
 ## Deploy (Render)
 
-See `render.yaml` and `DEPLOYMENT.md`. Use managed Postgres (`DATABASE_URL`), set `ENABLE_CHROMA=false` on the API service, and run the `lumen-email-worker` for IMAP polling.
+See `render.yaml` and `DEPLOYMENT.md`. Use managed Postgres (`DATABASE_URL`), and run the `lumen-email-worker` for IMAP polling.
 
 ---
 
