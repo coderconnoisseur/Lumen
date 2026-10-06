@@ -1,0 +1,85 @@
+"""Give a local account the synthetic demo data: a year of transactions (and line items) plus the documents of
+the eval world's user u1, so the agent and document search have something real to work with.
+
+    python -m scripts.seed_demo_data --user-id <your Supabase user id>          # local database only
+
+Re-running replaces only the seeded transactions (your own uploads and your user row are never touched);
+documents are deduplicated by content. Ids are derived from your user id, so seeded rows never collide with the
+eval world or another account. Invoice numbers can collide with an invoice you uploaded yourself only if it has
+exactly the same synthetic number. Refuses non-SQLite databases unless
+--allow-postgres is given (it's demo data, not for production).
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+import uuid
+from pathlib import Path
+
+BACKEND = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND))
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--user-id", required=True)
+    parser.add_argument("--allow-postgres", action="store_true")
+    args = parser.parse_args(argv)
+    uuid.UUID(args.user_id)  # must be a real user id
+
+    from datetime import datetime
+
+    from sqlalchemy import create_engine, delete, insert, select
+
+    import models  # noqa: F401  (registers the tables)
+    from config import Config
+    from evals.generator.world import build_world
+    from models.database import db
+    from rag.embed import FastEmbedder
+    from rag.ingest import ingest_pdf
+    from rag.store import ChunkStore
+
+    engine = create_engine(Config.DATABASE_URI)
+    if engine.dialect.name != "sqlite" and not args.allow_postgres:
+        print("Refusing to seed a non-SQLite database without --allow-postgres.")
+        return 2
+
+    world = build_world(42)
+    source = next(u for u in world["users"] if u["key"] == "u1")
+    remap = lambda old: str(uuid.uuid5(uuid.UUID(args.user_id), old))  # stable per account
+    txns = [t for t in world["transactions"] if t["user_id"] == source["id"]]
+    txn_ids = {t["id"] for t in txns}
+    rows = [{**t, "id": remap(t["id"]), "user_id": args.user_id,
+             "created_at": datetime.fromisoformat(t["created_at"])} for t in txns]
+    items = [{**i, "id": remap(i["id"]), "transaction_id": remap(i["transaction_id"])}
+             for i in world["transaction_items"] if i["transaction_id"] in txn_ids]
+
+    # Touch only the seeded rows: the account's own uploads and its users row are left alone.
+    tables = db.metadata.tables
+    db.metadata.create_all(engine, tables=[tables[t] for t in ("users", "receipts", "transactions", "transaction_items")])
+    with engine.begin() as conn:
+        if conn.execute(select(tables["users"].c.id).where(tables["users"].c.id == args.user_id)).first() is None:
+            conn.execute(insert(tables["users"]), [{"id": args.user_id, "email": f"{args.user_id[:8]}@local.demo"}])
+        seeded_ids = [r["id"] for r in rows]
+        conn.execute(delete(tables["transaction_items"]).where(tables["transaction_items"].c.transaction_id.in_(seeded_ids)))
+        conn.execute(delete(tables["transactions"]).where(tables["transactions"].c.id.in_(seeded_ids)))
+        conn.execute(insert(tables["transactions"]), rows)
+        conn.execute(insert(tables["transaction_items"]), items)
+    seeded = {"transactions": rows, "transaction_items": items}
+
+    store = ChunkStore(engine)
+    store.ensure_schema()
+    embedder = FastEmbedder()
+    corpus = BACKEND / "evals" / "data" / "corpus"
+    docs = sorted(p for p in corpus.glob("*.pdf") if "-u1-" in p.name or p.name.startswith("po-po-u1"))
+    for path in docs:
+        ingest_pdf(store, embedder, user_id=args.user_id, data=path.read_bytes(), filename=path.name,
+                   doc_type="purchase_order" if path.name.startswith("po-") else
+                   "policy" if path.name.startswith("policy") else "contract")
+    print(f"Seeded {len(seeded['transactions'])} transactions, {len(seeded['transaction_items'])} line items and "
+          f"{len(docs)} documents for {args.user_id[:8]}…")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
