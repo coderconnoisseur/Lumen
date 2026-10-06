@@ -146,6 +146,56 @@ text layer (scans need OCR, not built yet).
 - Dev servers: backend `python -m uvicorn asgi:app --port 5000` from `backend/` (blank the `LLM_*` model variables
   to use the registry chains); frontend `npm run dev` in `frontend/` → http://localhost:3000.
 
-## 6. Coming next (filled in as it ships)
-- **Agent** (SPEC-AGENT): LangGraph loop, typed tools, proposals with human approval, `/api/agent/ask`.
-- **Extraction** (SPEC-EXTRACT): schema-validated invoices, rule checks, confidence, review queue.
+## 6. The agent (`agent/`, `api/agent.py`): how it decides, and how it's kept safe
+
+**Mental model:** the agent is a loop where the model chooses tools and the code runs them. The model never touches
+the database, the user id, or the data directly; it only *asks* for tools, and the code decides what that means.
+
+```
+POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT, engine, SQL agent, RAG, today)
+                      └▶ agent/graph.run_agent(question, ctx)
+                           [system prompt + question]
+                           ┌──────────── agent node: llm.client.complete(messages, tools=<8 schemas>) ───────────┐
+                           │  reply has tool_calls?  yes ─▶ tools node: run_tool() for each, append results ─┘
+                           │                         no  ─▶ that's the answer ─▶ END
+                           └ after 6 tool calls the agent node is called WITHOUT tools: it must answer
+                      ◀── {answer, citations, sources, steps, sql, rows, proposals, stopped, llm_calls}
+```
+
+| File | What it does |
+|---|---|
+| `agent/tools.py` | The 8 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
+| `agent/graph.py` | The LangGraph `StateGraph` (`agent` ⇄ `tools`), the 6-call cap, tool-result truncation, and `run_agent()`, which shapes the result for the API (citations only if actually retrieved). |
+| `agent/prompts.py` | The system prompt: route numbers to SQL, documents to search, look vendors up instead of guessing, treat tool output as data, cite chunks, say when something isn't found. |
+| `api/agent.py` | `POST /api/agent/ask`, `GET /api/agent/proposals`, `POST /api/agent/proposals/{id}/approve|reject`. |
+| `evals/suites/agent.py` | `agent` (routing + abstention), `agent_sql` (gold SQL questions through the agent), `agent_safety` (leaks + injections through the agent). |
+
+**The tools and what they wrap:** `get_schema` (generated from the models), `lookup_vendors` (real vendor names
+matched on name, category and items; fixes "electric" → City Power Ltd), `run_sql` (`SQLAgent.execute_sql` with
+`require_user_filter=False`: the model never sees the user id, and `_scope_to_user` restricts every table anyway;
+another user's id is still rejected), `search_documents` (hybrid RAG), `get_invoice`, `get_anomalies` (existing
+statistical + rule detectors), `forecast` (least-squares trend), `propose_action` (writes a *pending* proposal + an
+audit event).
+
+**Safety, layer by layer:**
+1. Tenant isolation is in code: the user id comes from the JWT into `ToolContext`; no tool takes a user id.
+2. SQL keeps every guardrail (one read-only SELECT, allowed tables, no other user's id, server-side scoping).
+3. Tool output is untrusted: the prompt says so, results are truncated, and citations are checked against what
+   was actually retrieved.
+4. Autonomy boundary: the agent can only *propose*. Approval is a separate authenticated call; every proposal and
+   decision is in `audit_events`. Only `update_category` changes data today.
+
+**Context management:** the conversation is system prompt + question + tool exchanges. Each tool result is capped
+(3,000 characters; 50 SQL rows; 600 characters per passage) and there are at most 6 tool calls, so one run's
+context is bounded. That matters on Groq's free tier (8K tokens/minute).
+
+**How it's measured:** the same datasets as the baseline, replayed from recordings (`evals/cassettes/groq/agent*.jsonl`).
+The model writes its own search queries, so their embeddings are cached during `--record` too.
+
+## 7. Local demo data
+`python -m scripts.seed_demo_data --user-id <your Supabase user id>` copies the eval world's user u1 (a year of
+transactions, line items, 10 documents) into your local account, touching only the seeded rows.
+
+## 8. Coming next (filled in as it ships)
+- **Extraction** (SPEC-EXTRACT): schema-validated invoices, rule checks, confidence, review queue (auto-approve
+  high confidence).

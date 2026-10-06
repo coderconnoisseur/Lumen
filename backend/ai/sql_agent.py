@@ -105,7 +105,7 @@ def _first_select_statement(text: str) -> str:
     return text[match.start():].split(";", 1)[0].strip()
 
 
-def _validate_sql(sql: str, user_id: str) -> str:
+def _validate_sql(sql: str, user_id: str, *, require_user_filter: bool = True) -> str:
     """Validate LLM-generated SQL before execution.
 
     A first, textual layer only. Isolation comes from _scope_to_user, which
@@ -146,8 +146,10 @@ def _validate_sql(sql: str, user_id: str) -> str:
     # Every user_id reference must equal the authenticated user. This rules out
     # `WHERE user_id = 'me' OR user_id = 'someone-else'`, which the previous
     # substring check would accept because the authenticated id does appear.
+    # The agent's run_sql passes require_user_filter=False: it never sees the user id, and `_scope_to_user`
+    # already restricts every table to the user's rows. A reference to any other user id is still rejected.
     matches = _USER_ID_LITERAL_RE.findall(cleaned)
-    if not matches:
+    if not matches and require_user_filter:
         raise SQLValidationError("Query must filter by authenticated user_id")
     for single, double in matches:
         value = single or double
@@ -456,16 +458,18 @@ class SQLAgent:
 
         return sql.replace("```sql", "").replace("```", "").strip()
 
-    def execute_sql(self, sql: str, user_id: str) -> Dict[str, Any]:
-        """Validate, scope to the user and execute SQL, returning results."""
+    def execute_sql(self, sql: str, user_id: str, *, require_user_filter: bool = True) -> Dict[str, Any]:
+        """Validate, scope to the user and execute SQL, returning results. A rejection carries the reason (for the
+        agent to correct its query; the chat route never returns it to clients)."""
         if not _is_valid_user_id(user_id):
             logger.warning("Refusing to run SQL for a malformed user id")
             return dict(_REJECTED)
         try:
-            safe_sql = _scope_to_user(_validate_sql(sql, user_id), user_id, self.dialect)
+            safe_sql = _scope_to_user(_validate_sql(sql, user_id, require_user_filter=require_user_filter),
+                                      user_id, self.dialect)
         except SQLValidationError as e:
             logger.warning("Rejected unsafe SQL for user %s: %s", user_id, e)
-            return dict(_REJECTED)
+            return {**_REJECTED, "reason": str(e)}
 
         try:
             with self.engine.connect() as conn:

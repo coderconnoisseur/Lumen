@@ -15,7 +15,9 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | a9a9f55 … |
 | — | SPEC-RAG (full review) | ✅ approved 2026-10-03 | 64fa55f |
 | 6 | RAG-01…06 + documents API/page (built while EVAL-03 waits on quota) | 🔄 retrieval, answering, API, page, RAG-08 cases, RAG-09 (Chroma removed) done; generation suite left | 1d38309 … |
-| — | SPEC-AGENT / SPEC-EXTRACT / SPEC-UX one-pagers | 📝 drafted 2026-10-04, awaiting owner review | |
+| — | SPEC-AGENT / SPEC-EXTRACT / SPEC-UX one-pagers | ✅ approved 2026-10-04 (LangGraph; auto-approve high confidence; UX: ship, don't polish) | |
+| 7 | LLM-02 Groq SQL bench | ✅ done | PR #10 |
+| 8 | SPEC-AGENT: tools, loop + API, evals, test page | 🔄 PRs #11, #12 open; evals recording | PR #11, #12 |
 
 Last commit: EVAL-03 in progress (see the branch history).
 Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
@@ -223,6 +225,24 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - Local dev servers: a local, git-ignored launch config runs `uvicorn asgi:app` on :5000 with registry chains and
   the Next.js dev server on :3000. The owner tests at http://localhost:3000/documents.
 - Specs drafted for review: `SPEC-AGENT.md`, `SPEC-EXTRACT.md`, `SPEC-UX.md`.
+
+## 2026-10-04 (afternoon)
+- **Owner decisions:** SPEC-AGENT approved with LangGraph; SPEC-EXTRACT auto-approves high-confidence invoices;
+  SPEC-UX: ship, don't polish; grounded answers show references under the answer (clicking opens the resource);
+  UI stays minimal until a final refactor; PR per concrete step; keep `docs/CODEBASE-GUIDE.md` current.
+- **PR stack on coderconnoisseur/Lumen:** #2 direction docs → #3 LLM client → #4 eval harness → #5 FastAPI →
+  #6 datasets → #7 baseline suites → #8 hybrid RAG → #9 RAG hardening → #10 Groq tier + guide → #11 agent tools →
+  #12 agent loop + API → (#13 agent evals, #14 agent test page). Each based on the previous; merge bottom-up.
+  History was rewritten before the first push to remove two unwanted mentions (backup branch
+  `backup/pre-history-clean`, local only); commit ids in these notes were remapped.
+- **Groq:** key works; free tier per model: 30 RPM, 1K RPD, 8K TPM, 200K TPD; models gpt-oss-120b/20b, qwen3.8-27b,
+  no vision. Bench (SQL dev): 29/28/28 of 32, tied; registry groq text = gpt-oss-120b → qwen → gpt-oss-20b, judge
+  qwen. Local dev server runs `LUMEN_LLM_TIER=groq`.
+- **Owner's manual test** found the reranker-score abstention cut-off refusing short questions → removed (STORY 12).
+- **Agent:** tools (8, typed, user id from the JWT), LangGraph loop (6-call cap, truncated results), proposals +
+  audit log, `/api/agent/*`. The first recording showed SQL rejections because the model can't write the user-id
+  filter; the agent's `run_sql` now relies on server-side scoping (STORY 14).
+- **Demo data:** `scripts/seed_demo_data.py` seeded the owner's local account (235 transactions, 10 documents).
 
 ## Next step
 Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):

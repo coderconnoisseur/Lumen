@@ -269,6 +269,23 @@ def test_patient_mode_waits_out_longer_rate_limits_on_the_same_model(transport, 
     assert [c["slept"] for c in calls if "slept" in c] == [30.0, 30.0]
 
 
+def test_a_reply_recorded_after_rate_limit_waits_replays_as_the_same_call(transport, cassettes, monkeypatch):
+    """Waiting out a 429 and retrying is the same logical call, not a second identical request."""
+    from llm.client import complete
+
+    calls, script = transport
+    busy = _Resp(429, {"error": {"message": "tpm"}}, {"Retry-After": "3"})
+    script.extend([busy, busy, _Resp(200, OK)])
+    monkeypatch.setenv("LUMEN_LLM_PATIENT_S", "65")
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "record")
+    with cassettes.cassette_scope("agent", case="a-1"):
+        complete(MSGS, chain=chain(("groq", "m1")))
+    monkeypatch.setenv("LUMEN_LLM_CACHE", "replay")
+    cassettes.clear_memory()
+    with cassettes.cassette_scope("agent", case="a-1"):
+        assert complete(MSGS, chain=chain(("groq", "m1"))).cached is True
+
+
 def test_without_patient_mode_long_waits_fail_over(transport, monkeypatch):
     from llm.client import complete
 

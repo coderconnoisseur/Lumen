@@ -56,8 +56,8 @@ class LookupVendorsArgs(BaseModel):
 
 
 class RunSqlArgs(BaseModel):
-    sql: str = Field(description="One read-only SELECT over transactions / transaction_items. Filter with "
-                                 "user_id = '{user_id}'; the server scopes it to the user anyway.")
+    sql: str = Field(description="One read-only SELECT over transactions / transaction_items. Don't filter by "
+                                 "user_id: queries only ever see this user's rows.")
 
 
 class SearchDocumentsArgs(BaseModel):
@@ -134,10 +134,12 @@ def _lookup_vendors(ctx: ToolContext, args: LookupVendorsArgs) -> dict:
 
 def _run_sql(ctx: ToolContext, args: RunSqlArgs) -> dict:
     sql = args.sql.replace("{user_id}", ctx.user_id)
-    result = ctx.sql_agent.execute_sql(sql, ctx.user_id)  # validated, scoped to the user, read-only
+    # Validated (read-only, allowed tables, no other user's id) and scoped to the user server-side; the model
+    # never sees the user id, so it isn't required to filter by it.
+    result = ctx.sql_agent.execute_sql(sql, ctx.user_id, require_user_filter=False)
     if not result.get("success"):
-        return {"sql": args.sql, "error": result.get("error") or "query rejected",
-                "hint": "One SELECT on transactions/transaction_items, filtered by user_id. Check get_schema."}
+        return {"sql": args.sql, "error": result.get("reason") or result.get("error") or "query failed",
+                "hint": "One SELECT on transactions/transaction_items. Check column names with get_schema."}
     rows = result.get("data") or []
     return {"sql": args.sql, "row_count": len(rows), "rows": json.loads(json.dumps(rows[:MAX_ROWS], default=str)),
             "truncated": len(rows) > MAX_ROWS}

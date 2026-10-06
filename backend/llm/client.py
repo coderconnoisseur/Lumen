@@ -142,9 +142,14 @@ def _patience() -> float:
 def _complete_entry(entry: Entry, messages, request, timeout, retries) -> LLMResult:
     waits = 0
     attempt = 0
+    # Count this logical call once: waiting out a rate limit and retrying is the same call, so it must reuse the
+    # same recording key (counting each retry recorded replies under keys replay never asks for).
+    key = _base_key(entry, messages, request)
+    if cassette.mode() != "off":
+        key = cassette.nth(key)
     while True:
         try:
-            return _call_once(entry, messages, request, timeout, attempt)
+            return _call_once(entry, messages, request, timeout, attempt, key)
         except LLMError as e:
             if e.kind == LLMError.BAD_RESPONSE and attempt < retries:
                 attempt += 1
@@ -187,15 +192,14 @@ def _recorded_entry(entries: list[Entry], messages, request) -> int | None:
     return None
 
 
-def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0) -> LLMResult:
+def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0, key: str | None = None) -> LLMResult:
     provider = PROVIDERS[entry.provider]
-    key = _base_key(entry, messages, request)
-    if attempt:  # a retry is its own recording, so replay repeats the live sequence
+    key = key or _base_key(entry, messages, request)
+    if attempt:  # an unusable-reply retry is its own recording, so replay repeats the live sequence
         key = f"{key}:retry{attempt}"
     mode = cassette.mode()
     shelf = tier()
     if mode != "off":
-        key = cassette.nth(key)
         hit = cassette.lookup(shelf, key)
         if hit is not None:
             if "error" in hit:

@@ -72,11 +72,16 @@ def startup_checks():
     # warns about risky chains such as one containing openrouter/free.
     for warning in llm_registry().check(llm_tier()):
         logger.warning("LLM registry: %s", warning)
+    from llm.providers import PROVIDERS
+
     ok, summary = check_api_key()
+    tier, chains = llm_tier(), llm_registry()
+    first = lambda role: next(iter(chains.chain(tier, role)), None)  # noqa: E731
+    text_model, vision_model = first("text"), first("vision")
     (logger.info if ok else logger.error)(
-        "%s Key %s, text model %s, vision model %s",
-        summary, mask_secret(Config.OPENROUTER_API_KEY),
-        Config.get_llm_text_model(), Config.get_llm_vision_model(),
+        "%s Tier %s, key %s, text model %s, vision model %s",
+        summary, tier, mask_secret(PROVIDERS[tier].api_key()),
+        text_model.model if text_model else None, vision_model.model if vision_model else None,
     )
 
 
