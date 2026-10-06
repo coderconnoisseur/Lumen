@@ -24,6 +24,12 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci-only
           SUPABASE_URL: https://example.supabase.co
         run: pytest -q
+      - name: Run eval suites (offline, replayed from cassettes)
+        env:
+          OPENROUTER_API_KEY: test-key
+          SECRET_KEY: test-secret-key-for-ci-only
+          SUPABASE_URL: https://example.supabase.co
+        run: pytest -q -m eval
 
   frontend:
     runs-on: ubuntu-latest

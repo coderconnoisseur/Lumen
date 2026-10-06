@@ -85,3 +85,6 @@ Thumbs.db
 .cache/
 temp/
 tmp/
+
+# Local eval runs; only release results are committed (SPEC-EVAL)
+backend/evals/results/dev-*.json
