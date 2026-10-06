@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import statistics
 import json
 import time
+from config import Config
 from models.database import db
 from utils.llm import LLMError, chat_completion
 import logging
@@ -99,7 +100,8 @@ class FraudDetectionAgent:
                     'detection_method': 'statistical',
                     'flags': flags,
                     'risk_score': min(risk_score, 1.0),
-                    'explanation': f"Amount €{txn_amount} is unusual (mean: €{mean_amount:.0f})"
+                    'explanation': f"Amount {txn_amount:.2f} {Config.DEFAULT_CURRENCY} is unusual "
+                                   f"(mean: {mean_amount:.0f})"
                 })
         
         return anomalies

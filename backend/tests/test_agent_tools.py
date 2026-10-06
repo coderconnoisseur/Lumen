@@ -143,3 +143,14 @@ def test_bad_arguments_and_unknown_tools_come_back_as_errors(db, world):
     assert "invalid arguments" in run_tool(_ctx(db, world), "run_sql", "{not json")["error"]
     assert "unknown tool" in run_tool(_ctx(db, world), "delete_everything", {})["error"]
     assert "unavailable" in run_tool(_ctx(db, world), "search_documents", {"query": "fees"})["error"]
+
+
+def test_anomalies_name_the_transaction_and_use_the_app_currency(db, world):
+    """The detector returns transaction ids; the tool showed vendor/date/amount as null and amounts in euros."""
+    from agent.tools import run_tool
+
+    found = run_tool(_ctx(db, world, "u2"), "get_anomalies", "{}")["anomalies"]
+    assert found
+    for a in found:
+        assert a["vendor"] and a["date"] and a["amount"] is not None
+        assert "€" not in " ".join(a["reasons"])

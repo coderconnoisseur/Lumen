@@ -184,11 +184,13 @@ def _get_anomalies(ctx: ToolContext, _: NoArgs) -> dict:
     txns = _transactions_since(ctx, 90)
     detector = FraudDetectionAgent()
     found = detector.statistical_anomaly_detection(txns) + detector.rule_based_detection(txns)
+    by_id = {str(t["id"]): t for t in txns}  # the detectors return only the transaction id
     by_txn: dict[str, dict] = {}
     for a in found:
         key = str(a.get("transaction_id") or a.get("id"))
-        entry = by_txn.setdefault(key, {"vendor": a.get("vendor_name"), "date": a.get("date"),
-                                        "amount": a.get("total_amount", a.get("amount")), "reasons": []})
+        t = by_id.get(key, a)
+        entry = by_txn.setdefault(key, {"vendor": t.get("vendor_name"), "date": t.get("date"),
+                                        "amount": t.get("total_amount", t.get("amount")), "reasons": []})
         entry["reasons"].append(a.get("explanation") or a.get("anomaly_type") or "unusual")
     ranked = sorted(by_txn.values(), key=lambda e: (-len(e["reasons"]), str(e["date"])))[:10]
     return {"window_days": 90, "transactions_checked": len(txns), "anomalies": ranked}
