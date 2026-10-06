@@ -78,3 +78,4 @@ email-validator
 imapclient
 
 PyYAML>=6,<7  # llm/registry.yaml
+reportlab>=4,<5  # evals/generator: text PDFs for the RAG eval corpus

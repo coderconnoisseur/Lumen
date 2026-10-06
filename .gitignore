@@ -43,6 +43,8 @@ uploads/
 *.jpeg
 *.png
 !frontend/public/**
+# Generated eval inputs are committed: cassettes are keyed on these exact bytes.
+!backend/evals/data/**
 
 # IDE
 .vscode/

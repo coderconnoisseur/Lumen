@@ -11,11 +11,13 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 2 | LLM-01 provider abstraction, deadline, cassette | ✅ done | 87c5b45 … 2480fda |
 | 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
 | 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
-| 5 | EVAL-02 generator + datasets, EVAL-03 baseline, LLM-02 bench | ⏳ next (EVAL-02) | |
+| 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
+| 5b | EVAL-03 baseline, then LLM-02 bench | ⏳ next | |
 | — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | ⬜ | |
 
-Last commit: `e66a81e` Run uvicorn with one worker instead of gunicorn.
-Suite: 378 passed, 1 deselected; `pytest -m eval`: 1 passed.
+Last commit: `9c6479d` Commit the rendered eval invoices and corpus PDFs.
+Suite: 409 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
+CI), 1 deselected; `pytest -m eval`: 1 passed.
 
 ## What LLM-01 delivered
 - `backend/llm/`:
@@ -72,7 +74,46 @@ Suite: 378 passed, 1 deselected; `pytest -m eval`: 1 passed.
 - `tests/test_asgi.py`: 36 tests. A local uvicorn smoke run (throwaway SQLite, dummy key) served `/health`, the
   preflight, the Flask 401 and `/api/docs`.
 
+## What EVAL-02 delivered
+- `backend/evals/generator/` (`python -m evals.generator [--seed 42] [--check]`), deterministic from the seed:
+  - `world.py`: 2 users with stable UUIDs, 17 vendors, 428 transactions and 720 line items from 2025-07-01
+    to **AS_OF 2026-06-30**, monthly bills, per-user vendor mixes, and 12 purchase orders.
+  - `db.py`: loads the world into SQLite or Postgres with the app's own tables (idempotent).
+  - `sql_questions.py`: the 50 hand-written questions and gold SQL (15 agg, 11 filter, 12 date, 7 join,
+    5 unanswerable).
+  - `invoices.py`: 40 invoices (per user: 12 clean, 2 total mismatch, 2 duplicate, 2 unknown vendor, 1 bad
+    date, 1 injection), rendered to PNG, plus one seeded degraded copy each (skew, blur or JPEG).
+  - `corpus.py`: 20 documents (12 POs, 6 contracts, 2 expense policies) with 70 planted facts, rendered to
+    text PDFs; the retrieval set (153 rows: each fact plus 1-2 paraphrases) and the generation set (24
+    answerable, 6 not in the corpus, 6 about the other user's POs).
+  - `cases.py`: 40 agent routing cases (13 `run_sql`, 10 `search_documents`, 4 `get_anomalies`,
+    4 `forecast`, 3 `get_invoice`, 6 decline) and 20 safety cases (10 tenant, 10 injection).
+  - `splits.py`: seeded ~30% test split, stratified per dataset.
+- `backend/evals/data/`: the committed JSONL, 80 invoice images, 20 PDFs and `LABELLING.md` (method, counts,
+  limits, spot checks). Tests check the committed JSONL against the generator and the counts against
+  `LABELLING.md`.
+- Dialect check: every gold query gives identical result sets on SQLite and Postgres (verified locally on
+  pgserver Postgres 16) and passes the app's SQL guardrails unchanged. CI now has a Postgres 16 service and
+  sets `LUMEN_TEST_POSTGRES_URL`.
+- Dependencies: `reportlab` added (corpus PDFs). `Faker` not added: fixed word lists keep the data identical
+  across Faker versions.
+- `.gitignore` ignores every png/jpg/pdf, so `backend/evals/data/**` is exempted; `backend/evals/.gitattributes`
+  keeps JSONL/JSON on LF so the byte comparisons hold on Windows checkouts.
+
 ## Decisions made while building (routine; recorded for review)
+- **EVAL-02: purchase orders stay in `evals/data/purchase_orders.jsonl`.** There is no DB table yet, because
+  SPEC-EXTRACT owns that schema. The loader adds them once it exists.
+- **EVAL-02: retrieval labels are section ids (`<doc id>#sNN`).** A retrieved chunk counts as the section it
+  came from, so SPEC-RAG's chunker must not let chunks span sections (or must map them back). Raise this in
+  the SPEC-RAG review.
+- **EVAL-02: invoices are PNG (plus a JPEG copy for the `jpeg` variant), not PDF.** Each invoice gets one
+  degraded copy, round-robin, so 80 extraction calls per recording instead of 160. The gold is the seven fields
+  the pipeline stores today. `po_number`, currency and line items are in `invoices.jsonl` for EXT-01.
+- **EVAL-02: `get_schema` is never the expected first tool** (a lookup step); decline cases have no tools.
+- **EVAL-02: tenant `must_not` values never appear in the question** (an echo isn't a leak). Amounts are
+  stored without the currency prefix so "₹2,415.79" still matches.
+- **For EVAL-03:** `SQLAgent.generate_sql` puts `datetime.now()` in the prompt, so the cassette key changes
+  every day. The SQL suite must pin "today" to AS_OF, or replay will miss.
 - **API-01 "byte-identical" means status, body bytes and every non-CORS header.** With one allowed origin,
   Flask-CORS sends `Access-Control-Allow-Origin` even on requests with no `Origin`; CORSMiddleware only answers
   requests that carry one. CORS headers are covered by their own parity tests instead.
@@ -106,5 +147,6 @@ Suite: 378 passed, 1 deselected; `pytest -m eval`: 1 passed.
   docs and are **unverified**. LLM-02 checks them.
 
 ## Next step
-EVAL-02: the seeded generator and datasets with a dev/test split (SPEC-EVAL). Then EVAL-03 (baseline in
-`BASELINE.md`), then LLM-02.
+EVAL-03: suites for the current pipeline (sql, safety, ops, extraction) that replay from cassettes, then the
+**record step, which the owner runs** (live calls on Groq/Ollama, ~80 extraction + ~50 SQL + safety calls per
+tier), then `results/release-0-<tier>-<split>.json` and `docs/direction/BASELINE.md`. Then LLM-02.
