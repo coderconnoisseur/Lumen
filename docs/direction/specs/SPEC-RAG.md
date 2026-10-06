@@ -1,7 +1,7 @@
 # SPEC-RAG: hybrid retrieval with citations
 
-Status: **DRAFT for owner review** (full review, per the build order). Covers roadmap **RAG-01 … RAG-09**,
-builder finding 6b **#3**, and the retrieval-label contract from EVAL-02. Nothing here is built yet.
+Status: **APPROVED 2026-10-03** (owner answers below). Covers roadmap **RAG-01 … RAG-09**, builder finding
+6b **#3**, and the retrieval-label contract from EVAL-02.
 
 ## Goal
 Answer questions about unstructured documents (PO PDFs, contracts, policies, invoice text) with retrieved,
@@ -78,11 +78,13 @@ RAG-01 chunking + store → RAG-02 embeddings + cassette → RAG-07a retrieval s
 BM25 + RRF → RAG-05 rerank (+ memory check) → RAG-06 answering → RAG-07b generation suite → RAG-08 safety →
 RAG-09 production switch. The ablation numbers come out of this order naturally: each step adds one row.
 
-## Open questions for the owner
-1. **pgvector in production:** is the production database Render Postgres (pgvector supported) or Supabase?
-   Either works; this decides where the migration runs.
-2. **Document upload UI:** a minimal "Documents" page (upload, list, delete) ships with RAG, or the demo uses
-   seeded documents only and the page waits for SPEC-UX?
-3. **Judge labels:** ~20 generation answers need your yes/no "is this supported by the cited text" labels
-   (about 15 minutes) before judged metrics count. OK to do that after the first generation run?
-4. **Abstention cut-off:** tuned on dev only, reported on test at release. OK?
+## Owner decisions (2026-10-03)
+1. **Database:** local-first development (SQLite + local pgserver Postgres with pgvector). For deployment:
+   backend on Render, **Postgres + pgvector on Supabase** (the free tier doesn't expire, unlike Render's 30-day
+   free Postgres; 500 MB; auth already lives there). Put the Render service in the Supabase project's region,
+   and connect through Supabase's IPv4 session pooler. Nothing in code or tests depends on either service.
+2. **Documents page:** a minimal upload/list/delete page ships with RAG; UX polish comes later.
+3. **Judge labels:** the owner labels ~20 answers when prompted.
+4. **Abstention:** decided by the reranker's top score (local, no LLM credits), with the cut-off tuned on the
+   dev split only; the answer prompt also tells the model to abstain when the evidence doesn't answer.
+5. **Live deployments are assumed broken** unless the owner says otherwise; verification is local.

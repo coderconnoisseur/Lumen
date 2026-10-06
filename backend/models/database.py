@@ -32,6 +32,23 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
             logger.warning("Transaction index migration skipped: %s", e)
 
 
+RAG_TABLES = {"documents", "document_chunks"}
+
+
+def _ensure_pgvector() -> bool:
+    """Postgres needs the pgvector extension before the chunk table. If the database refuses it, the app
+    still starts and only document search is unavailable (SPEC-RAG)."""
+    if db.engine.dialect.name != "postgresql":
+        return True
+    try:
+        with db.engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        return True
+    except Exception as e:
+        logger.error("pgvector is unavailable, so document search is disabled: %s", e)
+        return False
+
+
 def init_db(app: Flask):
     app.config["SQLALCHEMY_DATABASE_URI"] = Config.DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -41,7 +58,10 @@ def init_db(app: Flask):
 
     try:
         with app.app_context():
-            db.create_all()
+            tables = list(db.metadata.sorted_tables)
+            if not _ensure_pgvector():
+                tables = [t for t in tables if t.name not in RAG_TABLES]
+            db.metadata.create_all(db.engine, tables=tables)
             _migrate_transaction_unique_index(app)
             logger.info("Database connected and tables initialized")
     except Exception as e:

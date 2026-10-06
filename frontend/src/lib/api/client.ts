@@ -563,3 +563,54 @@ export const aiAnalyticsApi = {
 export const isAuthenticated = (): boolean => {
 	return tokenManager.getToken() !== null;
 };
+
+export interface LumenDocument {
+	id: string;
+	title: string;
+	doc_type: string;
+	filename: string | null;
+	chunk_count: number;
+	created_at: string | null;
+}
+
+export interface DocumentSource {
+	chunk_id: string;
+	document_id: string;
+	title: string;
+	section: string;
+	text: string;
+}
+
+export interface DocumentAnswer {
+	answer: string;
+	abstained: boolean;
+	reason: string | null;
+	sources: DocumentSource[];
+}
+
+// Document search and cited answers (SPEC-RAG), served by the FastAPI routes under /api/documents.
+export const documentsApi = {
+	list: async (): Promise<LumenDocument[]> => {
+		const response = await apiClient.get("/api/documents");
+		return response.data.documents;
+	},
+
+	upload: async (file: File, docType: string): Promise<LumenDocument> => {
+		const formData = new FormData();
+		formData.append("file", file);
+		formData.append("doc_type", docType);
+		const response = await apiClient.post("/api/documents", formData, {
+			headers: { "Content-Type": "multipart/form-data" },
+		});
+		return response.data.document;
+	},
+
+	remove: async (documentId: string): Promise<void> => {
+		await apiClient.delete(`/api/documents/${encodeURIComponent(documentId)}`);
+	},
+
+	ask: async (question: string): Promise<DocumentAnswer> => {
+		const response = await apiClient.post("/api/documents/ask", { question });
+		return response.data;
+	},
+};
