@@ -407,6 +407,13 @@ class SQLAgent:
     """
 
     @staticmethod
+    def _today() -> str:
+        """The date the prompt calls "today". The eval suites pin it, so recorded prompts don't change daily."""
+        from datetime import datetime
+
+        return datetime.now().strftime("%Y-%m-%d")
+
+    @staticmethod
     def _fallback_sql(user_id: str) -> str:
         """Server-built query for the user's recent transactions, used when the
         model's SQL is unusable so the answer is based on real data."""
@@ -418,8 +425,6 @@ class SQLAgent:
         )
 
     def generate_sql(self, query: str, user_id: str) -> str:
-        from datetime import datetime
-
         safe_uid = str(user_id).replace("'", "''")
         fallback = self._fallback_sql(user_id)
         rules = self._DIALECT_RULES[self.dialect]
@@ -432,7 +437,7 @@ class SQLAgent:
                     round_rule=rules["round_rule"],
                     query=query,
                     user_id=safe_uid,
-                    current_date=datetime.now().strftime("%Y-%m-%d"),
+                    current_date=self._today(),
                 ),
                 temperature=0,
                 max_tokens=500,

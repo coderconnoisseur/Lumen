@@ -1,0 +1,8 @@
+# USD per 1M tokens, for the ops "cost per question" metric (SPEC-EVAL). Free (`:free`) models cost
+# nothing, so they are reported at the list price of the same model's paid variant and labelled
+# "list-price equivalent". Source: OpenRouter /api/v1/models, fetched 2026-10-03.
+models:
+  nvidia/nemotron-3-ultra-550b-a55b: {prompt: 0.50, completion: 2.20}
+  nex-agi/nex-n2.5-pro: {prompt: 0.075, completion: 0.25}
+  google/gemma-4-31b-it: {prompt: 0.09, completion: 0.34}
+  qwen/qwen3.8-27b: {prompt: 0.42, completion: 3.00}

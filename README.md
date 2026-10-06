@@ -168,6 +168,16 @@ LUMEN transforms invoice management through three core pillars:
 
 ---
 
+## 📏 Evaluation
+
+Measured offline from recorded model replies on seeded synthetic data (see `backend/evals/data/LABELLING.md`).
+
+<!-- eval:start -->
+_No release results yet._
+<!-- eval:end -->
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites

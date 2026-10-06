@@ -5,6 +5,7 @@ bare percentage: with 20-50 cases per suite, the interval is the honest part.
 """
 from __future__ import annotations
 
+import itertools
 import math
 import re
 from collections import Counter
@@ -210,3 +211,21 @@ def paired_changes(previous: Mapping[str, bool], current: Mapping[str, bool]) ->
 def gate_regressions(changes: Mapping, *, min_regressed: int) -> bool:
     """True if the suite passes the gate: fewer than `min_regressed` regressed cases."""
     return len(changes["regressed"]) < min_regressed
+
+
+def result_sets_contain(gold: Iterable, pred: Iterable, *, ordered: bool) -> bool:
+    """Diagnostic, never gated: the prediction equals the gold once extra columns are dropped.
+
+    Tells "right numbers, extra columns" apart from "wrong numbers". Gold columns may map to any
+    distinct predicted columns; the row multiset (or order) must still match exactly.
+    """
+    gold_rows = [_row(r) for r in gold]
+    pred_rows = [_row(r) for r in pred]
+    if len(gold_rows) != len(pred_rows) or not gold_rows:
+        return gold_rows == pred_rows
+    width, pred_width = len(gold_rows[0]), len(pred_rows[0])
+    for columns in itertools.permutations(range(pred_width), width):
+        projected = [tuple(row[i] for i in columns) for row in pred_rows]
+        if (projected == gold_rows) if ordered else (Counter(projected) == Counter(gold_rows)):
+            return True
+    return False

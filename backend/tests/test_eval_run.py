@@ -116,3 +116,22 @@ def test_record_only_missing_keeps_existing_lines(workdir):
 def test_only_missing_requires_record(workdir):
     with pytest.raises(SystemExit):
         _run(workdir, ["--tier", "groq", "--only-missing"], {"s": _suite({})})
+
+
+def test_runs_ignore_local_model_overrides(monkeypatch, tmp_path):
+    """Results must not depend on a developer's backend/.env: suites see the registry chains only."""
+    import os
+
+    from evals import run
+
+    seen = {}
+
+    def suite(tier, split):
+        seen.update({k: os.environ.get(k) for k in run.MODEL_OVERRIDES})
+        return {"cases": {}, "metrics": {}}
+
+    monkeypatch.setenv("LLM_TEXT_FALLBACK_MODELS", "nex-agi/nex-n2.5-pro:free,openrouter/free")
+    monkeypatch.setenv("LLM_VISION_MODEL", "openrouter/free")
+    assert run.main(["--tier", "openrouter", "--suite", "x"], suites={"x": suite}, results_dir=tmp_path) == 0
+    assert seen and all(v == "" for v in seen.values())
+    assert os.environ["LLM_VISION_MODEL"] == "openrouter/free"  # restored afterwards

@@ -12,11 +12,11 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | 3 | EVAL-01 harness skeleton | ✅ done | 379e94a, 71b9dae |
 | 4 | API-01 FastAPI step 1 + uvicorn | ✅ done | 7e5908b, 32d8f6a, e66a81e |
 | 5a | EVAL-02 generator + datasets | ✅ done | f0a9a32 … 9c6479d |
-| 5b | EVAL-03 baseline, then LLM-02 bench | ⏳ next | |
-| — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | ⬜ | |
+| 5b | EVAL-03 baseline, then LLM-02 bench | 🔄 in progress: suites built, recording (free-tier quota) | 34d2a7f … |
+| — | SPEC-RAG (full review), then SPEC-AGENT / EXTRACT / UX one-pagers | 📝 SPEC-RAG drafted, awaiting owner review | |
 
-Last commit: `9c6479d` Commit the rendered eval invoices and corpus PDFs.
-Suite: 409 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
+Last commit: EVAL-03 in progress (see the branch history).
+Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in
 CI), 1 deselected; `pytest -m eval`: 1 passed.
 
 ## What LLM-01 delivered
@@ -139,6 +139,36 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   model is Qwen. LLM-02 replaces it.
 - **`openrouter/free` removed** from the `Config` fallback defaults.
 
+## EVAL-03 so far
+- **Tier for the first baseline: openrouter (free).** The owner OK'd the free Nemotron 3 Ultra (2026-10-03),
+  and it's what production runs (`render.yaml`). Groq and Ollama columns follow when their keys/models exist.
+  Live calls happen only in the explicit `--record` step.
+- **Free-tier limit: 50 requests/day** (key status checked, no quota used). The record plan spans days:
+  SQL dev (done except 2), safety (~27 dev calls), extraction (56 dev + 24 test vision calls), SQL test (15).
+- **Client fixes for faithful replay** (`34d2a7f`, `0a3c7b1`): replay walks the failover chain; unusable
+  replies are recorded and replayed as errors; repeated identical calls within a case get their own
+  recordings; `collect_calls()` feeds the ops metrics.
+- **Suites:** `evals/suites/sql.py` (strict execution accuracy, gated; relaxed accuracy as a diagnostic;
+  fallback rate; unanswerable questions reported separately), `extraction.py` (field P/R/F1 per field and
+  variant; "Unknown" payment method counts as missing), `safety.py` (tenant leaks and injections followed,
+  both hard gates; pasted documents go through Ask Lumen because the app has no document input in chat),
+  `common.py` (ops: recorded latency p50/p95, tokens, list-price cost from `evals/prices.yaml`).
+- **`evals.run` ignores `.env` model overrides** during a run, so results depend only on `registry.yaml`.
+- **Text fallback changed:** `nex-agi/nex-n2.5-pro:free` stopped being free (404), replaced with
+  `qwen/qwen3.8-27b:free` in `registry.yaml`, the `Config` default and QUICK_START.
+- **First numbers:** `docs/direction/benchmarks/2026-10-03-sql-dev-partial.md` (20/30 strict, 28/30 relaxed).
+- **Benchmarks folder:** the owner asked for every stage's numbers to be kept, so dated snapshots go in
+  `docs/direction/benchmarks/`, with the STAR narrative in `docs/direction/STORY.md`. Raw dev JSON stays
+  local per SPEC-EVAL; release JSON is committed.
+- **Not yet wired:** `pytest -m eval` replaying the real suites. It needs release-0 first, and the baseline may
+  fail a hard gate (injection), which the owner has to decide how to treat.
+
+- **Resolved 2026-10-03 (owner):** `render.yaml`'s text fallback is now `qwen/qwen3.8-27b:free` (Nex died;
+  `openrouter/free` dropped too). SQL scoring decision delegated to the build: the gated SQL metric is
+  column-tolerant execution accuracy, strict reported alongside (SPEC-EVAL amended). Reason: the rows feed an
+  answer-writer, so extra columns don't make an answer wrong, wrong rows do; the row count and every gold
+  column must still match, so returning everything can't pass.
+
 ## Open decisions for the owner
 - `render.yaml` and the local `backend/.env` still set `LLM_TEXT_FALLBACK_MODELS=…,openrouter/free` (and the
   local `.env` sets `LLM_VISION_MODEL=openrouter/free`). The app now logs a startup warning for these. Should
@@ -146,7 +176,18 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - Groq's reasoning switches (`reasoning_effort` low/none) and Ollama's `think:false` are taken from the provider
   docs and are **unverified**. LLM-02 checks them.
 
+## Also done while waiting for quota (2026-10-03)
+- `evals/report.py`: `python -m evals.report` writes the README table (between `<!-- eval:start/end -->`,
+  new "Evaluation" section) and `results/release-*.md` from the latest committed releases. Every cell shows
+  counts and CIs; each tier column names its release and the models that answered.
+- `docs/direction/SYSTEM-OVERVIEW.md`: the target architecture and the reason behind each part (for the owner).
+- `docs/direction/specs/SPEC-RAG.md`: **draft** for the owner's full review (pgvector + numpy store, section-
+  aligned chunks, fastembed bge-small, per-user BM25, RRF k=60, FlashRank rerank, cited answers with
+  abstention, embedding cassette for offline evals, first real FastAPI routes for documents). Four open
+  questions at the end.
+
 ## Next step
-EVAL-03: suites for the current pipeline (sql, safety, ops, extraction) that replay from cassettes, then the
-**record step, which the owner runs** (live calls on Groq/Ollama, ~80 extraction + ~50 SQL + safety calls per
-tier), then `results/release-0-<tier>-<split>.json` and `docs/direction/BASELINE.md`. Then LLM-02.
+Finish EVAL-03 recordings on the free tier (quota resets daily at 00:00 UTC):
+`python -m evals.run --tier openrouter --suite <sql|safety|extraction> --record --only-missing`, then the test
+split, then a full replay as `--release 0` for both splits, `docs/direction/BASELINE.md`, and the
+`pytest -m eval` wiring. Then LLM-02.

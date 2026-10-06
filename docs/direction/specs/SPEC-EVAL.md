@@ -59,7 +59,7 @@ evals/
 
 | Suite | Metric | Rule |
 |---|---|---|
-| sql | execution accuracy | Gold and predicted result sets equal as multisets (ordered only when the gold has ORDER BY); numbers compared at 2 dp. A SQL-agent **fallback counts as a failure** (6b #12). |
+| sql | execution accuracy | Gold and predicted result sets equal as multisets (ordered only when the gold has ORDER BY); numbers compared at 2 dp. A SQL-agent **fallback counts as a failure** (6b #12). **Amended 2026-10-03 (owner delegated):** the gated metric is column-tolerant (every gold column must match a returned column, with identical rows; extra columns allowed), and strict equality is always reported next to it. |
 | sql | fallback rate | Share of questions answered from the recent-transactions fallback. |
 | extraction | field-level P/R/F1 | After normalisation (ISO dates, amounts to 2 dp, trimmed/casefolded vendor names). Reported per field and per variant (clean vs degraded). |
 | retrieval | recall@5, recall@10, MRR, nDCG@10 | Binary relevance; reported per ablation configuration (RAG-07). |
