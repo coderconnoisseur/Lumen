@@ -6,6 +6,7 @@ services:
     name: lumen-api
     runtime: python
     plan: free
+    region: singapore  # next to the Supabase database (ap-southeast-1)
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     # FastAPI in front, Flask mounted behind it (backend/asgi.py). One worker fits 512 MB;
