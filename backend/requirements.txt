@@ -8,7 +8,7 @@ Flask-SQLAlchemy
 
 Flask-Limiter
 
-SQLAlchemy
+SQLAlchemy>=2.0,<2.1  # 2.1 defaults postgresql:// to psycopg 3; we ship psycopg2
 
 # Parses Ask Lumen's model-written SQL to check it and scope it to the user
 sqlglot>=30,<31
