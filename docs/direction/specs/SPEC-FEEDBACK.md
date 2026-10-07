@@ -1,6 +1,6 @@
 # SPEC-FEEDBACK: reviewer decisions feed back into the next invoice
 
-Status: **DRAFT for owner review** (one-pager). Builds on SPEC-EXTRACT (rules, confidence, review queue) and needs
+Status: **APPROVED 2026-10-07** (owner: threshold 3; rejections don't teach in v1). One-pager. Builds on SPEC-EXTRACT (rules, confidence, review queue) and needs
 EXT-01 (structured vision extraction) for loop A. No model training: the model never changes; what it is shown and
 which warnings are raised do.
 
@@ -41,7 +41,6 @@ ever letting a real fault through. Each claim is measured on a replayable eval, 
 3. Every suppression and every correction used is visible (flags / audit detail).
 4. Both loops are measured with vs without, with counts and CIs, in a dated snapshot.
 
-## Open questions for the owner
-1. Threshold for loop B: 3 unchanged approvals (recommended) or more?
-2. Should rejected invoices also teach (e.g. reject reason "not ours" → always flag that vendor)? Recommendation:
-   not in v1; rejections only reset adaptation.
+## Owner decisions (2026-10-07)
+1. Loop B threshold: **3** unchanged approvals in a row.
+2. Rejections don't teach in v1; they only reset adaptation for that vendor.
