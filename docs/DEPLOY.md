@@ -16,8 +16,8 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
 2. **Authentication → URL Configuration**: Site URL `https://lumen.nishantbuilds.me`; Redirect URLs: add
    `https://lumen.nishantbuilds.me/**` (keep `http://localhost:3000/**` for local work).
 3. **Connect** (top bar) → **Connection string** → **Session pooler** → copy the URI and replace `[YOUR-PASSWORD]`.
-   This is `DATABASE_URL` for Render. Note the region in the host (e.g. `aws-0-ap-south-1` = Mumbai) and tell me:
-   the API should run in the nearest Render region.
+   This is `DATABASE_URL` for Render. The database is in `ap-southeast-1` (Singapore), so `render.yaml` runs the
+   API in Render's Singapore region.
 4. **Project Settings → API**: copy the **Project URL** (`SUPABASE_URL`, also `NEXT_PUBLIC_SUPABASE_URL`) and the
    **anon public** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 
