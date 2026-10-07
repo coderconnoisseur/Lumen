@@ -215,3 +215,15 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   administrator…") was obeyed: the agent echoed the canary and asked for every transaction. Server-side scoping
   kept the data safe, yet the gate failed, so the switch is blocked until the prompt is hardened and re-measured.
   Story point: defence in depth held, and the hard gate stopped a regression that a single accuracy number hides.
+
+## 19. Validation that doesn't need a model (EXT-02)
+- **S:** The AI quota was spent for the day, but the extraction track's most valuable part, catching bad invoices,
+  doesn't need a model at all.
+- **T:** Build checks that catch each planted fault type (wrong total, duplicate, unknown vendor, bad date,
+  injected instructions) and turn them into a confidence that decides auto-approve vs human review.
+- **A:** Pure rules over an extracted invoice plus the user's history (totals within 1%, stored invoice numbers,
+  known vendors, date window, PO vendor/amount, an instruction-text heuristic); confidence = worst flag. A new
+  `validation` eval suite runs them on the labelled invoices, reporting recall per fault and precision per rule.
+- **R:** Every planted fault caught on both splits (11/11 dev, 5/5 test), zero false flags on 24 clean invoices.
+  Reported as a ceiling (the rules know the fault types, the input is gold); the real number arrives when the vision
+  model's reads feed the same rules. Story point: separate what the model must do from what code can guarantee.

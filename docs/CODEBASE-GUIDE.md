@@ -223,6 +223,12 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
 
-## 8. Coming next (filled in as it ships)
-- **Extraction** (SPEC-EXTRACT): schema-validated invoices, rule checks, confidence, review queue (auto-approve
-  high confidence).
+## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
+- `extract/validate.py`: `validate(invoice, Context) -> [Flag]`, pure rules, no LLM: `total_mismatch` (line items
+  + tax vs total, 1%), `duplicate` (vendor + invoice number already stored), `unknown_vendor` (warn),
+  `bad_date` (future or > 2 years), `no_currency` (warn), `unknown_po` (warn) / `po_mismatch` (vendor or amount),
+  `possible_injection` (instruction-like text). `confidence(flags)`: high = no flags, medium = warnings only,
+  low = any failure. `Context` carries the user's known vendors, stored invoice numbers and purchase orders.
+- `evals/suites/validation.py`: the rules on the labelled invoices (recall per fault type, precision per rule,
+  false flags on clean invoices).
+- Coming: the review queue (`review_items`, `/api/review`), checks wired into upload, structured vision extraction.
