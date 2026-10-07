@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 18 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 19 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -293,5 +293,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    replaying the committed suites.
 6. **Switch `/chat` to the agent** only if AGT-07 shows it's no worse on SQL and passes both safety gates; that also
    fixes the 7,270-token synthesis prompt.
-7. **SPEC-EXTRACT build** (structured extraction, rule checks, confidence, review queue; auto-approve high confidence).
+7. **SPEC-EXTRACT build:** EXT-02 rules done (`extract/validate.py`, `validation` suite: all planted faults
+   caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Next, also
+   LLM-free: `purchase_orders` table, review queue (state machine, `review_items`, `/api/review`, audit log), wiring
+   the checks into upload. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
 8. UI refactor (owner-led, last).
