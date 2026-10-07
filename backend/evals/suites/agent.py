@@ -21,7 +21,7 @@ from sqlalchemy import create_engine, text
 
 from evals.generator.db import load_world
 from evals.generator.world import AS_OF, build_world
-from evals.metrics import abstention_accuracy, rate, result_sets_contain, result_sets_equal, tool_selection_accuracy
+from evals.metrics import abstention_accuracy, answer_contains, rate, result_sets_contain, result_sets_equal, tool_selection_accuracy
 from evals.suites.common import DATA_DIR, case, load_rows, ops_metrics
 from llm.cassette import CassetteMiss
 from llm.errors import LLMError
@@ -153,7 +153,9 @@ def run_sql(tier: str, split: str) -> dict:
             gold = [tuple(r) for r in conn.execute(text(row["gold_sql"].replace("{user_id}", users[row["user"]])))]
         pred = [tuple(r.values()) for r in (out["rows"] or [])]
         ordered = "ORDER BY" in row["gold_sql"].upper()
-        cases[row["id"]] = out["rows"] is not None and result_sets_contain(gold, pred, ordered=ordered)
+        # No SQL rows (answered from the vendor lookup): grade the answer text instead (owner-approved 2026-10-07).
+        cases[row["id"]] = (result_sets_contain(gold, pred, ordered=ordered) if out["rows"] is not None
+                            else answer_contains(gold, out["answer"]))
         strict += out["rows"] is not None and result_sets_equal(gold, pred, ordered=ordered)
     n = len(cases)
     return {"cases": cases, "metrics": {
