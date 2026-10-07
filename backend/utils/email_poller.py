@@ -9,7 +9,7 @@ from utils.email_service import EmailService
 from utils.image_processing import image_to_base64, render_pdf_first_page, pil_image_to_bytes
 from utils.openrouter import extract_and_structure_with_openrouter
 from utils.normalize import normalize_transaction
-from utils.save_transaction import save_transaction
+from api.review import submit_invoice
 
 logger = logging.getLogger(__name__)
 
@@ -165,15 +165,16 @@ def process_invoice_attachment(content: bytes, filename: str, user_id: str, emai
         logger.info("Normalizing transaction data...")
         normalized = normalize_transaction(structured_data)
         
-        # Save to database
-        logger.info("Saving to database...")
-        transaction_id = save_transaction(user_id, normalized)
-        
-        if transaction_id:
-            logger.info(f"✅ Saved transaction {transaction_id} for invoice: {filename}")
+        # Checked like an upload (SPEC-EXTRACT): saved if nothing is doubtful, otherwise queued for review
+        item = submit_invoice(db.engine, user_id, normalized)
+        transaction_id = item["transaction_id"]
+
+        if item["id"]:
+            logger.info("Invoice %s from email: %s (transaction %s)", filename, item["status"], transaction_id)
             return {
                 'success': True,
                 'transaction_id': transaction_id,
+                'review': {k: item[k] for k in ("id", "status", "confidence", "flags")},
                 'filename': filename
             }
         else:

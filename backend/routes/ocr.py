@@ -18,7 +18,8 @@ from utils.image_processing import (
 )
 from utils.openrouter import extract_and_structure_with_openrouter
 from utils.normalize import normalize_transaction
-from utils.save_transaction import save_transaction_detailed
+from api.review import submit_invoice
+from models.database import db
 
 logger = logging.getLogger(__name__)
 # Create blueprint
@@ -125,10 +126,10 @@ def extract_invoice_data():
             code="no_invoice_data",
         )
 
-    # Step 3: Save. If this fails the user must know: reporting success would
-    # lose the invoice silently.
+    # Step 3: Check (SPEC-EXTRACT): nothing doubtful -> saved as a transaction; otherwise it waits in the
+    # review queue. If this fails the user must know: reporting success would lose the invoice silently.
     try:
-        transaction_id, created = save_transaction_detailed(user_id, normalized, email=g.user_email)
+        item = submit_invoice(db.engine, user_id, normalized, email=g.user_email)
     except Exception as e:
         return api_error(
             "We read the invoice but couldn't save it. Please try again.",
@@ -136,17 +137,19 @@ def extract_invoice_data():
             log=e,
         )
 
-    if created:
-        logger.info("Transaction %s saved for user %s", transaction_id, user_id)
+    rules = [f["rule"] for f in item["flags"]]
+    if item["status"] == "approved":
+        logger.info("Transaction %s saved for user %s", item["transaction_id"], user_id)
         message = 'Transaction extracted and stored successfully'
     else:
-        message = 'This invoice was already uploaded'
+        message = 'Sent to review: ' + '; '.join(f["detail"] for f in item["flags"])
 
     return jsonify({
         'success': True,
-        'duplicate': not created,
+        'duplicate': 'duplicate' in rules,
         'message': message,
-        'transaction_id': str(transaction_id),
+        'transaction_id': item["transaction_id"],
+        'review': {k: item[k] for k in ("id", "status", "confidence", "flags")},
         'data': normalized,
         'ocr_data': structured_data,
     }), 200

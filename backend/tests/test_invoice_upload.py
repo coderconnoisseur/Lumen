@@ -414,19 +414,27 @@ def test_extract_creates_local_user_row_for_foreign_key(client, ocr):
         assert user is not None and user.email == "u@example.com"
 
 
-def test_reupload_is_reported_as_duplicate(client, ocr):
+def test_reupload_is_flagged_as_a_duplicate_for_review(client, ocr):
     first = _upload(client, _png_bytes()).get_json()
+    assert first["review"]["status"] == "approved" and first["transaction_id"]
     second = _upload(client, _png_bytes()).get_json()
-    assert second["duplicate"] is True
-    assert second["transaction_id"] == first["transaction_id"]
-    assert second["message"] == "This invoice was already uploaded"
+    assert second["duplicate"] is True and second["transaction_id"] is None
+    assert second["review"]["status"] == "flagged" and second["message"].startswith("Sent to review")
     assert len(_rows()) == 1
 
 
+def test_a_doubtful_invoice_waits_for_review_instead_of_becoming_a_transaction(client, ocr):
+    ocr.result = {**SHARMA_OCR, "total_amount": "Rs 2,121.00"}  # line items + tax say 1,121
+    body = _upload(client, _png_bytes()).get_json()
+    assert body["success"] and body["transaction_id"] is None
+    assert [f["rule"] for f in body["review"]["flags"]] == ["total_mismatch"]
+    assert _rows() == []
+
+
 def test_receipts_without_invoice_number_are_not_deduplicated(client, ocr):
-    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 40", "invoice_number": None}
+    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 40", "invoice_number": None, "date": "2026-09-01"}
     first = _upload(client, _png_bytes()).get_json()
-    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 60", "invoice_number": None}
+    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 60", "invoice_number": None, "date": "2026-09-02"}
     second = _upload(client, _png_bytes()).get_json()
     assert second["duplicate"] is False
     assert first["transaction_id"] != second["transaction_id"]
@@ -488,7 +496,7 @@ def test_save_failure_is_an_error_not_a_silent_success(client, ocr, monkeypatch)
     def broken(*a, **k):
         raise RuntimeError("database is locked")
 
-    monkeypatch.setattr(routes.ocr, "save_transaction_detailed", broken)
+    monkeypatch.setattr(routes.ocr, "submit_invoice", broken)
     resp = _upload(client, _png_bytes())
     assert resp.status_code == 500
     body = resp.get_json()

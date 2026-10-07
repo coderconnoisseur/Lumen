@@ -296,6 +296,6 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
 7. **SPEC-EXTRACT build:** EXT-02 rules done (`extract/validate.py`, `validation` suite: all planted faults
    caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Review queue
    done (`api/review.py`: auto-approve high confidence, flagged items wait, approve-with-edits re-checks, reject;
-   audit-logged; `purchase_orders` + `review_items` tables). Next, LLM-free: wire the checks into upload, a minimal
-   review page. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
+   audit-logged; `purchase_orders` + `review_items` tables). Upload, batch and email all go through the checks
+   (`submit_invoice`); minimal `/review` page. SPEC-FEEDBACK drafted (#28). Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
 8. UI refactor (owner-led, last).

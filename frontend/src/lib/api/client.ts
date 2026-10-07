@@ -660,3 +660,33 @@ export const agentApi = {
 		await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
 	},
 };
+
+export interface ReviewFlag {
+	rule: string;
+	severity: "warn" | "fail";
+	detail: string;
+}
+
+export interface ReviewItem {
+	id: string;
+	status: "flagged" | "approved" | "rejected";
+	confidence: "high" | "medium" | "low";
+	invoice: Record<string, unknown>;
+	flags: ReviewFlag[];
+	transaction_id: string | null;
+	note: string | null;
+	created_at: string | null;
+}
+
+// Review queue (SPEC-EXTRACT): invoices the checks weren't sure about.
+export const reviewApi = {
+	list: async (): Promise<ReviewItem[]> => {
+		const response = await apiClient.get("/api/review", { params: { status: "flagged" } });
+		return response.data.items;
+	},
+
+	decide: async (id: string, decision: "approve" | "reject", body: { edits?: Record<string, unknown>; note?: string } = {}): Promise<ReviewItem> => {
+		const response = await apiClient.post(`/api/review/${encodeURIComponent(id)}/${decision}`, body);
+		return response.data.item;
+	},
+};

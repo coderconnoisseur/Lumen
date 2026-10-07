@@ -39,15 +39,17 @@ def _off(a: float, b: float) -> bool:
 def validate(inv: dict, ctx: Context) -> list[Flag]:
     flags: list[Flag] = []
     items = inv.get("items") or []
-    subtotal = round(sum(i.get("total", i.get("total_price")) or 0 for i in items), 2)  # eval or upload shape
+    amounts = [i.get("total", i.get("total_price")) for i in items]  # eval or upload shape
+    subtotal = round(sum(a or 0 for a in amounts), 2)
     total, tax = inv.get("total_amount"), inv.get("tax_amount") or 0
-    if items and total is not None and _off(subtotal + tax, total):
+    # An item the reader couldn't price is a misread, not a wrong total.
+    if items and None not in amounts and total is not None and _off(subtotal + tax, total):
         flags.append(Flag("total_mismatch", "fail", f"line items {subtotal} + tax {tax} != total {total}"))
 
     vendor = inv.get("vendor_name") or ""
     if (vendor.lower(), inv.get("invoice_number")) in ctx.seen_invoices:
         flags.append(Flag("duplicate", "fail", f"{vendor} {inv.get('invoice_number')} is already recorded"))
-    if vendor not in ctx.known_vendors:
+    if ctx.known_vendors and vendor not in ctx.known_vendors:  # no history yet: every vendor is new
         flags.append(Flag("unknown_vendor", "warn", f"no earlier payments to {vendor or 'this vendor'}"))
 
     try:
@@ -57,7 +59,7 @@ def validate(inv: dict, ctx: Context) -> list[Flag]:
     except ValueError:
         flags.append(Flag("bad_date", "fail", f"unreadable date {inv.get('date')!r}"))
 
-    if not inv.get("currency"):
+    if "currency" in inv and not inv["currency"]:  # only when the reader reports a currency field
         flags.append(Flag("no_currency", "warn", "no currency on the invoice"))
 
     po_number = inv.get("po_number")

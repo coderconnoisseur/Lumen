@@ -72,3 +72,19 @@ def test_the_rules_catch_every_planted_fault_without_false_flags(split):
 
     out = validation.run("none", split)
     assert all(out["cases"].values()), [k for k, v in out["cases"].items() if not v]
+
+
+def test_the_legacy_reader_is_not_flagged_for_fields_it_never_reads():
+    inv = _inv()
+    del inv["currency"]  # today's upload reader has no currency field (EXT-01 adds it)
+    assert validate(inv, CTX) == []
+
+
+def test_a_line_item_without_an_amount_skips_the_totals_check():
+    inv = _inv(items=[{"item_name": "Milk 1L", "quantity": 2, "unit_price": None, "total_price": None}])
+    assert "total_mismatch" not in _rules(inv)
+
+
+def test_a_new_user_is_not_warned_about_every_vendor():
+    fresh = Context(today=CTX.today)
+    assert "unknown_vendor" not in {f.rule for f in validate(_inv(), fresh)}
