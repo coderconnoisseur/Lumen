@@ -283,8 +283,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
 2. **AGT-07 (interim, 2026-10-07):** recorded `agent_sql` + `agent_safety` on Groq. SQL agent 26/32 vs pipeline
    29/32 (2 fixed, 5 regressed, mostly answer shape); tenant leaks 0; **1 injection followed** (safety-injection-14),
    so `/chat` doesn't switch yet. Next: prompt hardening (pasted text is data; list questions return vendor/date/
-   amount), re-record all three agent suites (~190K tokens, a full day's quota), re-run AGT-07. Owner decision
-   pending: grade SQL answers that come from `lookup_vendors` (no rows) by the answer text?
+   amount), re-record all three agent suites (~190K tokens, a full day's quota), re-run AGT-07. Owner approved
+   grading no-row answers by their text: agent re-graded to 28/32 (pipeline 29/32).
    `docs/direction/benchmarks/2026-10-07-agt07-agent-vs-pipeline-dev.md`, STORY 18.
 3. **Groq baseline suites:** `safety` and `sql` test split on Groq; `extraction` stays on OpenRouter vision (50
    requests/day): record over several days.

@@ -185,3 +185,18 @@ def test_relaxed_compare_accepts_extra_columns_but_not_wrong_values():
     assert result_sets_contain(gold2, [(5.0, "Transport", 2), (10.0, "Groceries", 3)], ordered=False)
     assert not result_sets_contain(gold2, [(5.0, "Transport", 2), (10.0, "Groceries", 3)], ordered=True)
     assert not result_sets_contain(gold2, [("Groceries", 10.0)], ordered=False)  # a row is missing
+
+
+@pytest.mark.parametrize("gold, answer, ok", [
+    ([(35400.0,)], "You've spent **₹35,400** on your yoga membership.", True),          # sql-014
+    ([("Keyboard",), ("Monitor 24in",), ("Wireless Mouse",), ("USB-C Cable",)],
+     "- Keyboard\n- Monitor 24in\n- USB‑C Cable\n- Wireless Mouse", True),              # sql-041 (non-ASCII hyphen)
+    ([(58.59571428571429,)], "about ₹58.60 per litre", True),
+    ([(58.59571428571429,)], "about ₹58.66 per litre", False),                        # a different number
+    ([("Keyboard",), ("Mouse",)], "Keyboard only", False),                             # one value missing
+    ([], "nothing", False),
+])
+def test_answer_contains_every_gold_value(gold, answer, ok):
+    from evals.metrics import answer_contains
+
+    assert answer_contains(gold, answer) is ok

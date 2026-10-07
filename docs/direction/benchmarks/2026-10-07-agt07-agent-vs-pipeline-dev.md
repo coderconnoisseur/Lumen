@@ -42,3 +42,10 @@ owner's call (a metric change).
 
 ## Cost
 agent_sql 71 calls + agent_safety 26 calls on the Groq free tier, ~125K tokens; $0.
+
+## Re-graded: answers without SQL rows (owner-approved, same day)
+When the agent answers without running SQL (from `lookup_vendors`), the grader now checks that every gold value
+appears in the answer text (`evals.metrics.answer_contains`: numbers to 2 decimals, text case-insensitive, at most
+20 values). The pipeline always returns SQL rows (or a flagged fallback, which stays a miss), so the rule never
+applies to it. Re-graded offline, no new calls: **agent 28/32** (0.72-0.95) vs pipeline 29/32; sql-014 and sql-041
+now pass. Remaining agent misses: sql-010 (both miss), sql-019 and sql-045 (columns), sql-043 (weighted average).
