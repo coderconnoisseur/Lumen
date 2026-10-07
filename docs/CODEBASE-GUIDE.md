@@ -231,4 +231,10 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   low = any failure. `Context` carries the user's known vendors, stored invoice numbers and purchase orders.
 - `evals/suites/validation.py`: the rules on the labelled invoices (recall per fault type, precision per rule,
   false flags on clean invoices).
-- Coming: the review queue (`review_items`, `/api/review`), checks wired into upload, structured vision extraction.
+- `api/review.py`: the review queue. `POST /api/review` checks an extracted invoice: high confidence becomes a
+  transaction at once (`review_auto_approved`), otherwise it waits as `flagged`. `GET /api/review?status=`,
+  `POST /api/review/{id}/approve` (optional `edits`, re-checked before approval; optional `note`) and `/reject`.
+  Only approved invoices become transactions, written in the same database transaction as the status change;
+  every step goes to `audit_events` (detail has `review_item_id`). Tables `review_items`, `purchase_orders`
+  (the demo seeds its POs).
+- Coming: checks wired into upload, a minimal review page, structured vision extraction.

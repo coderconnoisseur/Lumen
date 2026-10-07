@@ -39,7 +39,7 @@ def _off(a: float, b: float) -> bool:
 def validate(inv: dict, ctx: Context) -> list[Flag]:
     flags: list[Flag] = []
     items = inv.get("items") or []
-    subtotal = round(sum(i.get("total") or 0 for i in items), 2)
+    subtotal = round(sum(i.get("total", i.get("total_price")) or 0 for i in items), 2)  # eval or upload shape
     total, tax = inv.get("total_amount"), inv.get("tax_amount") or 0
     if items and total is not None and _off(subtotal + tax, total):
         flags.append(Flag("total_mismatch", "fail", f"line items {subtotal} + tax {tax} != total {total}"))

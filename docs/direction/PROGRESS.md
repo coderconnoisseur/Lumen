@@ -294,7 +294,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
 6. **Switch `/chat` to the agent** only if AGT-07 shows it's no worse on SQL and passes both safety gates; that also
    fixes the 7,270-token synthesis prompt.
 7. **SPEC-EXTRACT build:** EXT-02 rules done (`extract/validate.py`, `validation` suite: all planted faults
-   caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Next, also
-   LLM-free: `purchase_orders` table, review queue (state machine, `review_items`, `/api/review`, audit log), wiring
-   the checks into upload. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
+   caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Review queue
+   done (`api/review.py`: auto-approve high confidence, flagged items wait, approve-with-edits re-checks, reject;
+   audit-logged; `purchase_orders` + `review_items` tables). Next, LLM-free: wire the checks into upload, a minimal
+   review page. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
 8. UI refactor (owner-led, last).
