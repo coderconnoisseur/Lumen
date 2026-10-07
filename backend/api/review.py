@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
-from extract.validate import Context, confidence, validate
+from extract.validate import Context, confidence, suppressed_warnings, validate
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
@@ -44,15 +44,31 @@ class Decision(BaseModel):
     note: str | None = None
 
 
-def _context(session: Session, user_id: str) -> Context:
+def _history(session: Session, user_id: str) -> list[dict]:
+    """The user's review decisions, newest first, for SPEC-FEEDBACK loop B."""
+    from models import ReviewItem
+
+    rows = session.scalars(select(ReviewItem).where(ReviewItem.user_id == user_id)
+                           .order_by(ReviewItem.created_at.desc(), ReviewItem.id.desc())).all()
+    out = []
+    for r in rows:
+        inv = json.loads(r.invoice)
+        out.append({"vendor": (inv.get("vendor_name") or "").lower(), "status": r.status,
+                    "edited": r.extracted is not None and json.loads(r.extracted) != inv,
+                    "rules": {f["rule"] for f in json.loads(r.flags)}})
+    return out
+
+
+def _context(session: Session, user_id: str, *, on: date | None = None, adapt: bool = True) -> Context:
     from models import PurchaseOrder, Transaction
 
     txns = session.execute(select(Transaction.vendor_name, Transaction.invoice_number)
                            .where(Transaction.user_id == user_id)).all()
     pos = session.scalars(select(PurchaseOrder).where(PurchaseOrder.user_id == user_id)).all()
-    return Context(today=today(), known_vendors={v for v, _ in txns if v},
+    return Context(today=on or today(), known_vendors={v for v, _ in txns if v},
                    seen_invoices={(v.lower(), n) for v, n in txns if v and n},
-                   purchase_orders={p.po_number: {"vendor_name": p.vendor_name, "lines": json.loads(p.lines)} for p in pos})
+                   purchase_orders={p.po_number: {"vendor_name": p.vendor_name, "lines": json.loads(p.lines)} for p in pos},
+                   suppressed=suppressed_warnings(_history(session, user_id)) if adapt else set())
 
 
 def _item_dict(item) -> dict:
@@ -62,8 +78,8 @@ def _item_dict(item) -> dict:
             "decided_at": item.decided_at.isoformat() if item.decided_at else None}
 
 
-def _check(session: Session, item, user_id: str) -> None:
-    flags = validate(json.loads(item.invoice), _context(session, user_id))
+def _check(session: Session, item, user_id: str, **context) -> None:
+    flags = validate(json.loads(item.invoice), _context(session, user_id, **context))
     item.flags = json.dumps([f.__dict__ for f in flags])
     item.confidence = confidence(flags)
 
@@ -94,14 +110,17 @@ def _audit(session: Session, user_id: str, actor: str, action: str, item, **deta
                            detail=json.dumps({"review_item_id": item.id, **detail})))
 
 
-def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | None = None) -> dict:
+def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | None = None, *,
+                   on: date | None = None, adapt: bool = True) -> dict:
     """Check an extracted invoice; approve it at once if nothing is doubtful, otherwise queue it. Used by the
-    upload routes (Flask) and `POST /api/review`."""
+    upload routes (Flask) and `POST /api/review`. `on` and `adapt` are for the feedback eval (a simulated
+    timeline, and loop B switched off for the baseline)."""
     from models import ReviewItem
 
     with Session(engine) as session, session.begin():
-        item = ReviewItem(id=str(uuid.uuid4()), user_id=user_id, invoice=json.dumps(invoice), status="flagged")
-        _check(session, item, user_id)
+        item = ReviewItem(id=str(uuid.uuid4()), user_id=user_id, invoice=json.dumps(invoice),
+                          extracted=json.dumps(invoice), status="flagged")
+        _check(session, item, user_id, on=on, adapt=adapt)
         if item.confidence == "high":
             item.status, item.decided_at = "approved", datetime.utcnow()
             item.transaction_id = _record(session, user_id, invoice, email)
@@ -128,7 +147,8 @@ def list_items(status: str = "flagged", claims: dict = Depends(current_user), en
         return {"success": True, "items": [_item_dict(r) for r in rows]}
 
 
-def _decide(item_id: str, user_id: str, decision: str, body: Decision, engine: Engine) -> dict:
+def _decide(item_id: str, user_id: str, decision: str, body: Decision, engine: Engine, *,
+            on: date | None = None, adapt: bool = True) -> dict:
     from models import ReviewItem
 
     try:
@@ -140,7 +160,7 @@ def _decide(item_id: str, user_id: str, decision: str, body: Decision, engine: E
                 raise HTTPException(409, f"Already {item.status}")
             if body.edits:
                 item.invoice = json.dumps({**json.loads(item.invoice), **body.edits})
-                _check(session, item, user_id)  # flags now describe what is actually approved
+                _check(session, item, user_id, on=on, adapt=adapt)  # flags describe what is actually approved
             item.status, item.decided_at, item.note = decision, datetime.utcnow(), body.note
             if decision == "approved":
                 item.transaction_id = _record(session, user_id, json.loads(item.invoice))

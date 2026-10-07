@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 19 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 20 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -297,5 +297,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Review queue
    done (`api/review.py`: auto-approve high confidence, flagged items wait, approve-with-edits re-checks, reject;
    audit-logged; `purchase_orders` + `review_items` tables). Upload, batch and email all go through the checks
-   (`submit_invoice`); minimal `/review` page. SPEC-FEEDBACK drafted (#28). Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
+   (`submit_invoice`); minimal `/review` page. SPEC-FEEDBACK approved (3; rejections only reset).
+   Loop B built (`suppressed_warnings`, notes, `review_items.extracted`, `feedback` suite): review load 48 → 44 of
+   120, 0 missed; variant "only unexplained rejections reset" 48 → 36, 0 missed, **awaiting owner decision**
+   (`benchmarks/2026-10-07-feedback-loop-b.md`, STORY 20). Loop A needs EXT-01. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
 8. UI refactor (owner-led, last).

@@ -311,6 +311,7 @@ class ReviewItem(db.Model):
     id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(String(36), nullable=False, index=True)
     invoice = db.Column(Text, nullable=False)  # JSON, the extracted (or edited) invoice
+    extracted = db.Column(Text, nullable=True)  # JSON, what the reader produced; differs from `invoice` if edited
     flags = db.Column(Text, nullable=False, default="[]")  # JSON [{rule, severity, detail}]
     confidence = db.Column(db.String(10), nullable=False)  # high | medium | low
     status = db.Column(db.String(20), nullable=False)  # flagged | approved | rejected

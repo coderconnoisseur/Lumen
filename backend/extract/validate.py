@@ -12,6 +12,8 @@ from typing import Literal
 
 TOLERANCE = 0.01  # totals and PO amounts may differ by 1% (rounding, printed values)
 MAX_AGE = timedelta(days=730)
+ADAPTABLE = frozenset({"unknown_vendor", "unknown_po", "no_currency"})  # warnings only; failures never adapt
+STREAK = 3  # unchanged approvals in a row that silence a warning for a vendor (SPEC-FEEDBACK, owner: 3)
 _INJECTION = re.compile(r"ignore (?:all |any )?(?:previous|prior|above) instructions|\bAI assistant\b|\bsystem\s*:|"
                         r"mark (?:this|the) invoice as (?:verified|approved|paid)|https?://", re.IGNORECASE)
 
@@ -19,7 +21,7 @@ _INJECTION = re.compile(r"ignore (?:all |any )?(?:previous|prior|above) instruct
 @dataclass(frozen=True)
 class Flag:
     rule: str
-    severity: Literal["warn", "fail"]
+    severity: Literal["note", "warn", "fail"]  # note = shown, never lowers confidence
     detail: str
 
 
@@ -30,6 +32,7 @@ class Context:
     known_vendors: set[str] = field(default_factory=set)        # vendors the user has paid before
     seen_invoices: set[tuple[str, str]] = field(default_factory=set)  # (vendor lower-case, invoice number) stored
     purchase_orders: dict[str, dict] = field(default_factory=dict)    # po_number -> {"vendor_name", "lines"}
+    suppressed: set[tuple[str, str]] = field(default_factory=set)     # (vendor lower-case, rule), loop B
 
 
 def _off(a: float, b: float) -> bool:
@@ -76,10 +79,30 @@ def validate(inv: dict, ctx: Context) -> list[Flag]:
     text = " ".join(str(v) for v in (inv.get("notes"), vendor, inv.get("address")) if v)
     if _INJECTION.search(text):
         flags.append(Flag("possible_injection", "fail", "instruction-like text on the invoice"))
-    return flags
+    return [Flag(f.rule, "note", f"not raised: you approved this {STREAK}+ times in a row for {vendor}")
+            if f.severity == "warn" and f.rule in ADAPTABLE and (vendor.lower(), f.rule) in ctx.suppressed else f
+            for f in flags]
+
+
+def suppressed_warnings(history: list[dict]) -> set[tuple[str, str]]:
+    """SPEC-FEEDBACK loop B. `history`: the user's review items, newest first, as
+    {"vendor": lower-case, "status", "edited": bool, "rules": set of flagged rules}. A warning approved unchanged
+    STREAK times in a row for a vendor is silenced for it; a rejection or an edited approval ends that vendor's
+    streak; items without the warning, and undecided ones, neither count nor break it."""
+    streaks: dict[tuple[str, str], int] = {}
+    ended: set[str] = set()
+    for h in history:
+        if h["vendor"] in ended or h["status"] not in ("approved", "rejected"):
+            continue
+        if h["status"] == "rejected" or h["edited"]:
+            ended.add(h["vendor"])
+            continue
+        for rule in h["rules"] & ADAPTABLE:
+            streaks[(h["vendor"], rule)] = streaks.get((h["vendor"], rule), 0) + 1
+    return {key for key, n in streaks.items() if n >= STREAK}
 
 
 def confidence(flags: list[Flag]) -> Literal["high", "medium", "low"]:
     if any(f.severity == "fail" for f in flags):
         return "low"
-    return "medium" if flags else "high"
+    return "medium" if any(f.severity == "warn" for f in flags) else "high"

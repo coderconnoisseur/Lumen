@@ -32,6 +32,17 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
             logger.warning("Transaction index migration skipped: %s", e)
 
 
+def _migrate_review_items_extracted() -> None:
+    """review_items.extracted (SPEC-FEEDBACK) was added after the table first shipped."""
+    try:
+        if "extracted" not in {c["name"] for c in inspect(db.engine).get_columns("review_items")}:
+            with db.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE review_items ADD COLUMN extracted TEXT"))
+            logger.info("Added review_items.extracted")
+    except Exception as e:
+        logger.warning("review_items.extracted migration skipped: %s", e)
+
+
 RAG_TABLES = {"documents", "document_chunks"}
 
 
@@ -63,6 +74,7 @@ def init_db(app: Flask):
                 tables = [t for t in tables if t.name not in RAG_TABLES]
             db.metadata.create_all(db.engine, tables=tables)
             _migrate_transaction_unique_index(app)
+            _migrate_review_items_extracted()
             logger.info("Database connected and tables initialized")
     except Exception as e:
         logger.warning("Could not connect to database: %s", e)
