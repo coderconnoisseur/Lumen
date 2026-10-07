@@ -45,6 +45,7 @@ def main(argv=None) -> int:
 
 def seed(engine, store, embedder, user_id: str) -> dict:
     """Give `user_id` the demo data; also used by the one-click demo (api/demo.py)."""
+    import json
     from datetime import datetime
 
     from sqlalchemy import delete, insert, select
@@ -66,7 +67,11 @@ def seed(engine, store, embedder, user_id: str) -> dict:
 
     # Touch only the seeded rows: the account's own uploads and its users row are left alone.
     tables = db.metadata.tables
-    db.metadata.create_all(engine, tables=[tables[t] for t in ("users", "receipts", "transactions", "transaction_items")])
+    db.metadata.create_all(engine, tables=[tables[t] for t in ("users", "receipts", "transactions", "transaction_items",
+                                                                "purchase_orders")])
+    pos = [{"id": remap(p["po_number"]), "user_id": user_id, "po_number": p["po_number"], "vendor_name": p["vendor_name"],
+            "issue_date": p["issue_date"], "lines": json.dumps(p["lines"]), "currency": p["currency"]}
+           for p in world["purchase_orders"] if p["user_id"] == source["id"]]
     with engine.begin() as conn:
         if conn.execute(select(tables["users"].c.id).where(tables["users"].c.id == user_id)).first() is None:
             conn.execute(insert(tables["users"]), [{"id": user_id, "email": f"{user_id[:8]}@local.demo"}])
@@ -75,6 +80,9 @@ def seed(engine, store, embedder, user_id: str) -> dict:
         conn.execute(delete(tables["transactions"]).where(tables["transactions"].c.id.in_(seeded_ids)))
         conn.execute(insert(tables["transactions"]), rows)
         conn.execute(insert(tables["transaction_items"]), items)
+        conn.execute(delete(tables["purchase_orders"]).where(tables["purchase_orders"].c.id.in_([p["id"] for p in pos])))
+        if pos:
+            conn.execute(insert(tables["purchase_orders"]), pos)
     store.ensure_schema()
     corpus = BACKEND / "evals" / "data" / "corpus"
     docs = sorted(p for p in corpus.glob("*.pdf") if "-u1-" in p.name or p.name.startswith("po-po-u1"))
