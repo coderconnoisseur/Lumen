@@ -237,4 +237,12 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   Only approved invoices become transactions, written in the same database transaction as the status change;
   every step goes to `audit_events` (detail has `review_item_id`). Tables `review_items`, `purchase_orders`
   (the demo seeds its POs).
-- Coming: checks wired into upload, a minimal review page, structured vision extraction.
+- **Every way an invoice arrives goes through the checks:** `/extract` (upload), `/extract-batch` (multi-page
+  PDF) and the email poller call `api.review.submit_invoice`, the only place an invoice becomes a transaction
+  (`utils/save_transaction.py` is gone). Upload responses carry `review: {id, status, confidence, flags}` and
+  `transaction_id` only when approved; a re-upload is flagged as a duplicate. Rules skip what today's reader
+  can't see: no currency field → no currency warning; an unpriced line item → no totals check; a user with no
+  history → no unknown-vendor warning.
+- `/review` (frontend, minimal test page): flagged invoices with their reasons; approve (optionally with a
+  corrected total) or reject.
+- Coming: structured vision extraction (EXT-01), feedback loops (SPEC-FEEDBACK, draft).

@@ -68,12 +68,13 @@ def _check(session: Session, item, user_id: str) -> None:
     item.confidence = confidence(flags)
 
 
-def _record(session: Session, user_id: str, inv: dict) -> str:
-    """The approved invoice as a transaction (same fields as the upload path's save_transaction)."""
+def _record(session: Session, user_id: str, inv: dict, email: str | None = None) -> str:
+    """The approved invoice as a transaction; the only place an invoice becomes one."""
     from models import Transaction, TransactionItem, User
 
-    if session.get(User, user_id) is None:
-        session.add(User(id=user_id, email=f"{user_id}@users.lumen.local"))
+    if session.get(User, user_id) is None:  # transactions.user_id -> users.id is enforced on Postgres
+        taken = email and session.scalar(select(User.id).where(User.email == email))
+        session.add(User(id=user_id, email=email if email and not taken else f"{user_id}@users.lumen.local"))
     tx = Transaction(id=str(uuid.uuid4()), user_id=user_id, vendor_name=inv["vendor_name"],
                      invoice_number=inv["invoice_number"], date=inv["date"], total_amount=inv["total_amount"],
                      tax_amount=inv.get("tax_amount"), payment_method=inv.get("payment_method"),
@@ -93,24 +94,28 @@ def _audit(session: Session, user_id: str, actor: str, action: str, item, **deta
                            detail=json.dumps({"review_item_id": item.id, **detail})))
 
 
-@router.post("", dependencies=[Depends(rate_limit())])
-def submit(body: Submit, claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
-    """Check an extracted invoice; approve it at once if nothing is doubtful, otherwise queue it."""
+def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | None = None) -> dict:
+    """Check an extracted invoice; approve it at once if nothing is doubtful, otherwise queue it. Used by the
+    upload routes (Flask) and `POST /api/review`."""
     from models import ReviewItem
 
-    user_id = claims["sub"]
     with Session(engine) as session, session.begin():
-        item = ReviewItem(id=str(uuid.uuid4()), user_id=user_id, invoice=json.dumps(body.invoice), status="flagged")
+        item = ReviewItem(id=str(uuid.uuid4()), user_id=user_id, invoice=json.dumps(invoice), status="flagged")
         _check(session, item, user_id)
         if item.confidence == "high":
             item.status, item.decided_at = "approved", datetime.utcnow()
-            item.transaction_id = _record(session, user_id, body.invoice)
+            item.transaction_id = _record(session, user_id, invoice, email)
             _audit(session, user_id, "system", "review_auto_approved", item, transaction_id=item.transaction_id)
         else:
             _audit(session, user_id, "system", "review_flagged", item, flags=json.loads(item.flags))
         session.add(item)
         session.flush()
-        return {"success": True, "item": _item_dict(item)}
+        return _item_dict(item)
+
+
+@router.post("", dependencies=[Depends(rate_limit())])
+def submit(body: Submit, claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
+    return {"success": True, "item": submit_invoice(engine, claims["sub"], body.invoice, claims.get("email"))}
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
