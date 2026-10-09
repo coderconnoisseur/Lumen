@@ -291,6 +291,13 @@ Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
 - **Document Q&A citation format** (2026-10-09): the live model sometimes writes citations as `[ id#s04 ]` or
   `【id#s04】`. The agent accepts both now (`agent/graph.py`); `rag/answer.py` (`/api/documents/ask`) still has the
   strict pattern, so such citations are dropped there. Fixing it may move the RAG eval numbers; re-run them with it.
+- **Product vision shown on the landing page** (2026-10-09, owner): Lumen grows into a full AI money advisor on par with
+  useorigin.com. The home page already describes these; none are built yet: bank/card statement import and
+  "connected accounts"; budgets ("left to spend"); subscription/recurring-charge detection and cancellation nudges;
+  savings suggestions ("ways to save", idle cash); a money health score with an action list; proactive
+  notifications (statement dates, renewals, unusual bills); time-series forecasting of spend and cash flow; agent
+  tools for web search and files attached in chat; agent memory of goals ("remember I'm saving for a car", see
+  AGT-05). Each needs its own spec and eval before it's built.
 
 ## Next step
 **Now (2026-10-09): UI phase.** A separate agent polishes the UI with the owner (SPEC-UX, the polish backlog below and in

@@ -241,15 +241,19 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 
 ## 7d. Landing page (frontend, UI phase)
 - `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
-  Lumen's own copy and screens: glass nav; sky hero with a phone of cycling glass cards; a promise panel with a
-  horizon glow; an auto-scrolling feature carousel (`components/home/feature-carousel.tsx`); cycling notifications
-  over a dotted grid; three scene + screen pairs; a full-bleed "nothing changes without you" section; the Ask Lumen
-  phone with a typing input (`typing-input.tsx`); a grid of example questions; a closing call to action over hills.
-- No numeric claims, testimonials or customer logos. Product screens are markup with sample data
-  (`components/home/mocks.tsx`); photos/video are stood in for by CSS/SVG scenes (`scenes.tsx`), to be swapped
-  for licensed photography when the owner picks some.
+  Lumen's own copy, positioned as the AI money advisor Lumen is growing into (unbuilt parts: PROGRESS, Deferred,
+  "Product vision"). Sections: glass nav; sky-video hero with a phone of cycling glass cards; a promise panel with a
+  horizon glow; an auto-scrolling feature carousel (`components/home/feature-carousel.tsx`); a stack of cycling
+  notifications over a dotted grid; three photo + screen pairs; "Nothing changes without you" with a working
+  approve/reject card (`proposal-demo.tsx`); the Ask Lumen phone that plays a scripted conversation (`chat-demo.tsx`);
+  example questions; a closing call to action over a photo.
+- Showcase screens (`mocks.tsx`) are polished versions of the app with sample data, in Hanken Grotesk (loaded in
+  `page.tsx` as `--font-ui`); headlines use the Newsreader serif, labels Roboto Mono. No numeric claims about
+  Lumen itself, testimonials or customer logos.
+- Media: Pexels photos and a 720p sky video in `public/home/` (sources listed in `components/home/scenes.tsx`;
+  Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
 - Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
-  headline rise, fades, cycling cards, marquees, drifting sky) and turns it all off for reduced motion.
+  headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
 - Every **Get started** / **Log in** goes to `/signin`. Only `components/landing/Aurora.tsx` remains of the old
   template landing (the sign-in background).
 
