@@ -14,9 +14,8 @@ from utils.image_processing import (
     image_to_base64,
 )
 from utils.llm import LLMError
-from utils.openrouter import extract_and_structure_with_openrouter
+from extract.read import read_invoice
 from routes.ocr import OCR_LLM_MESSAGES
-from utils.normalize import normalize_transaction
 from api.review import submit_invoice
 from models.database import db
 
@@ -71,13 +70,13 @@ def extract_batch():
             image_base64 = image_to_base64(img_bytes)
 
             try:
-                page_data = extract_and_structure_with_openrouter(
+                page_data = read_invoice(
                     image_base64, "image/png"
                 )
                 page_data["page_number"] = idx + 1
                 page_data["source_file"] = file.filename
 
-                normalized = normalize_transaction(page_data)
+                normalized = page_data
                 # Checked like a single upload: saved if nothing is doubtful, otherwise queued for review.
                 item = submit_invoice(db.engine, user_id, normalized, email=g.user_email)
                 saved_ids.append(item["id"])

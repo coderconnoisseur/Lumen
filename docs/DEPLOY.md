@@ -25,8 +25,8 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
 1. Sign in at render.com with GitHub. If asked, give the Render GitHub app access to `coderconnoisseur/Lumen`.
 2. **New → Blueprint** → pick `coderconnoisseur/Lumen`, branch `main`. It reads `render.yaml` and proposes one
    service, `lumen-api` (free).
-3. Fill the four secret values it asks for: `DATABASE_URL` (step 1.3), `SUPABASE_URL` (1.4), `GROQ_API_KEY` and
-   `OPENROUTER_API_KEY` (same values as your local `backend/.env`). Everything else is preset. → **Apply**.
+3. Fill the five secret values it asks for: `DATABASE_URL` (step 1.3), `SUPABASE_URL` (1.4), `GROQ_API_KEY`,
+   `GEMINI_API_KEY` and `OPENROUTER_API_KEY` (same values as your local `backend/.env`). Everything else is preset. → **Apply**.
 4. Wait for the first deploy (5-10 min: it installs the ML packages). Open
    `https://lumen-api.onrender.com/health` (the exact `.onrender.com` name is on the service page): it should say
    healthy and name the Groq tier.

@@ -38,10 +38,13 @@ services:
         value: https://lumen.nishantbuilds.me
       - key: FRONTEND_URL
         value: https://lumen.nishantbuilds.me
-      # Text models come from the Groq chain in llm/registry.yaml; invoice images use OpenRouter's free vision model.
+      # Text models come from the Groq chain in llm/registry.yaml; invoice images are read by Gemini (free tier),
+      # falling back to OpenRouter's free vision model.
       - key: LUMEN_LLM_TIER
         value: groq
       - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false

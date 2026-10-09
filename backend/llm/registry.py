@@ -53,7 +53,9 @@ class Registry:
                 models = list(dict.fromkeys([primary, *fallbacks]))
                 return [Entry(tier, m, guess_family(m)) for m in models]
         rows = ((self._data.get(tier) or {}).get(role)) or []
-        return [Entry(tier, row["model"], row.get("family") or guess_family(row["model"])) for row in rows]
+        # A row may name its own provider (e.g. the groq tier reads images with gemini: Groq has no vision model).
+        return [Entry(row.get("provider") or tier, row["model"], row.get("family") or guess_family(row["model"]))
+                for row in rows]
 
     def chain(self, tier: str, role: str, env: Mapping[str, str] | None = None) -> list[Entry]:
         """The tier's own models for `role`, then openrouter's as fallback."""
