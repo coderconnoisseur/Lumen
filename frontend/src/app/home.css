@@ -1,4 +1,4 @@
-/* Landing page motion: scroll reveals, cycling cards, marquees, drifting sky. Pure CSS; reveal.tsx only adds
+/* Landing page motion: scroll reveals, cycling cards, marquees. Pure CSS; reveal.tsx only adds
  * [data-shown] when an element scrolls into view. */
 
 .home-reveal {
@@ -25,12 +25,6 @@
 .home-lines[data-shown] .ln {
 	transform: none;
 }
-
-@keyframes home-drift {
-	from { transform: translateX(-6%); }
-	to { transform: translateX(6%); }
-}
-.home-drift { animation: home-drift 40s ease-in-out infinite alternate; }
 
 /* four items take turns: each is shown for a quarter of the loop */
 @keyframes home-cycle {
@@ -70,7 +64,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.home-reveal, .home-lines .ln { opacity: 1; transform: none; filter: none; transition: none; }
-	.home-drift, .home-marquee-x, .home-marquee-x-rev, .home-marquee-y, .home-pulse, .home-caret { animation: none; }
+	.home-marquee-x, .home-marquee-x-rev, .home-marquee-y, .home-pulse, .home-caret { animation: none; }
 	.home-cycle > * { animation: none; opacity: 0; }
 	.home-cycle > :first-child { opacity: 1; }
 }

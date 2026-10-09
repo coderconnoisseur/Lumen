@@ -1,10 +1,23 @@
-// Product mockups for the landing page: Lumen's own screens drawn in markup (sample data, no claims).
+// Product mockups for the landing page: polished showcase versions of Lumen's screens, with sample data.
 import type { ReactNode } from "react";
-import { Check, FileText, Receipt, ScrollText, Sparkles, TriangleAlert } from "lucide-react";
-import { TypingInput } from "./typing-input";
+import { CalendarClock, Check, CreditCard, Home, Receipt, Sparkles, TrendingDown } from "lucide-react";
 
-const label = "font-[family-name:var(--font-roboto-mono)] text-[10.5px] font-medium tracking-[0.14em] uppercase";
-const panel = "rounded-[14px] border border-white/[0.07] bg-[#161617]";
+export const label = "font-[family-name:var(--font-roboto-mono)] text-[10.5px] font-medium tracking-[0.16em] uppercase";
+
+/** Dark inner panel with a mono header and a sparkle button, the frame most showcase screens sit in. */
+function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+	return (
+		<div className={`w-full overflow-hidden rounded-[18px] border border-white/[0.06] bg-[#18181a] ${className}`}>
+			<div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+				<span className={`${label} text-[#d4d4d6]`}>{title}</span>
+				<span className="flex size-8 items-center justify-center rounded-lg bg-white/[0.05]">
+					<Sparkles className="size-4 text-[#8f88ff]" fill="#8f88ff" strokeWidth={1} />
+				</span>
+			</div>
+			{children}
+		</div>
+	);
+}
 
 export function Phone({ children, glass = false }: { children: ReactNode; glass?: boolean }) {
 	return (
@@ -13,17 +26,17 @@ export function Phone({ children, glass = false }: { children: ReactNode; glass?
 				glass ? "bg-white/[0.04] backdrop-blur-[2px]" : "bg-[#0b0b0c]"
 			}`}
 		>
-			<span className="absolute top-3 left-1/2 h-7 w-28 -translate-x-1/2 rounded-full bg-[#0b0b0c]" />
+			<span className="absolute top-3 left-1/2 z-20 h-7 w-28 -translate-x-1/2 rounded-full bg-[#0b0b0c]" />
 			<div className="absolute inset-0 overflow-hidden rounded-[48px]">{children}</div>
 		</div>
 	);
 }
 
 const HERO_CARDS = [
-	["Duplicate", "Same invoice, sent twice.", "FreshMart's FM-2041 arrived again on Tuesday. The copy is held for review, not paid twice."],
-	["Totals", "Line items don't add up.", "UrbanWear lists ₹4,120 of items but asks for ₹4,500. Flagged before it was recorded."],
-	["Contracts", "Notice period: 60 days.", "Cancelling the TechHub maintenance agreement needs written notice two months ahead."],
-	["Forecast", "Next month looks heavier.", "Utilities and travel are trending up. Plan for roughly ₹18,000 more than this month."],
+	["Subscriptions", "Three plans you forgot about.", "Two streaming plans and an old cloud backup cost you ₹1,850 a month. Cancel them in a tap."],
+	["Savings", "Your cash is sitting still.", "₹2.4 lakh in your savings account earns next to nothing. Put to work, it could earn about ₹16,000 more a year."],
+	["Bills", "Electricity jumped 32%.", "This month's bill is well above your usual. Lumen spotted a tariff change on page 2."],
+	["Charges", "Same bill, charged twice.", "FreshMart billed you twice for one order this week. The duplicate is flagged for a refund."],
 ] as const;
 
 /** Glass cards cycling inside the hero phone. */
@@ -32,12 +45,12 @@ export function HeroPhone() {
 		<Phone glass>
 			<div className="flex flex-col items-center px-6 pt-20 text-center">
 				<span className="flex size-11 items-center justify-center rounded-xl border border-white/30 bg-white/15 text-white backdrop-blur">
-					<Receipt className="size-5" strokeWidth={1.6} />
+					<Sparkles className="size-5" strokeWidth={1.5} />
 				</span>
 				<p className="mt-5 font-display text-[30px] leading-[1.1] font-light text-white">
-					Lumen checked 12 new invoices today
+					We found 9 ways to save you ₹42,300 this year
 				</p>
-				<div className="home-cycle relative mt-8 h-[190px] w-full">
+				<div className="home-cycle relative mt-8 h-[200px] w-full">
 					{HERO_CARDS.map(([tag, title, body]) => (
 						<div
 							key={tag}
@@ -54,107 +67,250 @@ export function HeroPhone() {
 	);
 }
 
-export function InvoiceMock() {
-	const rows: [string, string][] = [
-		["Vendor", "FreshMart Supermarket"],
-		["Invoice", "FM-202606-2041"],
-		["Date", "12 Jun 2026"],
-		["PO", "PO-U1-202605-06"],
-	];
+// --- feature carousel screens -------------------------------------------------------------------------------
+
+export function SpendingMock() {
 	return (
-		<div className={`${panel} w-full max-w-[300px] p-4`}>
-			<div className="flex items-center justify-between">
-				<span className={`${label} text-[#8a8a8c]`}>Read from PDF</span>
-				<span className="flex items-center gap-1 text-[11px] text-[#4ade80]">
-					<Check className="size-3" /> Verified
-				</span>
+		<Panel title="Spending · October">
+			<div className="px-5 pt-5">
+				<p className="text-[34px] leading-none tracking-tight text-white">₹1,24,560</p>
+				<p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-[#4ade80]/10 px-2 py-1 text-[12px] text-[#4ade80]">
+					<TrendingDown className="size-3.5" /> ₹8,200 less than September
+				</p>
 			</div>
-			<dl className="mt-3 space-y-2 text-[13px]">
-				{rows.map(([k, v]) => (
+			<svg viewBox="0 0 320 130" className="mt-2 w-full">
+				<defs>
+					<linearGradient id="spend-fill" x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0" stopColor="#00b3dd" stopOpacity="0.35" />
+						<stop offset="1" stopColor="#00b3dd" stopOpacity="0" />
+					</linearGradient>
+				</defs>
+				<path d="M0 104 C 30 98 50 70 80 74 S 130 58 160 60 S 220 40 250 46 S 300 30 320 26" fill="none" stroke="rgb(255 255 255 / 0.25)" strokeWidth="1.5" strokeDasharray="4 5" />
+				<path d="M0 112 C 30 108 50 92 80 90 S 130 78 160 80 S 210 64 240 66 L 240 130 L 0 130 Z" fill="url(#spend-fill)" />
+				<path d="M0 112 C 30 108 50 92 80 90 S 130 78 160 80 S 210 64 240 66" fill="none" stroke="#00b3dd" strokeWidth="2.5" />
+				<circle cx="240" cy="66" r="4" fill="#00b3dd" stroke="#18181a" strokeWidth="2" />
+			</svg>
+			<div className={`${label} flex justify-between px-5 pb-4 text-[9.5px] text-[#6a6b6b]`}>
+				<span>Oct 1</span>
+				<span>Oct 15</span>
+				<span>Oct 31</span>
+			</div>
+		</Panel>
+	);
+}
+
+export function BudgetMock() {
+	// 270° arc, 62% used
+	return (
+		<Panel title="Budget">
+			<div className="flex flex-col items-center px-5 pt-5">
+				<div className="relative">
+					<svg viewBox="0 0 200 170" className="w-[190px]">
+						<defs>
+							<linearGradient id="budget-arc" x1="0" y1="1" x2="1" y2="0">
+								<stop offset="0" stopColor="#4b49aa" />
+								<stop offset="1" stopColor="#00b3dd" />
+							</linearGradient>
+						</defs>
+						<path d="M45 150 A 78 78 0 1 1 155 150" fill="none" stroke="rgb(255 255 255 / 0.08)" strokeWidth="10" strokeLinecap="round" />
+						<path d="M45 150 A 78 78 0 1 1 155 150" fill="none" stroke="url(#budget-arc)" strokeWidth="10" strokeLinecap="round" strokeDasharray="368" strokeDashoffset="140" />
+					</svg>
+					<div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+						<span className="text-[11px] text-[#8a8a8c]">Left to spend</span>
+						<span className="text-[30px] leading-tight tracking-tight text-white">₹18,400</span>
+						<span className="text-[11px] text-[#8a8a8c]">of ₹60,000</span>
+					</div>
+				</div>
+				<span className="-mt-3 rounded-md bg-[#4ade80]/10 px-2 py-1 text-[11.5px] text-[#4ade80]">+₹2,000 rolled over</span>
+			</div>
+			<div className="mt-4 space-y-px px-3 pb-3 text-[13px]">
+				{[
+					["Monthly income", "", "₹1,20,000"],
+					["Save", "20%", "₹24,000"],
+					["Spend", "50%", "₹60,000"],
+				].map(([k, pct, v]) => (
+					<div key={k} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2.5">
+						<span className="text-[#b4b4b6]">{k}</span>
+						<span className="text-white">
+							{pct && <span className="mr-2 text-[#6a6b6b]">{pct}</span>}
+							{v}
+						</span>
+					</div>
+				))}
+			</div>
+		</Panel>
+	);
+}
+
+type Charge = { day: number; who?: [string, string][]; amount?: string };
+const CALENDAR: Charge[] = [
+	{ day: 27 }, { day: 28 }, { day: 29, who: [["#e50914", "N"]], amount: "₹649" }, { day: 30 },
+	{ day: 1, who: [["#1db954", "S"], ["#0a84ff", "A"]], amount: "₹718" }, { day: 2 }, { day: 3, who: [["#ff0033", "Y"]], amount: "₹129" },
+	{ day: 4, who: [["#8b5cf6", "G"]], amount: "₹1,499" }, { day: 5 }, { day: 6, who: [["#f5a35c", "D"]], amount: "₹299" }, { day: 7 },
+	{ day: 8 }, { day: 9, who: [["#22c55e", "C"]], amount: "₹99" }, { day: 10 },
+];
+
+export function SubscriptionsMock() {
+	return (
+		<Panel title="Upcoming charges">
+			<div className="p-4">
+				<div className={`${label} grid grid-cols-7 pb-2 text-center text-[9px] text-[#6a6b6b]`}>
+					{["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+						<span key={i}>{d}</span>
+					))}
+				</div>
+				<div className="grid grid-cols-7 overflow-hidden rounded-xl border border-white/[0.06]">
+					{CALENDAR.map((c, i) => (
+						<div key={i} className="flex h-[64px] flex-col items-center gap-1 border-r border-b border-white/[0.05] pt-1.5 text-[11px] text-[#8a8a8c] [&:nth-child(7n)]:border-r-0">
+							<span className={c.who ? "text-white" : ""}>{c.day}</span>
+							{c.who && (
+								<span className="flex -space-x-1">
+									{c.who.map(([color, letter]) => (
+										<span key={letter} className="flex size-4 items-center justify-center rounded-full text-[8px] font-semibold text-white ring-1 ring-[#18181a]" style={{ background: color }}>
+											{letter}
+										</span>
+									))}
+								</span>
+							)}
+							{c.amount && <span className="text-[9.5px] text-[#b4b4b6]">{c.amount}</span>}
+						</div>
+					))}
+				</div>
+				<p className="mt-3 text-[12px] text-[#8a8a8c]">
+					7 subscriptions · <span className="text-white">₹3,493 / month</span>
+				</p>
+			</div>
+		</Panel>
+	);
+}
+
+export function InvoiceMock() {
+	return (
+		<Panel title="Bill · read from photo">
+			<dl className="space-y-2.5 px-5 pt-4 text-[13px]">
+				{[
+					["Merchant", "FreshMart Supermarket"],
+					["Date", "12 Oct 2026"],
+					["Paid with", "HDFC card ·· 4410"],
+				].map(([k, v]) => (
 					<div key={k} className="flex justify-between gap-3">
 						<dt className="text-[#8a8a8c]">{k}</dt>
 						<dd className="truncate text-white">{v}</dd>
 					</div>
 				))}
 			</dl>
-			<div className="mt-3 space-y-1.5 border-t border-white/[0.07] pt-3 text-[12.5px] text-[#b4b4b6]">
-				<div className="flex justify-between"><span>Basmati rice 5kg × 4</span><span>₹2,160</span></div>
-				<div className="flex justify-between"><span>Cooking oil 1L × 6</span><span>₹1,140</span></div>
-			</div>
-			<div className="mt-3 flex justify-between border-t border-white/[0.07] pt-3 text-[14px] text-white">
-				<span>Total</span>
-				<span>₹3,465.00</span>
-			</div>
-		</div>
-	);
-}
-
-export function FlagsMock() {
-	const flags: [string, string, string][] = [
-		["#f87171", "Total mismatch", "Items ₹4,120 · invoice ₹4,500"],
-		["#f87171", "Duplicate", "FM-2041 already recorded"],
-		["#f5a35c", "Unknown vendor", "First invoice from Kirana Hub"],
-	];
-	return (
-		<div className="w-full max-w-[300px] space-y-2">
-			{flags.map(([color, title, detail]) => (
-				<div key={title} className={`${panel} flex items-start gap-3 p-3.5`}>
-					<span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ background: color }} />
-					<div>
-						<p className="text-[13.5px] text-white">{title}</p>
-						<p className="mt-0.5 text-[12px] text-[#8a8a8c]">{detail}</p>
+			<div className="mx-5 mt-4 space-y-2 rounded-xl bg-white/[0.03] p-3 text-[12.5px] text-[#b4b4b6]">
+				{[
+					["Basmati rice 5kg × 2", "₹1,080"],
+					["Olive oil 1L × 2", "₹1,560"],
+					["Fresh produce", "₹825"],
+				].map(([k, v]) => (
+					<div key={k} className="flex justify-between">
+						<span>{k}</span>
+						<span className="text-white">{v}</span>
 					</div>
-				</div>
-			))}
-			<div className="flex justify-end gap-2 pt-1">
-				<span className="rounded-lg bg-white/[0.07] px-3 py-1.5 text-[12px] text-white">Reject</span>
-				<span className="rounded-lg bg-white px-3 py-1.5 text-[12px] text-black">Approve with edits</span>
+				))}
 			</div>
-		</div>
+			<div className="flex items-center justify-between px-5 py-4">
+				<span className="flex items-center gap-1.5 text-[12px] text-[#4ade80]">
+					<Check className="size-3.5" /> Totals add up
+				</span>
+				<span className="text-[18px] text-white">₹3,465</span>
+			</div>
+		</Panel>
 	);
 }
 
-export function DocsMock() {
-	const docs: [string, string][] = [
-		["TechHub maintenance agreement", "Contract"],
-		["Acme expense policy", "Policy"],
-		["PO-U1-202605-06", "Purchase order"],
-		["NetLink broadband agreement", "Contract"],
-	];
+export function ForecastMock() {
 	return (
-		<div className={`${panel} w-full max-w-[300px] p-2`}>
-			{docs.map(([name, kind]) => (
-				<div key={name} className="flex items-center gap-3 rounded-[10px] px-2.5 py-2.5 odd:bg-white/[0.03]">
-					<FileText className="size-4 shrink-0 text-[#8a8a8c]" />
-					<span className="min-w-0 flex-1 truncate text-[13px] text-white">{name}</span>
-					<span className={`${label} shrink-0 text-[9.5px] text-[#8a8a8c]`}>{kind}</span>
+		<Panel title="Next 3 months">
+			<div className="px-5 pt-5">
+				<p className="text-[12px] text-[#8a8a8c]">Expected spend in November</p>
+				<p className="mt-1 text-[30px] leading-none tracking-tight text-white">₹1,42,000</p>
+			</div>
+			<svg viewBox="0 0 320 150" className="mt-3 w-full">
+				<defs>
+					<linearGradient id="fc-band" x1="0" y1="0" x2="1" y2="0">
+						<stop offset="0" stopColor="#847dff" stopOpacity="0.05" />
+						<stop offset="1" stopColor="#847dff" stopOpacity="0.3" />
+					</linearGradient>
+				</defs>
+				{[30, 70, 110].map((y) => (
+					<line key={y} x1="0" x2="320" y1={y} y2={y} stroke="rgb(255 255 255 / 0.05)" />
+				))}
+				<path d="M190 70 L320 30 L320 92 Z" fill="url(#fc-band)" />
+				<path d="M0 108 L40 96 L80 102 L120 84 L160 88 L190 70" fill="none" stroke="#f5f5f7" strokeWidth="2" />
+				<path d="M190 70 L255 56 L320 60" fill="none" stroke="#a49eff" strokeWidth="2" strokeDasharray="5 5" />
+				<circle cx="190" cy="70" r="4" fill="#f5f5f7" stroke="#18181a" strokeWidth="2" />
+				<line x1="190" x2="190" y1="0" y2="150" stroke="rgb(255 255 255 / 0.12)" strokeDasharray="2 4" />
+			</svg>
+			<div className="flex gap-4 px-5 pb-4 text-[11.5px] text-[#8a8a8c]">
+				<span className="flex items-center gap-1.5"><span className="h-0.5 w-3 bg-[#f5f5f7]" /> Actual</span>
+				<span className="flex items-center gap-1.5"><span className="h-0.5 w-3 bg-[#a49eff]" /> Forecast</span>
+			</div>
+		</Panel>
+	);
+}
+
+export function SavingsMock() {
+	return (
+		<Panel title="Idle cash">
+			<div className="grid grid-cols-3 gap-2 px-5 pt-5 text-[11px] text-[#8a8a8c]">
+				<div>
+					<p>Sitting idle</p>
+					<p className="mt-1 text-[20px] text-white">₹2.4L</p>
 				</div>
-			))}
-		</div>
+				<div className="border-l border-white/[0.08] pl-3">
+					<p>Could earn</p>
+					<p className="mt-1 text-[20px] text-[#f0b429]">7.0%</p>
+				</div>
+				<div className="border-l border-white/[0.08] pl-3">
+					<p>Extra / year</p>
+					<p className="mt-1 text-[20px] text-[#f0b429]">₹16K</p>
+				</div>
+			</div>
+			<svg viewBox="0 0 320 140" className="mt-4 w-full">
+				<defs>
+					<linearGradient id="save-fill" x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0" stopColor="#f0b429" stopOpacity="0.32" />
+						<stop offset="1" stopColor="#f0b429" stopOpacity="0" />
+					</linearGradient>
+				</defs>
+				<path d="M0 120 C 90 112 170 96 230 70 S 300 20 320 8 L320 140 L0 140 Z" fill="url(#save-fill)" />
+				<path d="M0 120 C 90 112 170 96 230 70 S 300 20 320 8" fill="none" stroke="#f0b429" strokeWidth="2.5" />
+				<path d="M0 124 L320 108" fill="none" stroke="rgb(255 255 255 / 0.3)" strokeWidth="1.5" strokeDasharray="4 5" />
+			</svg>
+			<div className="flex justify-center gap-4 pb-4 text-[11.5px] text-[#8a8a8c]">
+				<span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-[#f0b429]" /> Put to work</span>
+				<span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-white/40" /> Left idle</span>
+			</div>
+		</Panel>
 	);
 }
 
-export function SpendMock() {
-	const bars: [string, number, string][] = [
-		["Electronics", 92, "₹85.7K"],
-		["Apparel", 72, "₹66.4K"],
-		["Groceries", 69, "₹64.1K"],
-		["Transport", 55, "₹50.8K"],
-		["Dining", 34, "₹31.1K"],
-	];
+// --- always-on notifications ---------------------------------------------------------------------------------
+
+const NOTIFICATIONS = [
+	[CreditCard, "Your card statement closes in 6 days. Paying ₹8,000 now keeps you under 30% usage.", "1m ago"],
+	[CalendarClock, "Your gym membership renews Friday. You haven't checked in since July.", "12m ago"],
+	[Home, "Rent took 34% of your income this month, a little above the healthy mark.", "1h ago"],
+	[Receipt, "FreshMart charged you twice for one order. The duplicate is flagged.", "3h ago"],
+] as const;
+
+/** A stack of notification cards; the front one cycles. */
+export function Notifications() {
+	const card =
+		"rounded-[30px] border border-white/[0.09] bg-[linear-gradient(180deg,#323234_0%,#1f1f21_100%)] shadow-[0_24px_60px_rgb(0_0_0/0.45)]";
 	return (
-		<div className={`${panel} w-full max-w-[300px] p-4`}>
-			<span className={`${label} text-[#8a8a8c]`}>Spend by category</span>
-			<div className="mt-4 space-y-3">
-				{bars.map(([name, pct, value]) => (
-					<div key={name}>
-						<div className="flex justify-between text-[12.5px]">
-							<span className="text-[#b4b4b6]">{name}</span>
-							<span className="text-white">{value}</span>
-						</div>
-						<div className="mt-1.5 h-1.5 rounded-full bg-white/[0.06]">
-							<div className="h-full rounded-full bg-[#90b8f0]" style={{ width: `${pct}%` }} />
-						</div>
+		<div className="relative mx-auto h-[150px] w-full max-w-[640px] pt-6">
+			<div className={`${card} absolute inset-x-[10%] top-0 h-[110px] opacity-35`} />
+			<div className={`${card} absolute inset-x-[5%] top-3 h-[110px] opacity-60`} />
+			<div className="home-cycle absolute inset-x-0 top-6 h-[120px]">
+				{NOTIFICATIONS.map(([Icon, text, when]) => (
+					<div key={text} className={`${card} absolute inset-0 flex items-center gap-5 px-7 sm:px-9`}>
+						<Icon className="size-7 shrink-0 text-[#9f9fa0]" strokeWidth={1.3} />
+						<span className="flex-1 text-left text-[16px] leading-snug text-white sm:text-[19px]">{text}</span>
+						<span className="hidden shrink-0 text-[14px] text-[#6a6b6b] sm:inline">{when}</span>
 					</div>
 				))}
 			</div>
@@ -162,96 +318,29 @@ export function SpendMock() {
 	);
 }
 
-export function ForecastMock() {
-	return (
-		<div className={`${panel} w-full max-w-[300px] p-4`}>
-			<span className={`${label} text-[#8a8a8c]`}>Next month</span>
-			<p className="mt-2 text-[26px] text-white">₹1,42,000</p>
-			<p className="text-[12px] text-[#8a8a8c]">expected spend</p>
-			<svg viewBox="0 0 260 110" className="mt-3 w-full">
-				<path d="M0 80 L40 70 L80 76 L120 58 L160 62 L190 48" fill="none" stroke="#00b3dd" strokeWidth="2" />
-				<path d="M190 48 L225 40 L260 30" fill="none" stroke="#00b3dd" strokeWidth="2" strokeDasharray="4 4" />
-				<path d="M190 48 L260 18 L260 44 Z" fill="#00b3dd" opacity="0.12" />
-				<circle cx="190" cy="48" r="3.5" fill="#00b3dd" />
-				<line x1="0" y1="104" x2="260" y2="104" stroke="rgb(255 255 255 / 0.08)" />
-			</svg>
-		</div>
-	);
-}
+// --- scene + screen pairs ------------------------------------------------------------------------------------
 
-export function AnomalyMock() {
-	const rows: [string, string, string][] = [
-		["NetLink Broadband", "₹7,990", "3× your usual bill"],
-		["MetroCab", "₹2,480", "Late-night, out of pattern"],
-		["Cafe Aroma", "₹1,960", "Charged twice in a minute"],
-	];
-	return (
-		<div className="w-full max-w-[300px] space-y-2">
-			{rows.map(([vendor, amount, why]) => (
-				<div key={vendor} className={`${panel} p-3.5`}>
-					<div className="flex justify-between text-[13.5px] text-white">
-						<span>{vendor}</span>
-						<span>{amount}</span>
-					</div>
-					<p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#f5a35c]">
-						<TriangleAlert className="size-3" /> {why}
-					</p>
-				</div>
-			))}
-		</div>
-	);
-}
-
-const NOTIFICATIONS = [
-	"FreshMart sent invoice FM-2041 twice. The copy is on hold.",
-	"Your electricity bill is a third higher than usual this month.",
-	"TechHub's notice window opens in 14 days.",
-	"3 invoices are waiting for your approval.",
+const INSIGHTS: [string, string, string, string][] = [
+	["Credit usage", "24%", "Healthy", "#4ade80"],
+	["Cash flow", "+₹18,200", "This month", "#4ade80"],
+	["Savings rate", "21%", "Above target", "#4ade80"],
+	["Subscriptions", "7", "₹3,493 / month", "#f5a35c"],
+	["Top category", "Dining", "₹14,800", "#a49eff"],
+	["Upcoming bills", "4", "This week", "#00b3dd"],
+	["Rent share", "34%", "Above 30%", "#f87171"],
+	["Net worth", "₹8.6L", "+2.1% this month", "#4ade80"],
 ];
 
-/** Cycling notification pill ("always on" section). */
-export function Notifications() {
-	return (
-		<div className="home-cycle relative mx-auto h-[76px] w-full max-w-[460px]">
-			{NOTIFICATIONS.map((text) => (
-				<div
-					key={text}
-					className="absolute inset-0 flex items-center gap-4 rounded-[28px] border border-white/[0.08] bg-[#1c1c1e]/90 px-6 backdrop-blur"
-				>
-					<Sparkles className="size-5 shrink-0 text-[#8a8a8c]" strokeWidth={1.5} />
-					<span className="flex-1 text-left text-[15px] leading-snug text-white">{text}</span>
-					<span className="shrink-0 text-[12px] text-[#8a8a8c]">now</span>
-				</div>
-			))}
-		</div>
-	);
-}
-
-const DOC_CHIPS = [
-	["Invoice", "FreshMart FM-2041"],
-	["Contract", "TechHub maintenance"],
-	["Receipt", "MetroCab ride"],
-	["Purchase order", "PO-U1-202605-06"],
-	["Policy", "Expense policy"],
-	["Invoice", "UrbanWear UW-889"],
-	["Contract", "NetLink broadband"],
-	["Invoice", "Cafe Aroma CA-114"],
-] as const;
-
-function DocRow({ reverse = false }: { reverse?: boolean }) {
-	const items = reverse ? [...DOC_CHIPS].reverse() : DOC_CHIPS;
+function InsightRow({ reverse = false }: { reverse?: boolean }) {
+	const items = reverse ? [...INSIGHTS].reverse() : INSIGHTS;
 	return (
 		<div className={`flex w-max gap-3 ${reverse ? "home-marquee-x-rev" : "home-marquee-x"}`}>
-			{[...items, ...items].map(([kind, name], i) => (
-				<div key={i} className={`${panel} w-[210px] shrink-0 p-4`}>
-					<span className={`${label} text-[#8a8a8c]`}>{kind}</span>
-					<p className="mt-3 flex items-center gap-2 text-[14px] text-white">
-						{kind === "Contract" || kind === "Policy" ? (
-							<ScrollText className="size-4 text-[#8a8a8c]" />
-						) : (
-							<FileText className="size-4 text-[#8a8a8c]" />
-						)}
-						<span className="truncate">{name}</span>
+			{[...items, ...items].map(([name, value, note, color], i) => (
+				<div key={i} className="w-[200px] shrink-0 rounded-[16px] border border-white/[0.06] bg-[#18181a] p-4">
+					<span className={`${label} text-[9.5px] text-[#8a8a8c]`}>{name}</span>
+					<p className="mt-3 text-[24px] leading-none tracking-tight text-white">{value}</p>
+					<p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#8a8a8c]">
+						<span className="size-1.5 rounded-full" style={{ background: color }} /> {note}
 					</p>
 				</div>
 			))}
@@ -259,52 +348,52 @@ function DocRow({ reverse = false }: { reverse?: boolean }) {
 	);
 }
 
-/** Two rows of documents sliding past in opposite directions. */
-export function DocMarquee() {
+/** Two rows of insight cards sliding past in opposite directions. */
+export function InsightMarquee() {
 	return (
 		<div className="flex w-full flex-col gap-3 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_15%,black_85%,transparent)]">
-			<DocRow />
-			<DocRow reverse />
+			<InsightRow />
+			<InsightRow reverse />
 		</div>
 	);
 }
 
-const CHECKS = [
-	"Line items add up to the total",
-	"Not a duplicate of a recorded invoice",
-	"Vendor is one you've paid before",
-	"Date is within the last two years",
-	"Currency is stated",
-	"Matches purchase order PO-U1-202605-06",
-	"No instructions hidden in the text",
+const CHECKS: [string, boolean][] = [
+	["Saving more than 20% of income", true],
+	["Rent under 30% of income", false],
+	["No duplicate charges", true],
+	["Bills paid on time", true],
+	["Spending pacing over budget", false],
+	["Emergency fund covers 3 months", true],
+	["Loan payments under 15% of income", true],
 ];
 
-/** An invoice's checks scrolling past under a summary card. */
+/** Money checks scrolling past under a cash-flow summary. */
 export function ChecksMock() {
 	return (
-		<div className="w-full max-w-[320px]">
-			<div className={`${panel} relative z-10 p-4`}>
-				<div className="flex items-center gap-2 text-[14px] text-white">
-					<Receipt className="size-4 text-[#8a8a8c]" /> Invoice FM-202606-2041
+		<div className="w-full max-w-[340px]">
+			<div className="relative z-10 rounded-[16px] border border-white/[0.07] bg-[linear-gradient(180deg,#232325,#18181a)] p-5">
+				<div className="flex items-center gap-2 text-[15px] text-white">
+					<span className="flex size-7 items-center justify-center rounded-full border border-white/15">
+						<Sparkles className="size-3.5" strokeWidth={1.5} />
+					</span>
+					Cash flow
 				</div>
-				<div className="mt-3 flex gap-1">
-					{CHECKS.map((c) => (
-						<span key={c} className="h-1 flex-1 rounded-full bg-[#4ade80]" />
+				<div className="mt-4 flex gap-1">
+					{["#f87171", "#f5a35c", "#f0b429", "#4ade80", "#4ade80", "#4ade80"].map((c, i) => (
+						<span key={i} className="h-1 flex-1 rounded-full" style={{ background: c, opacity: i < 3 ? 0.35 : 1 }} />
 					))}
 				</div>
 				<div className="mt-2 flex justify-between text-[12px]">
-					<span className="text-[#4ade80]">All checks passed</span>
-					<span className="text-[#8a8a8c]">Recorded</span>
+					<span className="text-[#4ade80]">88%</span>
+					<span className="text-[#8a8a8c]">2 actions</span>
 				</div>
 			</div>
-			<div className="relative -mt-2 h-[170px] overflow-hidden [mask-image:linear-gradient(transparent,black_20%,black_70%,transparent)]">
+			<div className="relative -mt-2 h-[190px] overflow-hidden [mask-image:linear-gradient(transparent,black_20%,black_70%,transparent)]">
 				<div className="home-marquee-y flex flex-col items-center gap-2 pt-4">
-					{[...CHECKS, ...CHECKS].map((c, i) => (
-						<span
-							key={i}
-							className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#1c1c1e] px-3.5 py-1.5 text-[12.5px] text-[#d4d4d6]"
-						>
-							<Check className="size-3 text-[#4ade80]" /> {c}
+					{[...CHECKS, ...CHECKS].map(([text, ok], i) => (
+						<span key={i} className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#1c1c1e] px-4 py-2 text-[13px] text-[#e4e4e6]">
+							<span className={`size-1.5 rounded-full ${ok ? "bg-[#4ade80]" : "bg-[#f87171]"}`} /> {text}
 						</span>
 					))}
 				</div>
@@ -313,116 +402,52 @@ export function ChecksMock() {
 	);
 }
 
-/** A cited answer with its source card. */
-export function AnswerMock() {
+/** Money health gauge, a summary and the top action. */
+export function GuideMock() {
 	return (
-		<div className="w-full max-w-[340px] text-left">
-			<div className="flex justify-end">
-				<span className="rounded-[16px] bg-[#2e2e2e] px-3.5 py-2 text-[13px] text-white">
-					How much notice to cancel TechHub?
-				</span>
-			</div>
-			<p className="mt-4 flex items-center gap-1.5 text-[12px] text-[#8a8a8c]">
-				<Sparkles className="size-3.5" /> Searched your documents
-			</p>
-			<p className="mt-2 text-[14px] leading-relaxed text-white">
-				60 days, in writing.
-				<span className="ml-1.5 inline-flex h-[18px] translate-y-[-1px] items-center gap-1 rounded-[5px] bg-white/[0.06] px-1 align-middle text-[10.5px] text-[#b4b4b6] ring-1 ring-white/10">
-					<span className="flex size-3 items-center justify-center rounded-[3px] bg-white/15 text-[8px] text-white">1</span>
-					TechHub agreement
-				</span>
-			</p>
-			<div className={`${panel} mt-3`}>
-				<div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-2 text-[12px]">
-					<span className="text-white">Termination · §4</span>
-					<span className="flex items-center gap-1 text-[#8a8a8c]">
-						<FileText className="size-3" /> Open original
-					</span>
+		<div className="w-full max-w-[360px]">
+			<div className="flex justify-center">
+				<div className="relative">
+					<svg viewBox="0 0 120 120" className="w-[130px] -rotate-90">
+						<circle cx="60" cy="60" r="50" fill="none" stroke="rgb(255 255 255 / 0.07)" strokeWidth="7" />
+						{[
+							["#f87171", 0, 70],
+							["#f0b429", 75, 70],
+							["#14b8a6", 150, 75],
+						].map(([color, offset, len]) => (
+							<circle
+								key={color as string}
+								cx="60"
+								cy="60"
+								r="50"
+								fill="none"
+								stroke={color as string}
+								strokeWidth="7"
+								strokeLinecap="round"
+								strokeDasharray={`${len} 400`}
+								strokeDashoffset={-(offset as number)}
+							/>
+						))}
+					</svg>
+					<span className="absolute inset-0 flex items-center justify-center font-display text-[30px] font-light text-white">72</span>
 				</div>
-				<p className="px-3 py-2.5 text-[12px] leading-relaxed text-[#8a8a8c]">
-					Either party may terminate this agreement by giving 60 days&apos; written notice.
+			</div>
+			<div className="mt-4 rounded-[16px] border border-white/[0.07] bg-[#18181a] p-4">
+				<p className="flex items-center gap-2 text-[14px] text-white">
+					<Sparkles className="size-4 text-[#8f88ff]" fill="#8f88ff" strokeWidth={1} /> Summary
+				</p>
+				<p className="mt-2 text-[13px] leading-relaxed text-[#b4b4b6]">
+					Aarav, your biggest win this month is putting ₹40,000 of idle cash to work.
+				</p>
+			</div>
+			<div className="mt-2 rounded-[16px] border border-white/[0.07] bg-[linear-gradient(180deg,#232349,#18181a_70%)] p-4">
+				<span className={`${label} text-[9.5px] text-[#a49eff]`}>Subscriptions</span>
+				<p className="mt-2 text-[15px] text-white">Free up ₹2,100 a month</p>
+				<p className="mt-1 text-[12.5px] leading-relaxed text-[#8a8a8c]">
+					Three plans haven&apos;t been used since summer. Cancelling them pays for your phone bill.
 				</p>
 			</div>
 		</div>
 	);
 }
 
-/** A change the agent proposes, waiting for approval. */
-export function ProposalMock() {
-	return (
-		<div className="w-full max-w-[380px] rounded-[18px] border border-white/20 bg-black/35 p-5 text-left backdrop-blur-xl">
-			<p className="text-[15px] text-white">Change the category?</p>
-			<p className="mt-2 text-[13px] leading-relaxed text-white/80">
-				<span className="mr-1.5 rounded-md bg-white/10 px-1.5 py-0.5 text-[12px]">FM-202606-U10223</span>
-				Groceries → Shopping. The line items are clothing, not food.
-			</p>
-			<div className="mt-4 flex items-center justify-between">
-				<span className={`${label} text-white/60`}>Low risk</span>
-				<span className="flex gap-2">
-					<span className="rounded-lg bg-white/10 px-3 py-1.5 text-[12px] text-white">Reject</span>
-					<span className="rounded-lg bg-white px-3 py-1.5 text-[12px] text-black">Approve</span>
-				</span>
-			</div>
-		</div>
-	);
-}
-
-/** Ask Lumen on a phone: a short conversation and a question being typed. */
-export function ChatPhone() {
-	return (
-		<Phone>
-			<div className="flex h-full flex-col px-5 pt-16 pb-6 text-left">
-				<div className="flex-1 space-y-4 overflow-hidden">
-					<div className="flex justify-end">
-						<span className="rounded-[16px] bg-[#2e2e2e] px-3.5 py-2 text-[13px] text-white">
-							Where did we spend the most this quarter?
-						</span>
-					</div>
-					<div className="text-[13px] leading-relaxed text-white">
-						<p>Your top three vendors this quarter:</p>
-						<div className="mt-2 overflow-hidden rounded-[10px] border border-white/[0.08] text-[12px]">
-							{[
-								["TechHub Electronics", "₹85,754"],
-								["UrbanWear Apparel", "₹66,419"],
-								["FreshMart Supermarket", "₹64,091"],
-							].map(([v, a]) => (
-								<div key={v} className="flex justify-between border-b border-white/[0.06] px-3 py-2 last:border-0">
-									<span className="text-[#b4b4b6]">{v}</span>
-									<span>{a}</span>
-								</div>
-							))}
-						</div>
-					</div>
-					<div className="flex justify-end">
-						<span className="rounded-[16px] bg-[#2e2e2e] px-3.5 py-2 text-[13px] text-white">
-							Is TechHub on contract?
-						</span>
-					</div>
-					<p className="text-[13px] leading-relaxed text-white">
-						Yes: an IT maintenance agreement, cancellable with 60 days&apos; notice.
-						<span className="ml-1 inline-flex size-4 translate-y-[-1px] items-center justify-center rounded-[4px] bg-white/15 align-middle text-[9px]">
-							1
-						</span>
-					</p>
-				</div>
-				<div className="mt-4 rounded-[18px] border border-white/10 bg-black p-3">
-					<p className="min-h-10 text-[13px] text-white">
-						<TypingInput
-							questions={[
-								"What's my average electricity bill?",
-								"Which invoices are waiting for me?",
-								"How much did we spend on travel in May?",
-							]}
-						/>
-					</p>
-					<div className="mt-2 flex items-center justify-between">
-						<span className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-[#8a8a8c]">
-							<span className="size-1.5 rounded-full bg-[#4ade80]" /> Your invoices and documents
-						</span>
-						<span className="flex size-7 items-center justify-center rounded-full bg-white text-black">↑</span>
-					</div>
-				</div>
-			</div>
-		</Phone>
-	);
-}

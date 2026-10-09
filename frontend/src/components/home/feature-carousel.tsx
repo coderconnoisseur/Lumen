@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 function advance(el: HTMLDivElement | null, direction: 1 | -1) {
 	if (!el) return;
 	const card = el.firstElementChild as HTMLElement | null;
-	const stride = (card?.offsetWidth ?? 320) + 16;
+	const stride = (card?.offsetWidth ?? 320) + 24;
 	const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
 	if (direction === 1 && atEnd) el.scrollTo({ left: 0, behavior: "smooth" });
 	else el.scrollBy({ left: direction * stride, behavior: "smooth" });
@@ -34,16 +34,16 @@ export function FeatureCarousel({ cards }: { cards: FeatureCard[] }) {
 		<div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
 			<div
 				ref={track}
-				className="home-noscroll flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-5 pb-2 sm:px-[max(20px,calc((100vw-1200px)/2))]"
+				className="home-noscroll flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth px-5 pb-2 sm:px-[max(20px,calc((100vw-1200px)/2))]"
 			>
 				{cards.map((card) => (
 					<article
 						key={card.title}
-						className="flex w-[300px] shrink-0 snap-start flex-col rounded-[24px] border border-white/[0.06] bg-[#111112] p-6 sm:w-[400px]"
+						className="flex w-[320px] shrink-0 snap-start flex-col rounded-[28px] border border-white/[0.06] bg-[#111112] p-6 sm:w-[500px] sm:p-12"
 					>
-						<div className="flex h-[300px] items-center justify-center">{card.mock}</div>
-						<h3 className="mt-6 text-[20px] text-white">{card.title}</h3>
-						<p className="mt-2 text-[15px] leading-[1.5] text-[#8a8a8c]">{card.body}</p>
+						<div className="flex min-h-[380px] items-start justify-center">{card.mock}</div>
+						<h3 className="mt-8 text-[22px] text-white sm:text-[26px]">{card.title}</h3>
+						<p className="mt-3 text-[16px] leading-[1.55] text-[#7d7d80] sm:text-[18px]">{card.body}</p>
 					</article>
 				))}
 			</div>

@@ -1,40 +1,45 @@
 import type { Metadata } from "next";
+import { Hanken_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, FileCheck2, Lock, Quote, ShieldCheck, Sparkles, UserCheck, type LucideIcon } from "lucide-react";
 import "./home.css";
+import { ChatDemo } from "@/components/home/chat-demo";
 import { FeatureCarousel, type FeatureCard } from "@/components/home/feature-carousel";
 import {
-	AnomalyMock,
-	AnswerMock,
-	ChatPhone,
+	BudgetMock,
 	ChecksMock,
-	DocMarquee,
-	DocsMock,
-	FlagsMock,
 	ForecastMock,
+	GuideMock,
 	HeroPhone,
+	InsightMarquee,
 	InvoiceMock,
 	Notifications,
-	ProposalMock,
-	SpendMock,
+	SavingsMock,
+	SpendingMock,
+	SubscriptionsMock,
 } from "@/components/home/mocks";
+import { ProposalDemo } from "@/components/home/proposal-demo";
 import { Reveal } from "@/components/home/reveal";
-import { Hills, Scene, Sky } from "@/components/home/scenes";
+import { Photo, type PhotoName } from "@/components/home/scenes";
+import { Sky } from "@/components/home/sky";
 
 // The public landing page, modelled on the owner's reference (useorigin.com): light serif display with an italic
-// word, mono uppercase UI labels, near-black canvas, photo-like scenes, product screens in motion.
+// word, a grotesk for text and showcase screens, mono uppercase labels, near-black canvas, product screens in motion.
+// It describes the product Lumen is growing into; what isn't built yet is tracked in PROGRESS's Deferred list.
+
+const sans = Hanken_Grotesk({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-ui" });
 
 const description =
-	"Lumen reads every invoice, catches what doesn't add up, and answers questions about your spending and contracts, with the source for every answer.";
+	"Lumen keeps track of everything you earn, spend and owe, reads your bills and receipts, and keeps finding new ways for you to save.";
 
 export const metadata: Metadata = {
-	title: "Lumen | Your AI finance assistant",
+	title: "Lumen | Your AI money advisor",
 	description,
 	alternates: { canonical: "/" },
-	openGraph: { url: "/", title: "Lumen | Your AI finance assistant", description },
-	twitter: { title: "Lumen | Your AI finance assistant", description },
+	openGraph: { url: "/", title: "Lumen | Your AI money advisor", description },
+	twitter: { title: "Lumen | Your AI money advisor", description },
 };
 
 const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracking-[0.06em]";
@@ -57,9 +62,7 @@ function Cta({ children, variant = "light" }: { children: ReactNode; variant?: "
 function Headline({ lines, size = "text-[44px] sm:text-[64px] lg:text-[80px]" }: { lines: ReactNode[]; size?: string }) {
 	return (
 		<Reveal className="home-lines">
-			<h2
-				className={`font-display leading-[1.02] font-light tracking-[-0.01em] text-white ${size}`}
-			>
+			<h2 className={`font-display leading-[1.02] font-light tracking-[-0.01em] text-white ${size}`}>
 				{lines.map((line, i) => (
 					<span key={i} className="block overflow-hidden pb-[0.06em]">
 						<span className="ln" style={{ transitionDelay: `${i * 120}ms` }}>
@@ -73,35 +76,35 @@ function Headline({ lines, size = "text-[44px] sm:text-[64px] lg:text-[80px]" }:
 }
 
 const FEATURES: FeatureCard[] = [
-	{ title: "Read any invoice", body: "Photos, scans and multi-page PDFs become clean records, line items included.", mock: <InvoiceMock /> },
-	{ title: "Catch mistakes early", body: "Wrong totals, duplicates and unknown vendors are flagged before they're recorded.", mock: <FlagsMock /> },
-	{ title: "Keep contracts close", body: "Purchase orders, agreements and policies, searchable right next to your spending.", mock: <DocsMock /> },
-	{ title: "See where money goes", body: "Spending by category, vendor and month, without building a single report.", mock: <SpendMock /> },
-	{ title: "Forecast what's next", body: "See next month's likely spend before the invoices arrive.", mock: <ForecastMock /> },
-	{ title: "Spot the unusual", body: "Charges that don't fit your pattern surface on their own.", mock: <AnomalyMock /> },
+	{ title: "Watch your spending", body: "Every transaction from every account, sorted and searchable in one view.", mock: <SpendingMock /> },
+	{ title: "Stay on budget", body: "Set a budget in seconds and always know how much is left to spend.", mock: <BudgetMock /> },
+	{ title: "Tame your subscriptions", body: "Find the recurring charges you forgot about and cancel the ones you don't use.", mock: <SubscriptionsMock /> },
+	{ title: "Read every bill", body: "Snap a receipt or forward an invoice. Lumen pulls out every line and checks the maths.", mock: <InvoiceMock /> },
+	{ title: "See what's coming", body: "Forecast next month's spending and cash flow from your own history.", mock: <ForecastMock /> },
+	{ title: "Grow your savings", body: "Spot cash that's sitting idle and see what it could earn if you put it to work.", mock: <SavingsMock /> },
 ];
 
 const PROMISES: [LucideIcon, string][] = [
 	[Quote, "Cites every source"],
 	[UserCheck, "You approve every change"],
 	[Lock, "Private to your account"],
-	[FileCheck2, "PDFs, scans and photos"],
+	[FileCheck2, "Reads bills, receipts & statements"],
 ];
 
 const QUESTIONS: [string, string][] = [
-	["Spending", "Where did we spend the most this quarter?"],
-	["Contracts", "What does the NetLink contract cost each month?"],
-	["Invoices", "List every FreshMart invoice from June."],
-	["Spending", "What's our average electricity bill?"],
-	["Contracts", "How much notice do we need to cancel TechHub?"],
-	["Forecast", "What will next month's spend look like?"],
-	["Invoices", "Did anyone bill us twice this month?"],
-	["Policy", "Does our expense policy cover client dinners?"],
-	["Spending", "How did travel compare with last month?"],
+	["Spending", "Where did my money go last month?"],
+	["Saving", "How much would I save by cooking at home twice a week?"],
+	["Planning", "Can I afford a ₹60,000 trip in December?"],
+	["Bills", "Why is my electricity bill so high this month?"],
+	["Subscriptions", "Which subscriptions haven't I used lately?"],
+	["Forecast", "Will I stay within budget this month?"],
+	["Documents", "When does my rental agreement end?"],
+	["Goals", "How long until I have ₹5 lakh saved?"],
+	["Charges", "Did anyone charge me twice this month?"],
 ];
 
 function Pair({ scene, title, body, children, flip = false }: {
-	scene: "dune" | "meadow" | "dusk";
+	scene: PhotoName;
 	title: ReactNode[];
 	body: string;
 	children: ReactNode;
@@ -109,18 +112,18 @@ function Pair({ scene, title, body, children, flip = false }: {
 }) {
 	const photo = (
 		<Reveal>
-			<div className="relative flex min-h-[520px] flex-col justify-between overflow-hidden rounded-[24px] p-10 text-center">
-				<Scene name={scene} />
+			<div className="relative flex min-h-[560px] flex-col justify-between overflow-hidden rounded-[24px] p-10 text-center">
+				<Photo name={scene} />
 				<div className="relative mt-10">
 					<Headline lines={title} size="text-[44px] sm:text-[64px]" />
 				</div>
-				<p className="relative mx-auto max-w-sm text-[17px] leading-[1.5] text-white">{body}</p>
+				<p className="relative mx-auto max-w-sm text-[18px] leading-[1.5] text-white">{body}</p>
 			</div>
 		</Reveal>
 	);
 	const screen = (
 		<Reveal delay={150}>
-			<div className="flex min-h-[520px] items-center justify-center overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0e0e0f] p-8">
+			<div className="flex min-h-[560px] items-center justify-center overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0e0e0f] p-8">
 				{children}
 			</div>
 		</Reveal>
@@ -135,13 +138,13 @@ function Pair({ scene, title, body, children, flip = false }: {
 
 export default function HomePage() {
 	return (
-		<div className="min-h-screen bg-[#050505] text-white antialiased">
+		<div className={`${sans.variable} min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased`}>
 			{/* nav: frosted glass */}
 			<header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.04] bg-[#0f1011]/[0.08] backdrop-blur-[24px]">
 				<nav className="mx-auto flex h-[68px] max-w-[1440px] items-center px-5 sm:px-8">
 					<Link href="/" aria-label="Lumen home" className="flex items-center gap-2.5">
 						<Image src="/lumen_logo.svg" alt="" width={28} height={28} priority />
-						<span className="text-[17px] tracking-tight text-white">Lumen</span>
+						<span className="text-[18px] tracking-tight text-white">Lumen</span>
 					</Link>
 					<div className="absolute left-1/2 hidden -translate-x-1/2 gap-1.5 md:flex">
 						{[
@@ -171,7 +174,7 @@ export default function HomePage() {
 				{/* hero: sky, headline, phone rising from the bottom */}
 				<section className="relative overflow-hidden pt-[150px]">
 					<Sky />
-					<div className="relative mx-auto flex max-w-[1200px] flex-col items-center px-5 text-center">
+					<div className="relative mx-auto flex max-w-[1200px] flex-col items-center px-4 text-center sm:px-5">
 						<Reveal>
 							<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1.5 pr-1.5 pl-4 text-[13px] text-white backdrop-blur">
 								Try it free
@@ -182,20 +185,18 @@ export default function HomePage() {
 							<Reveal className="home-lines">
 								<h1 className="font-display text-[52px] leading-[1.05] font-light tracking-[-0.01em] sm:text-[80px] lg:text-[96px]">
 									<span className="block overflow-hidden pb-[0.06em]">
-										<span className="ln">
-											Meet your <em>meticulous</em>
-										</span>
+										<span className="ln">Meet the AI that</span>
 									</span>
 									<span className="block overflow-hidden pb-[0.06em]">
 										<span className="ln" style={{ transitionDelay: "120ms" }}>
-											AI finance assistant.
+											<em>minds</em> your money.
 										</span>
 									</span>
 								</h1>
 							</Reveal>
 						</div>
 						<Reveal delay={250}>
-							<p className="mx-auto mt-6 max-w-[520px] text-[17px] leading-[1.5] text-white/80">{description}</p>
+							<p className="mx-auto mt-6 max-w-[540px] text-[18px] leading-[1.5] text-white/85">{description}</p>
 							<div className="mt-8">
 								<Cta>Get started</Cta>
 							</div>
@@ -220,10 +221,10 @@ export default function HomePage() {
 							}}
 						/>
 						<div className="relative">
-							<Headline lines={[<>You shouldn&apos;t have to <em>chase</em></>, "paperwork."]} size="text-[40px] sm:text-[56px]" />
+							<Headline lines={[<>Money shouldn&apos;t keep you</>, <>up <em>at night</em>.</>]} size="text-[40px] sm:text-[56px]" />
 							<Reveal delay={150}>
-								<p className="mx-auto mt-5 max-w-md text-[16px] leading-[1.5] text-[#9f9fa0]">
-									Lumen does the reading, checking and filing, and only asks for you when something needs a decision.
+								<p className="mx-auto mt-5 max-w-md text-[17px] leading-[1.5] text-[#9f9fa0]">
+									Lumen points out your next best move, explains why it matters, and nudges you at the right moment.
 								</p>
 							</Reveal>
 							<Reveal delay={250}>
@@ -243,7 +244,7 @@ export default function HomePage() {
 				{/* features carousel */}
 				<section id="features" className="scroll-mt-20 pt-36 pb-28">
 					<div className="flex flex-col items-center px-5 text-center">
-						<Headline lines={[<><em>Capture</em> every invoice,</>, "effortlessly."]} />
+						<Headline lines={[<><em>Track</em> every rupee,</>, "all in one place."]} />
 						<Reveal delay={150}>
 							<div className="mt-8">
 								<Cta variant="dark">See it in the demo</Cta>
@@ -257,16 +258,16 @@ export default function HomePage() {
 					</div>
 				</section>
 
-				{/* always on: dotted grid, pulsing dot, cycling notifications */}
+				{/* always on: dotted grid, pulsing dot, a stack of notifications */}
 				<section className="relative overflow-hidden px-5 py-36 text-center">
 					<div aria-hidden className="home-dots absolute inset-0" />
 					<div className="relative flex flex-col items-center">
 						<span className="home-pulse size-3 rounded-full bg-[#4ade80]" />
 						<div className="mt-12">
-							<Headline lines={[<><em>Know</em> before</>, "it's too late."]} />
+							<Headline lines={[<><em>Advice</em> that comes</>, "to you."]} />
 						</div>
 						<Reveal delay={200}>
-							<div className="mt-12 w-[min(460px,calc(100vw-40px))]">
+							<div className="mt-14 w-[min(640px,calc(100vw-40px))]">
 								<Notifications />
 							</div>
 						</Reveal>
@@ -276,33 +277,33 @@ export default function HomePage() {
 				{/* how it works: scene + screen pairs */}
 				<section id="how" className="mx-auto flex max-w-[1400px] scroll-mt-20 flex-col gap-4 px-4 py-20 sm:px-5">
 					<Pair
-						scene="dune"
-						title={["We read", <em key="e">everything</em>]}
-						body="Invoices, receipts, purchase orders and contracts become one searchable record."
+						scene="poppies"
+						title={["We connect", <em key="e">everything</em>]}
+						body="Bank statements, cards, bills, receipts and contracts come together, so nothing slips through."
 					>
-						<DocMarquee />
+						<InsightMarquee />
 					</Pair>
 					<Pair
 						flip
 						scene="meadow"
-						title={["We check", <em key="e">every line</em>]}
-						body="Totals, duplicates, vendors, dates, PO numbers and hidden instructions, before anything is recorded."
+						title={["We find", <em key="e">ways to save</em>]}
+						body="Dozens of money checks run quietly in the background and surface only what's worth your time."
 					>
 						<ChecksMock />
 					</Pair>
 					<Pair
-						scene="dusk"
-						title={["We show", <em key="e">our work</em>]}
-						body="Every answer points to the clause or the transactions behind it, so you can check it in a click."
+						scene="dune"
+						title={["We guide your", <em key="e">next move</em>]}
+						body="A money health score and a short list of actions show what's working and where to focus next."
 					>
-						<AnswerMock />
+						<GuideMock />
 					</Pair>
 				</section>
 
-				{/* human in the loop: full-bleed scene */}
+				{/* human in the loop: full-bleed scene with a working suggestion card */}
 				<section className="px-4 py-20 sm:px-5">
-					<div className="relative mx-auto flex min-h-[720px] max-w-[1400px] flex-col items-center justify-center overflow-hidden rounded-[24px] px-6 py-24 text-center">
-						<Scene name="bloom" />
+					<div className="relative mx-auto flex min-h-[760px] max-w-[1400px] flex-col items-center justify-center overflow-hidden rounded-[24px] px-6 py-24 text-center">
+						<Photo name="daisies" sizes="100vw" />
 						<div className="relative flex flex-col items-center">
 							<Reveal>
 								<span className="flex items-center gap-3 rounded-full border border-white/25 bg-black/25 px-4 py-2 text-[12px] text-white backdrop-blur">
@@ -315,14 +316,14 @@ export default function HomePage() {
 								<Headline lines={["Nothing changes", <em key="e">without you.</em>]} />
 							</div>
 							<Reveal delay={150}>
-								<p className="mx-auto mt-6 max-w-md text-[16px] leading-[1.5] text-white/90">
-									Lumen proposes: recategorise, flag, mark as paid. You approve or reject, and every decision is logged.
+								<p className="mx-auto mt-6 max-w-md text-[17px] leading-[1.5] text-white/90">
+									Lumen suggests: flag a charge, recategorise, mark a bill paid. You decide, and every decision is logged.
 								</p>
 							</Reveal>
 							<div className="mt-10 w-full">
 								<Reveal delay={250}>
 									<div className="flex justify-center">
-										<ProposalMock />
+										<ProposalDemo />
 									</div>
 								</Reveal>
 							</div>
@@ -330,8 +331,8 @@ export default function HomePage() {
 					</div>
 				</section>
 
-				{/* ask lumen: violet light, chat phone */}
-				<section id="ask" className="scroll-mt-20 px-4 py-20 sm:px-5">
+				{/* ask lumen: violet light, a phone playing a conversation */}
+				<section id="ask" className="scroll-mt-20 px-2 py-20 sm:px-5">
 					<div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[24px] bg-[#070708] pt-28 text-center">
 						<div
 							aria-hidden
@@ -343,21 +344,18 @@ export default function HomePage() {
 							className="absolute -top-40 -right-40 h-[900px] w-[420px] -rotate-12 blur-[70px]"
 							style={{ background: "linear-gradient(180deg, #4b49aa 0%, #847dff 60%, transparent 100%)", opacity: 0.35 }}
 						/>
-						<div className="relative flex flex-col items-center px-6">
+						<div className="relative flex flex-col items-center px-2 sm:px-6">
 							<Sparkles className="size-8 text-[#a49eff]" strokeWidth={1.3} fill="#847dff" />
 							<div className="mt-6">
-								<Headline lines={["Your numbers,", <em key="e">explained.</em>]} />
+								<Headline lines={["Your money,", <em key="e">explained.</em>]} />
 							</div>
 							<Reveal delay={150}>
-								<p className="mx-auto mt-6 max-w-md text-[16px] leading-[1.5] text-[#9f9fa0]">
-									Ask Lumen anything about your spending, invoices and contracts, and get answers grounded in your own
-									records.
+								<p className="mx-auto mt-6 max-w-md text-[17px] leading-[1.5] text-[#9f9fa0]">
+									Ask Lumen anything and get answers grounded in your own numbers, documents and goals.
 								</p>
 							</Reveal>
-							<div className="mt-14 -mb-[180px] w-full">
-								<Reveal delay={250}>
-									<ChatPhone />
-								</Reveal>
+							<div className="mt-14 w-full pb-20">
+								<ChatDemo />
 							</div>
 						</div>
 					</div>
@@ -382,8 +380,7 @@ export default function HomePage() {
 
 				{/* closing call to action over hills */}
 				<section className="relative flex min-h-[640px] items-center justify-center overflow-hidden px-5 text-center">
-					<Hills />
-					<div className="absolute inset-0 bg-black/15" />
+					<Photo name="fields" sizes="100vw" />
 					<div className="relative flex flex-col items-center">
 						<Reveal>
 							<span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 py-1.5 pr-1.5 pl-4 text-[13px] text-white backdrop-blur">
@@ -403,8 +400,8 @@ export default function HomePage() {
 							</Reveal>
 						</div>
 						<Reveal delay={150}>
-							<p className="mx-auto mt-5 max-w-md text-[17px] leading-[1.5] text-white/90">
-								A year of sample invoices, contracts and purchase orders, ready to explore.
+							<p className="mx-auto mt-5 max-w-md text-[18px] leading-[1.5] text-white/90">
+								Explore a full year of sample spending, bills and documents, ready in one click.
 							</p>
 							<div className="mt-8">
 								<Cta>Get started</Cta>
@@ -419,15 +416,15 @@ export default function HomePage() {
 					<div>
 						<Link href="/" className="flex items-center gap-2.5">
 							<Image src="/lumen_logo.svg" alt="" width={28} height={28} />
-							<span className="text-[17px] text-white">Lumen</span>
+							<span className="text-[18px] text-white">Lumen</span>
 						</Link>
-						<p className="mt-4 max-w-xs text-[14px] leading-[1.6] text-[#6a6b6b]">
-							The AI finance assistant that reads, checks and explains your invoices.
+						<p className="mt-4 max-w-xs text-[15px] leading-[1.6] text-[#6a6b6b]">
+							Your AI money advisor: it tracks, explains and keeps finding ways to save.
 						</p>
 					</div>
 					<div>
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Product</p>
-						<ul className="mt-4 space-y-2.5 text-[14px] text-[#9f9fa0]">
+						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
 							<li><a href="#features" className="hover:text-white">Features</a></li>
 							<li><a href="#how" className="hover:text-white">How it works</a></li>
 							<li><a href="#ask" className="hover:text-white">Ask Lumen</a></li>
@@ -435,7 +432,7 @@ export default function HomePage() {
 					</div>
 					<div>
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Get started</p>
-						<ul className="mt-4 space-y-2.5 text-[14px] text-[#9f9fa0]">
+						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
 							<li><Link href="/signin" className="hover:text-white">Try the demo</Link></li>
 							<li><Link href="/signin" className="hover:text-white">Log in</Link></li>
 						</ul>
