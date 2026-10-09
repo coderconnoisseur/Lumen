@@ -52,10 +52,10 @@ def _history(session: Session, user_id: str) -> list[dict]:
                            .order_by(ReviewItem.created_at.desc(), ReviewItem.id.desc())).all()
     out = []
     for r in rows:
-        inv = json.loads(r.invoice)
+        inv, flags = json.loads(r.invoice), json.loads(r.flags)
         out.append({"vendor": (inv.get("vendor_name") or "").lower(), "status": r.status,
                     "edited": r.extracted is not None and json.loads(r.extracted) != inv,
-                    "rules": {f["rule"] for f in json.loads(r.flags)}})
+                    "rules": {f["rule"] for f in flags}, "explained": any(f["severity"] == "fail" for f in flags)})
     return out
 
 

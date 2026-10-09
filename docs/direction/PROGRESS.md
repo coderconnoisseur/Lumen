@@ -274,6 +274,8 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - **PRs #2-#16 merged into `refactor`** (owner OK). #16 fixed CI: SQLAlchemy 2.1 switches `postgresql://` to
   psycopg 3 (not installed), and the RAG tests need a pgvector image. SPEC-DEPLOY approved (#17).
 
+Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
+
 ## Next step
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
 1. **Deploy (SPEC-DEPLOY):** built (PR `feat/deploy-config`): render.yaml (API only, CI-gated), keep-warm workflow,
@@ -297,6 +299,6 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    audit-logged; `purchase_orders` + `review_items` tables). Upload, batch and email all go through the checks
    (`submit_invoice`); minimal `/review` page. SPEC-FEEDBACK approved (3; rejections only reset).
    Loop B built (`suppressed_warnings`, notes, `review_items.extracted`, `feedback` suite): review load 48 → 44 of
-   120, 0 missed; variant "only unexplained rejections reset" 48 → 36, 0 missed, **awaiting owner decision**
+   120, 0 missed; variant "only unexplained rejections reset" approved and shipped 2026-10-09: 48 → 36, 0 missed
    (`benchmarks/2026-10-07-feedback-loop-b.md`, STORY 20). Loop A needs EXT-01. Then EXT-01 structured vision extraction (OpenRouter quota) and the end-to-end number.
 8. UI refactor (owner-led, last).
