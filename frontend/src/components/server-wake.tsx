@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 // The free API host sleeps when idle (SPEC-DEPLOY). If /health hasn't answered in 3 s, say so until it does.
+// The landing page doesn't need the API: it still pings (so the server is warm by "Get started") but shows nothing.
 export function ServerWake() {
 	const [waking, setWaking] = useState(false);
+	const onLanding = usePathname() === "/";
 
 	useEffect(() => {
 		let done = false;
@@ -30,7 +33,7 @@ export function ServerWake() {
 		};
 	}, []);
 
-	if (!waking) return null;
+	if (!waking || onLanding) return null;
 	return (
 		<div role="status" className="fixed inset-x-0 top-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm text-black">
 			Waking up the server (free hosting sleeps when idle). This takes about a minute…
