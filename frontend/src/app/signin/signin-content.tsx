@@ -83,7 +83,7 @@ export default function SignInContent() {
 				headers: { Authorization: `Bearer ${data.session.access_token}` },
 			});
 			if (!res.ok) throw new Error(`Demo setup failed (${res.status})`);
-			router.replace("/agent");
+			router.replace("/chatbot");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Something went wrong.";
 			// Don't leave the visitor signed in to an empty demo account: sign out so "Try the demo" starts clean.

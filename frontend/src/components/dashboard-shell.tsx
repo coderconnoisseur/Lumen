@@ -12,8 +12,9 @@ import {
 import { cn } from "@/lib/utils";
 
 interface DashboardShellProps {
-	title: string;
-	description: string;
+	/** omit for full-bleed pages (e.g. chat) that draw their own header */
+	title?: string;
+	description?: string;
 	children: ReactNode;
 	actions?: ReactNode;
 	toolbar?: ReactNode;
@@ -49,7 +50,7 @@ export function DashboardShell({
 						contentClassName
 					)}
 				>
-					<section className="rounded-3xl border border-border/70 bg-card/70 px-5 py-5 shadow-sm shadow-black/10 sm:px-6">
+					{title && (<section className="rounded-3xl border border-border/70 bg-card/70 px-5 py-5 shadow-sm shadow-black/10 sm:px-6">
 						<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 							<div className="space-y-3">
 								<Badge
@@ -78,7 +79,7 @@ export function DashboardShell({
 								{toolbar}
 							</div>
 						)}
-					</section>
+					</section>)}
 					{children}
 				</div>
 			</SidebarInset>

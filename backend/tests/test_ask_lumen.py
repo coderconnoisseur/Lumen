@@ -297,6 +297,8 @@ def test_chat_is_the_agent(authed_client, monkeypatch):
     body = resp.get_json()["data"]
     assert resp.status_code == 200 and body["response"] == "You have no transactions yet."
     assert body["query_type"] == "agent" and [s["tool"] for s in body["steps"]] == ["run_sql"]
+    assert body["sql"] == ["SELECT COUNT(*) AS n FROM transactions"] and "latency_ms" in body["steps"][0]
+    assert body["sources"] == [] and body["stopped"]
 
 
 def test_chat_shares_the_demo_question_cap(authed_client, monkeypatch):
@@ -307,3 +309,20 @@ def test_chat_shares_the_demo_question_cap(authed_client, monkeypatch):
     monkeypatch.setattr(chat, "_ask", lambda *a: pytest.fail("the agent must not run past the cap"))
     resp = authed_client.post("/chat", json={"query": "hi"}, headers={"Authorization": "Bearer x.y.z"})
     assert resp.status_code == 429 and resp.get_json()["code"] == "demo_limit"
+
+
+def test_chat_sources_carry_the_passage_and_the_original_file(authed_client, monkeypatch):
+    import agent.graph
+    import routes.chat as chat
+    from api import agent as agent_api
+
+    out = {"answer": "Notice is 30 days [doc-1#s02].", "rows": None, "sql": [], "stopped": "answered", "proposals": [],
+           "steps": [{"tool": "search_documents", "args": {}, "summary": "1 passage", "latency_ms": 12}],
+           "sources": [{"chunk_id": "doc-1#s02", "title": "TechHub contract", "section": "Termination",
+                        "text": "Either party may end this with 30 days' notice."}]}
+    monkeypatch.setattr(agent_api, "get_agent_deps", lambda: agent_api.AgentDeps(engine=None, sql_agent=None))
+    monkeypatch.setattr(agent.graph, "run_agent", lambda *a, **k: out)
+    monkeypatch.setattr(chat, "_save_exchange", lambda *a: None)
+    resp = authed_client.post("/chat", json={"query": "notice?"}, headers={"Authorization": "Bearer x.y.z"})
+    source = resp.get_json()["data"]["sources"][0]
+    assert source["file_key"] == "user-1/docs/doc-1.pdf" and source["text"].startswith("Either party")

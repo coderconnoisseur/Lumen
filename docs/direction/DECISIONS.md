@@ -88,3 +88,4 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-06 | SQLAlchemy pinned to 2.0 | Build | 2.1 switches `postgresql://` to a driver we don't ship | PR #16 |
 | 2026-10-07 | API in Render's Singapore region | Owner | Next to the Supabase database (ap-southeast-1) | PR #22 |
 | 2026-10-09 | keep-warm skips while the API's DNS name doesn't resolve | Build | Not deployed yet; a real outage still fails | PR #31 |
+| 2026-10-09 | Ask Lumen and the agent test page merged into one chat built from Beautiful UI components (MIT), markdown answers, a voice button placeholder | Owner | Evidence-first chat that feels like a modern assistant; voice comes later from the backend | UI phase, this PR |

@@ -13,10 +13,10 @@ Last updated: 2026-10-04 (after RAG; the agent section is filled in when SPEC-AG
 ```
 frontend/ (Next.js)  ──JWT──▶  backend/asgi.py (FastAPI, uvicorn, 1 worker)
                                  ├── /api/documents/*  → api/documents.py → rag/   (new, FastAPI-native)
-                                 ├── /api/agent/*      → (SPEC-AGENT, coming)
+                                 ├── /api/agent/*      → api/agent.py → agent/  (proposals approve/reject)
                                  └── everything else   → Flask app (app.py, routes/*) mounted behind FastAPI
                                                           ├── /extract           invoice upload → vision LLM
-                                                          ├── /chat              Ask Lumen (SQL → answer)
+                                                          ├── /chat              Ask Lumen (the agent) + history
                                                           ├── /transactions ...  CRUD
                                                           └── /api/analytics/... dashboards, anomalies, forecasts
 all LLM calls ───────────────────────────────────────▶ llm/client.py (one client: failover, deadline, record/replay)
@@ -222,6 +222,19 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 - `.github/workflows/ci.yml`: backend tests on Postgres 16 + pgvector, offline eval replay, frontend lint.
   `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
+
+## 7c. Ask Lumen screen (frontend, UI phase)
+- `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
+  It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
+  original's `file_key`), `steps` (tool, summary, `latency_ms`), `sql`, `proposals`. History (`GET /chat/history`)
+  keeps only the text, so older answers show citation numbers without passages.
+- `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
+  `work-trace.tsx` ("Thinking" timer, then the collapsible list of tools the agent ran with the SQL),
+  `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
+  full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
+  answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
+- Look: adapted from Beautiful UI (beautifului.dev, MIT). Its tokens live in `app/beautiful-ui.css`, scoped to a
+  `.bui` wrapper so the rest of the app's shadcn theme (notably `--accent`) is untouched.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact

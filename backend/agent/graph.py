@@ -24,7 +24,8 @@ from agent.tools import ToolContext, run_tool, tool_schemas
 
 MAX_TOOL_CALLS = 6
 MAX_TOOL_RESULT_CHARS = 3000
-_CITATION = re.compile(r"\[([^\[\]\s]+#s\d{2}(?:-\d+)?)\]")
+# Models sometimes pad the id or use full-width brackets: "[ id#s04 ]", "【id#s04】".
+_CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?)\s*[\]】]")
 
 
 class AgentState(TypedDict):
