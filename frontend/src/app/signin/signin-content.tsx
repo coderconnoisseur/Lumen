@@ -86,7 +86,9 @@ export default function SignInContent() {
 			router.replace("/agent");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Something went wrong.";
-			setAuthError(`Couldn't start the demo. ${message}`);
+			// Don't leave the visitor signed in to an empty demo account: sign out so "Try the demo" starts clean.
+			await getSupabaseBrowserClient().auth.signOut().catch(() => undefined);
+			setAuthError(`Couldn't start the demo. ${message} Please try again.`);
 			setStartingDemo(false);
 		}
 	};

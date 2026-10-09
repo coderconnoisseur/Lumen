@@ -45,7 +45,7 @@ search. The agent's job (next) is to pick the right one.
 | `api/errors.py` | Maps errors to the app-wide body `{success: false, error, code}`; `LLMError` → 429/502/503. |
 | `api/documents.py` | `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST /api/documents/search`, `POST /api/documents/ask`. Gets the RAG service via `Depends(get_service)`, which tests override with fakes. |
 | `api/demo.py` | `POST /api/demo/start`: for anonymous (demo) accounts only, seeds the caller's own copy of the demo data once (`scripts/seed_demo_data.seed`). `api/agent.py` caps demo accounts at `DEMO_QUESTIONS_PER_DAY` (20) agent questions a day. |
-| `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen + history), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
+| `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen = the agent since 2026-10-09, + history; demo accounts share the 20/day cap), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
 
 ### Auth and tenancy (the rule everything follows)
 - `utils/auth.py`: verifies the Supabase JWT (JWKS, RS256/ES256, audience, issuer, role). `require_auth` (Flask)

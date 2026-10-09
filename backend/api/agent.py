@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.engine import Engine
@@ -56,10 +56,23 @@ class Question(BaseModel):
 DEMO_QUESTIONS_PER_DAY = 20  # all visitors share one free Groq quota (~1K requests/day; SPEC-DEPLOY)
 
 
-def demo_quota(request: Request, response: Response, claims: dict = Depends(current_user)) -> None:
+def count_demo_question(claims: dict, authorization: str, client: str) -> bool:
+    """One daily allowance per demo (anonymous) account, shared by /chat and /api/agent/ask. False = used up."""
+    from limits import parse
+
+    from utils.limiter import limiter, rate_limit_key
+
+    if not claims.get("is_anonymous") or not limiter.enabled:
+        return True
+    return limiter.limiter.hit(parse(f"{DEMO_QUESTIONS_PER_DAY} per day"), rate_limit_key(authorization, client),
+                               "demo-questions")
+
+
+def demo_quota(request: Request, claims: dict = Depends(current_user)) -> None:
     """Anonymous demo visitors get a daily question cap; signed-up accounts don't."""
-    if claims.get("is_anonymous"):
-        rate_limit(f"{DEMO_QUESTIONS_PER_DAY} per day")(request, response)
+    if not count_demo_question(claims, request.headers.get("Authorization", ""),
+                               request.client.host if request.client else "127.0.0.1"):
+        raise HTTPException(429, f"The demo allows {DEMO_QUESTIONS_PER_DAY} questions a day. Sign up to keep going.")
 
 
 @router.post("/ask", dependencies=[Depends(rate_limit("10 per minute")), Depends(demo_quota)])

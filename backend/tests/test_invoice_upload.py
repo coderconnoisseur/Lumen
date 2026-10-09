@@ -392,9 +392,9 @@ def test_extract_image_saves_and_shows_everywhere(client, ocr):
     assert "1121" in summary.get_data(as_text=True)
 
     # Ask Lumen's SQL step reads the same database
-    import routes.chat
+    from ai.sql_agent import SQLAgent
 
-    result = routes.chat.engine.sql_agent.execute_sql(
+    result = SQLAgent().execute_sql(
         "SELECT COALESCE(SUM(total_amount), 0) AS total FROM transactions WHERE user_id = 'user-1'",
         "user-1",
     )
