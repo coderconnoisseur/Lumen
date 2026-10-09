@@ -6,7 +6,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { reviewApi, type ReviewItem } from "@/lib/api/client";
+import { filesApi, reviewApi, type ReviewItem } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -58,6 +58,11 @@ export default function ReviewContent() {
 						<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
 							<Input className="sm:w-48" inputMode="decimal" placeholder="Correct total (optional)"
 								value={totals[item.id] ?? ""} onChange={(e) => setTotals((t) => ({ ...t, [item.id]: e.target.value }))} />
+							{typeof item.invoice.file_key === "string" && (
+								<Button size="sm" variant="ghost" onClick={() => void filesApi.open(item.invoice.file_key as string).catch(() => toast.error("Couldn't open the original."))}>
+									Open original
+								</Button>
+							)}
 							<Button size="sm" onClick={() => void decide(item, "approve")}>Approve</Button>
 							<Button size="sm" variant="outline" onClick={() => void decide(item, "reject")}>Reject</Button>
 						</div>

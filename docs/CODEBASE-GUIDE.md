@@ -260,6 +260,11 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   confidence); a rejection or an edited approval ends the streak; failures never adapt. `review_items.extracted`
   keeps what the reader produced, so "edited" = approved invoice differs from it. Measured by
   `evals/suites/feedback.py` (simulated 6-month stream, with vs without; missed faults must stay 0).
+- **Original files** (`utils/files.py`, `api/files.py`): every uploaded invoice (upload, PDF batch, email) and document
+  keeps its original: `{user}/invoices/{sha256}.{ext}` (content-addressed) and `{user}/docs/{doc id}.pdf`. Local
+  folder `backend/instance/files` by default; a private Supabase Storage bucket (`lumen-files`, created on first use)
+  when `SUPABASE_SERVICE_ROLE_KEY` is set. `GET /api/files/{key}` serves a file only to its owner (anything else is
+  404). Transactions carry `file_key`; documents list `file_key`; a storage failure never loses the upload.
 - **Feedback loop A** (SPEC-FEEDBACK): `api.review.corrections_for(engine, user, vendor)` returns the fields a
   reviewer corrected on that user's approved invoices from that vendor (`extracted` vs approved, newest first, max
   3, as `{field, read, correct}`). `read_with_feedback` (used by upload, batch and email) reads once and, only if

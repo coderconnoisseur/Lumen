@@ -47,6 +47,7 @@ class Transaction(db.Model):
     category = db.Column(db.String, nullable=True)
     currency = db.Column(db.String(3), nullable=True)  # as printed (ISO code), never converted; NULL = old rows
     po_number = db.Column(db.String, nullable=True)
+    file_key = db.Column(db.String, nullable=True)  # the original upload (utils/files.py), served by /api/files
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

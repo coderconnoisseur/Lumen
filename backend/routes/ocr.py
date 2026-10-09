@@ -18,6 +18,7 @@ from utils.image_processing import (
 )
 from api.review import read_with_feedback, submit_invoice
 from models.database import db
+from utils.files import invoice_key, keep
 
 logger = logging.getLogger(__name__)
 # Create blueprint
@@ -113,8 +114,9 @@ def extract_invoice_data():
     structured_data['source_file'] = file.filename
     structured_data['file_type'] = file_ext
 
-    # Step 2: the reader already returns the fixed, validated structure (EXT-01)
+    # Step 2: the reader already returns the fixed, validated structure (EXT-01); keep the original file
     normalized = structured_data
+    normalized['file_key'] = keep(invoice_key(str(user_id), file_content, file_ext), file_content)
     if normalized["total_amount"] is None and not normalized["vendor_name"]:
         logger.info("OCR found no invoice data in %r", file.filename)
         logger.debug("OCR reply for %r: %s", file.filename, structured_data)

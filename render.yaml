@@ -32,6 +32,9 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # Server-side only: keeps original uploads in a private Storage bucket (utils/files.py).
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: SUPABASE_JWT_AUD
         value: authenticated
       - key: ALLOWED_ORIGINS

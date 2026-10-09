@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
 	documentsApi,
+	filesApi,
 	type DocumentAnswer,
 	type LumenDocument,
 } from "@/lib/api/client";
@@ -173,6 +174,11 @@ export default function DocumentsContent() {
 										</p>
 									</div>
 								</div>
+								{doc.file_key && (
+									<Button variant="ghost" size="sm" onClick={() => void filesApi.open(doc.file_key!).catch(() => toast.error("Couldn't open the original."))}>
+										Open original
+									</Button>
+								)}
 								<Button variant="ghost" size="icon" aria-label={`Delete ${doc.title}`} onClick={() => void onDelete(doc)}>
 									<Trash2 className="size-4" />
 								</Button>

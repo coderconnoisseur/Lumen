@@ -73,6 +73,8 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-09 | New columns stay out of the agent's prompt schema until its next re-recording | Build | The prompt is part of every recorded request | `agent/prompts.py` |
 | 2026-10-09 | Harder invoice test set deferred; keep the synthetic set for now | Owner | Good enough for now | `PROGRESS.md` Deferred |
 | 2026-10-09 | Loop A: read once; only if the vendor has corrections, read again with up to 3 as JSON field/value hints; hints kept on the invoice | Build | The vendor is only known after reading; the extra call is limited to vendors with history | `api/review.py` |
+| 2026-10-09 | Keep original uploads in a private Supabase Storage bucket (local folder in dev/tests); serve them through the API to their owner only | Owner | The review screen and references need the real invoice/PDF; DB blobs would eat the 500 MB limit | `utils/files.py` |
+| 2026-10-09 | File keys are content-addressed for invoices and id-based for documents; a storage failure is logged, never fatal | Build | Re-uploads reuse files; no new document column; uploads aren't lost to an outage | `utils/files.py` |
 | 2026-10-09 | Only a rejection that no failure explains resets a vendor's warnings | Owner | Measured 48 → 36 (not 44) of 120 sent to review, 0 missed | `benchmarks/2026-10-07-feedback-loop-b.md` |
 
 ## Deployment

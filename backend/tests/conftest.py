@@ -61,6 +61,16 @@ def _block_network(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", _guarded_getaddrinfo)
 
 
+@pytest.fixture(autouse=True)
+def _files_in_tmp(tmp_path, monkeypatch):
+    """Original uploads go to a throwaway folder, never backend/instance/files or Supabase."""
+    import utils.files
+
+    local = utils.files.LocalFiles(tmp_path / "files")
+    monkeypatch.setattr(utils.files, "get_store", lambda: local)
+    return local
+
+
 @pytest.fixture
 def authed_client(monkeypatch):
     """Test client whose requests are signed in as user-1 (token check mocked)."""
