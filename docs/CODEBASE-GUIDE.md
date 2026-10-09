@@ -250,7 +250,7 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 - Showcase screens (`mocks.tsx`) are polished versions of the app with sample data, in Hanken Grotesk (loaded in
   `page.tsx` as `--font-ui`); headlines use the Newsreader serif, labels Roboto Mono. No numeric claims about
   Lumen itself, testimonials or customer logos.
-- Media: Pexels photos and a 720p sky video in `public/home/` (sources listed in `components/home/scenes.tsx`;
+- Media: Pexels photos and a 1080p sky video (first frame trimmed; `sky-poster.jpg` paints first) in `public/home/` (sources listed in `components/home/scenes.tsx`;
   Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
 - Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
   headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
