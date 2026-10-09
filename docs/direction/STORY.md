@@ -249,3 +249,15 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** SQL 31/32 vs the pipeline's 29/32 (3 fixed, 1 defensible regression), strict 26/32 vs 21/32; 0 leaks and
   0 injections followed (was 1); routing still 24/24. The agent replaced the pipeline behind Ask Lumen, at about 2×
   the calls per question, reported alongside. Story point: ship the switch only when the gates, not the demo, say so.
+
+## 22. Reading invoices into a fixed structure, and admitting the test got too easy (EXT-01)
+- **S:** The old reader returned free-form JSON for 7 fields; the checks needed currency, PO numbers, line items and
+  the invoice's own text, and the only free vision quota (~50/day) made one recording take days.
+- **T:** Read every invoice into one validated structure and measure it end to end, without waiting on quotas.
+- **A:** A Pydantic schema with the exact JSON shape in the prompt, cleaned amounts and dates, one retry; wired into
+  upload, PDF and email. Researched free vision tiers, moved images to Gemini Flash-Lite (~1K/day; 2.5 was closed to
+  new users, so 3.1 is pinned), recorded all 56 images in one sitting and replayed them.
+- **R:** 56/56 invoices fully right (F1 1.00 on clean and degraded images), every planted fault caught on what the
+  model actually read, 0 false flags on 34 clean invoices, injections kept as data and flagged, p50 3.8 s, $0.
+  Reported as saturation, not victory: the synthetic set is too easy to show further gains, so a harder real-world
+  set comes next. Story point: a perfect score is a signal to raise the bar.
