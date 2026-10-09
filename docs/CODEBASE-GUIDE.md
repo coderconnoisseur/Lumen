@@ -239,6 +239,24 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
   theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
+## 7d. Landing page (frontend, UI phase)
+- `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
+  Lumen's own copy, positioned as the AI money advisor Lumen is growing into (unbuilt parts: PROGRESS, Deferred,
+  "Product vision"). Sections: glass nav; sky-video hero with a phone of cycling glass cards; a promise panel with a
+  horizon glow; an auto-scrolling feature carousel (`components/home/feature-carousel.tsx`); a stack of cycling
+  notifications over a dotted grid; three photo + screen pairs; "Nothing changes without you" with a working
+  approve/reject card (`proposal-demo.tsx`); the Ask Lumen phone that plays a scripted conversation (`chat-demo.tsx`);
+  example questions; a closing call to action over a photo.
+- Showcase screens (`mocks.tsx`) are polished versions of the app with sample data, in Hanken Grotesk (loaded in
+  `page.tsx` as `--font-ui`); headlines use the Newsreader serif, labels Roboto Mono. No numeric claims about
+  Lumen itself, testimonials or customer logos.
+- Media: Pexels photos and a 1080p sky video (first frame trimmed; `sky-poster.jpg` paints first) in `public/home/` (sources listed in `components/home/scenes.tsx`;
+  Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
+- Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
+  headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
+- Every **Get started** / **Log in** goes to `/signin`. Only `components/landing/Aurora.tsx` remains of the old
+  template landing (the sign-in background).
+
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
   JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO
