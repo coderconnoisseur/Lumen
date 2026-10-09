@@ -27,6 +27,15 @@
 }
 
 /* four items take turns: each is shown for a quarter of the loop */
+/* hero: animates on first paint, without waiting for JavaScript */
+@keyframes home-intro {
+	from { opacity: 0; transform: translateY(24px); filter: blur(6px); }
+	to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes home-line { from { transform: translateY(105%); } to { transform: none; } }
+.home-intro { animation: home-intro 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.home-intro-lines .ln { display: block; animation: home-line 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @keyframes home-cycle {
 	0% { opacity: 0; transform: translateY(18px) scale(0.98); filter: blur(4px); }
 	5%, 22% { opacity: 1; transform: none; filter: none; }
@@ -64,6 +73,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.home-reveal, .home-lines .ln { opacity: 1; transform: none; filter: none; transition: none; }
+	.home-intro, .home-intro-lines .ln { animation: none; }
 	.home-marquee-x, .home-marquee-x-rev, .home-marquee-y, .home-pulse, .home-caret { animation: none; }
 	.home-cycle > * { animation: none; opacity: 0; }
 	.home-cycle > :first-child { opacity: 1; }

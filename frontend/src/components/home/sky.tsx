@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
-/** Looping sky video behind the hero (public/home/sky.mp4); a still blue for reduced motion and while it loads. */
+/** Hero sky: a still frame paints instantly (preloaded), the looping video (public/home/sky.mp4, first frame
+ *  trimmed so it never starts black) fades in over it once it's actually playing. Reduced motion keeps the still. */
 export function Sky() {
 	const video = useRef<HTMLVideoElement>(null);
+	const [playing, setPlaying] = useState(false);
 
 	// React doesn't render the `muted` attribute into the HTML, and browsers only autoplay muted video.
 	useEffect(() => {
@@ -15,10 +18,13 @@ export function Sky() {
 	}, []);
 
 	return (
-		<div aria-hidden className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#1f5fa8,#5596d2)]">
+		<div aria-hidden className="absolute inset-0 overflow-hidden bg-[#3d7cc0]">
+			<Image src="/home/sky-poster.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
 			<video
 				ref={video}
-				className="absolute inset-0 h-full w-full object-cover motion-reduce:hidden"
+				onPlaying={() => setPlaying(true)}
+				className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 motion-reduce:hidden"
+				style={{ opacity: playing ? 1 : 0 }}
 				src="/home/sky.mp4"
 				muted
 				loop

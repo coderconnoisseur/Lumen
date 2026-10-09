@@ -175,36 +175,34 @@ export default function HomePage() {
 				<section className="relative overflow-hidden pt-[150px]">
 					<Sky />
 					<div className="relative mx-auto flex max-w-[1200px] flex-col items-center px-4 text-center sm:px-5">
-						<Reveal>
+						<div className="home-intro">
 							<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1.5 pr-1.5 pl-4 text-[13px] text-white backdrop-blur">
 								Try it free
 								<span className={`${mono} rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium`}>No sign-up</span>
 							</span>
-						</Reveal>
+						</div>
 						<div className="mt-7">
-							<Reveal className="home-lines">
+							<div className="home-intro-lines">
 								<h1 className="font-display text-[52px] leading-[1.05] font-light tracking-[-0.01em] sm:text-[80px] lg:text-[96px]">
 									<span className="block overflow-hidden pb-[0.06em]">
 										<span className="ln">Meet the AI that</span>
 									</span>
 									<span className="block overflow-hidden pb-[0.06em]">
-										<span className="ln" style={{ transitionDelay: "120ms" }}>
+										<span className="ln" style={{ animationDelay: "120ms" }}>
 											<em>minds</em> your money.
 										</span>
 									</span>
 								</h1>
-							</Reveal>
+							</div>
 						</div>
-						<Reveal delay={250}>
+						<div className="home-intro" style={{ animationDelay: "250ms" }}>
 							<p className="mx-auto mt-6 max-w-[540px] text-[18px] leading-[1.5] text-white/85">{description}</p>
 							<div className="mt-8">
 								<Cta>Get started</Cta>
 							</div>
-						</Reveal>
-						<div className="mt-16 -mb-[220px] w-full">
-							<Reveal delay={350}>
-								<HeroPhone />
-							</Reveal>
+						</div>
+						<div className="home-intro mt-16 -mb-[220px] w-full" style={{ animationDelay: "400ms" }}>
+							<HeroPhone />
 						</div>
 					</div>
 				</section>
@@ -303,7 +301,7 @@ export default function HomePage() {
 				{/* human in the loop: full-bleed scene with a working suggestion card */}
 				<section className="px-4 py-20 sm:px-5">
 					<div className="relative mx-auto flex min-h-[760px] max-w-[1400px] flex-col items-center justify-center overflow-hidden rounded-[24px] px-6 py-24 text-center">
-						<Photo name="daisies" sizes="100vw" />
+						<Photo name="daisies" sizes="100vw" soft />
 						<div className="relative flex flex-col items-center">
 							<Reveal>
 								<span className="flex items-center gap-3 rounded-full border border-white/25 bg-black/25 px-4 py-2 text-[12px] text-white backdrop-blur">
