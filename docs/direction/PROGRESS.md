@@ -286,6 +286,9 @@ Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
 - Agent extras AGT-05 (memory) and AGT-06 (tracing) only if a real need appears.
 
 ## Next step
+**Now (2026-10-09): UI phase.** A separate agent polishes the UI with the owner (SPEC-UX, the polish backlog below and in
+`TODO.md`). The invoice + RAG backend is complete; the backend work resumes afterwards from the Deferred list.
+
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
 1. **Deploy (SPEC-DEPLOY):** built (PR `feat/deploy-config`): render.yaml (API only, CI-gated), keep-warm workflow,
    **Try the demo** (anonymous sign-in + `POST /api/demo/start` seeding a private copy; 20 agent questions/visitor/
