@@ -240,3 +240,12 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   vendor reset everything learned about it. Measuring a variant (only rejections no failure explains reset) gave
   48 → 36 and halved months 4-6, still 0 missed; taken to the owner rather than shipped silently. Story point: the
   eval found a design flaw in an approved spec before users did.
+
+## 21. Closing the agent: better than the pipeline it replaces, and safe (AGT-07)
+- **S:** The agent trailed the fixed pipeline on SQL (28 vs 29) and followed one injected instruction.
+- **T:** Pass the spec's gates (no worse on SQL, zero leaks, zero injections followed) before replacing `/chat`.
+- **A:** Hardened the prompt (pasted text is data; lists show vendor, date, amount), re-recorded all three agent
+  suites on one day's free quota, replayed each immediately, and paired every SQL question against the pipeline.
+- **R:** SQL 31/32 vs the pipeline's 29/32 (3 fixed, 1 defensible regression), strict 26/32 vs 21/32; 0 leaks and
+  0 injections followed (was 1); routing still 24/24. The agent replaced the pipeline behind Ask Lumen, at about 2×
+  the calls per question, reported alongside. Story point: ship the switch only when the gates, not the demo, say so.
