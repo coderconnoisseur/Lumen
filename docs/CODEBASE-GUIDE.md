@@ -219,6 +219,9 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 ## 7b. Deployment (SPEC-DEPLOY, owner runbook in `docs/DEPLOY.md`)
 - `lumen.nishantbuilds.me` → Vercel (`frontend/`, production branch `main`); `api.lumen.nishantbuilds.me` → Render
   (`render.yaml`: one free web service, deploys a push to `main` only after CI passes); Supabase for auth + Postgres.
+- Retrieval models (bge-small embedder, FlashRank reranker) are cached in `backend/.models` (`rag/embed.py`
+  `MODEL_CACHE`, git-ignored). The build runs `python -m scripts.fetch_models` to download them, and in production
+  `asgi.py` loads them in a background thread at startup, so the first question doesn't pay for either.
 - `.github/workflows/ci.yml`: backend tests on Postgres 16 + pgvector, offline eval replay, frontend lint.
   `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
