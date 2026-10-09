@@ -585,3 +585,11 @@ def test_a4_pdf_page_is_still_rendered_at_200_dpi():
     page, _ = render_pdf_first_page(_pdf_page(595, 842))
     assert page.width == 1653  # 595 pt at 200 dpi
     assert max(page.size) < 2500
+
+
+def test_the_transaction_list_shows_currency(client, ocr):
+    ocr.result = {**SHARMA_OCR, "currency": "CHF"}
+    body = _upload(client, _png_bytes()).get_json()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["currency"] == "CHF" and tx["po_number"] is None

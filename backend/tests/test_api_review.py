@@ -137,6 +137,14 @@ def test_an_edited_approval_does_not_teach(client):
     assert item["status"] == "flagged"  # newest approvals: 1 unchanged, then an edited one ends the streak
 
 
+def test_an_approved_invoice_keeps_its_currency_and_po_number(client):
+    """EXT-01 reads them; they're stored as printed, never converted (builder finding 6b #5: CHF showed as ₹)."""
+    item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(currency="CHF")}).json()["item"]
+    assert item["status"] == "approved"
+    with client.engine.connect() as c:
+        row = c.execute(text("SELECT currency, po_number FROM transactions WHERE id = :t"),
+                        {"t": item["transaction_id"]}).one()
+    assert tuple(row) == ("CHF", None)
 # --- SPEC-FEEDBACK loop A: a reviewer's corrections become hints for that vendor's next invoice ---
 
 def test_corrections_come_from_edited_approvals_of_that_vendor_for_that_user_only(client):

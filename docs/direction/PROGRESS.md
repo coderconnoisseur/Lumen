@@ -276,6 +276,15 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 
 Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
 
+## Deferred (owner: later)
+- **Harder invoice test set** (2026-10-09): the synthetic set is read perfectly (56/56), so it can't show gains or
+  measure loop A. Later: tougher generated invoices (low resolution, heavy blur, photo shadows/perspective, other
+  currencies, unusual labels) and a public real-receipt benchmark (e.g. CORD v2, CC-BY 4.0; download needs OK).
+- **Agent prompt: add `currency`, `po_number`** to the schema summary with the next agent re-recording (~one day of
+  Groq quota); until then `agent.prompts._NOT_IN_PROMPT` hides them and `get_schema` lists them.
+- Generation suite (AI judge on written answers) + ~20 owner labels; release-0 / BASELINE.md / README tables.
+- Agent extras AGT-05 (memory) and AGT-06 (tracing) only if a real need appears.
+
 ## Next step
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
 1. **Deploy (SPEC-DEPLOY):** built (PR `feat/deploy-config`): render.yaml (API only, CI-gated), keep-warm workflow,
@@ -305,6 +314,7 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    detection and an injection hard gate). Recorded 2026-10-09 on Gemini 3.1 Flash-Lite: 56/56 all fields
    right, every planted fault caught end to end, 0/34 false flags (`benchmarks/2026-10-09-extraction-ext01-gemini-
    dev.md`, STORY 22). **Saturated**: a harder real-world set is needed before loop A can show a gain.
+   Transactions now store `currency` and `po_number` as printed (fixes CHF shown as ₹ at the data level).
    Loop A built 2026-10-09 (`corrections_for`, `read_with_feedback`, hints in the prompt); measurement waits for
    the harder set.
 8. UI refactor (owner-led, last).

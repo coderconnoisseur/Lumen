@@ -69,6 +69,9 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-09 | EXT-01 reader: exact JSON shape in the prompt + Pydantic validation (not provider-specific `response_format`), one retry | Build | Works on every vision provider in the chain | `extract/read.py` |
 | 2026-10-09 | Junk line items are dropped, not fatal; `price` is accepted for `unit_price` | Build | One bad field shouldn't lose the invoice | `extract/read.py` |
 | 2026-10-09 | With currency now read, an invoice without a printed currency gets the `no_currency` warning | Build (spec) | The rule was waiting for the reader | `extract/validate.py` |
+| 2026-10-09 | Transactions store `currency` and `po_number` as printed, never converted; old rows stay NULL | Spec | Fixes CHF shown as ₹ at the data level | PR (store currency) |
+| 2026-10-09 | New columns stay out of the agent's prompt schema until its next re-recording | Build | The prompt is part of every recorded request | `agent/prompts.py` |
+| 2026-10-09 | Harder invoice test set deferred; keep the synthetic set for now | Owner | Good enough for now | `PROGRESS.md` Deferred |
 | 2026-10-09 | Loop A: read once; only if the vendor has corrections, read again with up to 3 as JSON field/value hints; hints kept on the invoice | Build | The vendor is only known after reading; the extra call is limited to vendors with history | `api/review.py` |
 | 2026-10-09 | Only a rejection that no failure explains resets a vendor's warnings | Owner | Measured 48 → 36 (not 44) of 120 sent to review, 0 missed | `benchmarks/2026-10-07-feedback-loop-b.md` |
 
