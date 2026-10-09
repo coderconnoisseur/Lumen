@@ -239,6 +239,14 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
   theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
+## 7d. Landing page (frontend, UI phase)
+- `/` (`app/page.tsx`): one static, server-rendered page in the same reference style as Ask Lumen (glass nav, serif
+  hero over a night-sky gradient with a mock answer, colour feature tiles, a light "measured, not claimed" card,
+  three steps, closing call to action). Every **Try the demo** / **Log in** goes to `/signin`.
+- The results card quotes `docs/direction/STORY.md` (entries 21 and 22); update `STATS` in `page.tsx` when they're
+  re-measured. The old template landing components are gone; only `components/landing/Aurora.tsx` (the sign-in
+  background) remains.
+
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
   JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO
