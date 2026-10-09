@@ -156,7 +156,7 @@ def test_chat_llm_auth_failure_is_503_not_401(authed_client, monkeypatch):
     def dead_key(q, uid):
         raise LLMError(LLMError.AUTH, "OpenRouter HTTP 401: User not found.")
 
-    monkeypatch.setattr(chat.engine, "query", dead_key)
+    monkeypatch.setattr(chat, "_ask", dead_key)
 
     resp = authed_client.post(
         "/chat", json={"query": "hi"}, headers={"Authorization": "Bearer x.y.z"}
@@ -173,16 +173,8 @@ def test_chat_success_returns_answer_and_saves_history(authed_client, monkeypatc
 
     saved = []
     monkeypatch.setattr(chat, "_save_exchange", lambda *a: saved.append(a))
-    monkeypatch.setattr(
-        chat.engine,
-        "query",
-        lambda q, uid: {
-            "query": q,
-            "query_type": "ANALYTICAL",
-            "raw_results": {"success": True, "data": [], "row_count": 0},
-            "response": "You have no transactions yet.",
-        },
-    )
+    monkeypatch.setattr(chat, "_ask", lambda q, uid: {"query": q, "query_type": "agent",
+                                                     "response": "You have no transactions yet."})
 
     resp = authed_client.post(
         "/chat", json={"query": "total spend"}, headers={"Authorization": "Bearer x.y.z"}
@@ -279,3 +271,58 @@ def test_chat_steps_fit_the_request_budget(monkeypatch):
     assert (calls["sql"]["timeout"], calls["sql"]["retries"]) == (30, 0)
     assert calls["answer"]["timeout"] == 30
     assert calls["answer"].get("retries", 1) == 1
+
+
+def test_chat_is_the_agent(authed_client, monkeypatch):
+    """Ask Lumen runs the agent loop (AGT-07 passed its gates): a scripted model calls run_sql, then answers."""
+    import json
+
+    import routes.chat as chat
+    from ai.sql_agent import SQLAgent
+    from api import agent as agent_api
+    from llm.client import LLMResult
+    from models.database import db
+    from app import app
+
+    replies = [LLMResult(text="", tool_calls=[{"id": "c1", "type": "function", "function": {
+                   "name": "run_sql", "arguments": json.dumps({"sql": "SELECT COUNT(*) AS n FROM transactions"})}}],
+                         provider="fake", model="fake"),
+               LLMResult(text="You have no transactions yet.", tool_calls=None, provider="fake", model="fake")]
+    with app.app_context():
+        engine = db.engine
+    deps = agent_api.AgentDeps(engine=engine, sql_agent=SQLAgent(), complete=lambda *a, **k: replies.pop(0))
+    monkeypatch.setattr(agent_api, "get_agent_deps", lambda: deps)
+    monkeypatch.setattr(chat, "_save_exchange", lambda *a: None)
+    resp = authed_client.post("/chat", json={"query": "How many?"}, headers={"Authorization": "Bearer x.y.z"})
+    body = resp.get_json()["data"]
+    assert resp.status_code == 200 and body["response"] == "You have no transactions yet."
+    assert body["query_type"] == "agent" and [s["tool"] for s in body["steps"]] == ["run_sql"]
+    assert "sql" not in body and "latency_ms" in body["steps"][0]  # queries stay server-side
+    assert body["sources"] == [] and body["stopped"]
+
+
+def test_chat_shares_the_demo_question_cap(authed_client, monkeypatch):
+    import api.agent
+    import routes.chat as chat
+
+    monkeypatch.setattr(api.agent, "count_demo_question", lambda *a: False)
+    monkeypatch.setattr(chat, "_ask", lambda *a: pytest.fail("the agent must not run past the cap"))
+    resp = authed_client.post("/chat", json={"query": "hi"}, headers={"Authorization": "Bearer x.y.z"})
+    assert resp.status_code == 429 and resp.get_json()["code"] == "demo_limit"
+
+
+def test_chat_sources_carry_the_passage_and_the_original_file(authed_client, monkeypatch):
+    import agent.graph
+    import routes.chat as chat
+    from api import agent as agent_api
+
+    out = {"answer": "Notice is 30 days [doc-1#s02].", "rows": None, "sql": [], "stopped": "answered", "proposals": [],
+           "steps": [{"tool": "search_documents", "args": {}, "summary": "1 passage", "latency_ms": 12}],
+           "sources": [{"chunk_id": "doc-1#s02", "title": "TechHub contract", "section": "Termination",
+                        "text": "Either party may end this with 30 days' notice."}]}
+    monkeypatch.setattr(agent_api, "get_agent_deps", lambda: agent_api.AgentDeps(engine=None, sql_agent=None))
+    monkeypatch.setattr(agent.graph, "run_agent", lambda *a, **k: out)
+    monkeypatch.setattr(chat, "_save_exchange", lambda *a: None)
+    resp = authed_client.post("/chat", json={"query": "notice?"}, headers={"Authorization": "Bearer x.y.z"})
+    source = resp.get_json()["data"]["sources"][0]
+    assert source["file_key"] == "user-1/docs/doc-1.pdf" and source["text"].startswith("Either party")

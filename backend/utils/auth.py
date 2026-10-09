@@ -148,6 +148,7 @@ def verify_token(token: str) -> dict[str, Any]:
             audience=Config.SUPABASE_JWT_AUD,
             issuer=_expected_issuer(),
             options={"require": ["exp", "sub", "aud", "iss"]},
+            leeway=30,  # Supabase's clock may run ahead of ours: a fresh token's iat must not look "in the future"
         )
     except jwt.ExpiredSignatureError:
         raise TokenError("expired_token", "token expired")

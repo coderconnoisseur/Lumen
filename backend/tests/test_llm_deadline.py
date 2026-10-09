@@ -92,9 +92,9 @@ def test_flask_requests_run_under_the_default_deadline(authed_client, monkeypatc
 
     def fake_query(q, uid):
         seen["remaining"] = remaining()
-        return {"query": q, "query_type": "ANALYTICAL", "raw_results": {}, "response": "ok"}
+        return {"query": q, "query_type": "agent", "response": "ok"}
 
-    monkeypatch.setattr(chat.engine, "query", fake_query)
+    monkeypatch.setattr(chat, "_ask", fake_query)
     monkeypatch.setattr(chat, "_save_exchange", lambda *a: None)
     resp = authed_client.post("/chat", json={"query": "hi"}, headers={"Authorization": "Bearer x.y.z"})
     assert resp.status_code == 200

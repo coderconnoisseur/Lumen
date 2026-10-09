@@ -1,467 +1,223 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PanelLeft } from "lucide-react";
-import Sidebar from "@/components/chatbot/Sidebar";
-import ChatPane from "@/components/chatbot/ChatPane";
-import {
-  INITIAL_CONVERSATIONS,
-  INITIAL_TEMPLATES,
-  INITIAL_FOLDERS,
-} from "@/components/chatbot/mockData";
-import { chatApi } from "@/lib/api/client";
-import { toast } from "@/lib/toast";
+// Ask Lumen: one chat with the agent. Every answer shows its sources, the steps behind it, and any change it proposes.
+import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import { Answer } from "@/components/ask/answer";
+import { Button } from "@/components/ask/button";
+import { PromptBar } from "@/components/ask/prompt-bar";
+import { ProposalCard } from "@/components/ask/proposal-card";
+import { Thinking, WorkTrace } from "@/components/ask/work-trace";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { Button } from "@/components/ui/button";
+import { agentApi, chatApi, type ChatAnswer, type Proposal } from "@/lib/api/client";
+import { toast } from "@/lib/toast";
 
-interface MessageType {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: string;
-  editedAt?: string;
+type Message = {
+	id: string;
+	role: "user" | "assistant";
+	content: string;
+	/** the question an assistant message answers, for "ask again" */
+	question?: string;
+	/** evidence; only live answers have it (history stores the text) */
+	answer?: ChatAnswer;
+	elapsedMs?: number;
+	pending?: boolean;
+	error?: boolean;
+};
+
+// Tools whose results are the user's own data; an answer built on them has evidence even without a cited passage.
+const DATA_TOOLS = new Set(["run_sql", "get_invoice", "get_anomalies", "forecast", "lookup_vendors"]);
+
+function greeting() {
+	const hour = new Date().getHours();
+	return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 }
 
-interface Conversation {
-  id: string;
-  title: string;
-  updatedAt: string;
-  messageCount: number;
-  preview: string;
-  pinned: boolean;
-  folder: string | null;
-  messages: MessageType[];
+function errorMessage(error: unknown): string {
+	return (
+		(error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+		"Lumen couldn't answer right now. Please try again."
+	);
 }
 
-interface Template {
-  id: string;
-  name: string;
-  content: string;
-  snippet: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export default function ChatbotContent() {
+	const [messages, setMessages] = useState<Message[]>([]);
+	const [suggestions, setSuggestions] = useState<string[]>([]);
+	const [proposals, setProposals] = useState<Proposal[]>([]);
+	const [loaded, setLoaded] = useState(false);
+	const bottomRef = useRef<HTMLDivElement>(null);
+	const busy = messages.some((m) => m.pending);
 
-interface Folder {
-  id: string;
-  name: string;
-}
+	useEffect(() => {
+		Promise.allSettled([chatApi.getHistory(), chatApi.getSuggestions(), agentApi.proposals()]).then(
+			([history, suggested, pending]) => {
+				if (history.status === "fulfilled" && history.value.success) {
+					setMessages(
+						(history.value.messages as { id: string; role: Message["role"]; content: string }[]).map((m) => ({
+							id: m.id,
+							role: m.role,
+							content: m.content,
+						}))
+					);
+				}
+				if (suggested.status === "fulfilled") setSuggestions(suggested.value.suggestions ?? []);
+				if (pending.status === "fulfilled") setProposals(pending.value);
+				setLoaded(true);
+			}
+		);
+	}, []);
 
-interface CollapsedState {
-  pinned: boolean;
-  recent: boolean;
-  folders: boolean;
-  templates: boolean;
-}
+	useEffect(() => {
+		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+	}, [messages]);
 
-interface ChatPaneHandle {
-  insertTemplate: (templateContent: string) => void;
-}
+	async function ask(question: string, replaceId?: string) {
+		const id = crypto.randomUUID();
+		const started = Date.now();
+		setMessages((list) => [
+			...list.filter((m) => m.id !== replaceId),
+			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question }]),
+			{ id, role: "assistant", content: "", question, pending: true },
+		]);
+		try {
+			const answer = await chatApi.sendMessage(question);
+			if (answer.proposals.length) setProposals(await agentApi.proposals());
+			setMessages((list) =>
+				list.map((m) =>
+					m.id === id
+						? { ...m, content: answer.response, answer, elapsedMs: Date.now() - started, pending: false }
+						: m
+				)
+			);
+		} catch (error) {
+			setMessages((list) =>
+				list.map((m) => (m.id === id ? { ...m, content: errorMessage(error), pending: false, error: true } : m))
+			);
+		}
+	}
 
-export default function AIAssistantUI() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<CollapsedState>(() => {
-    try {
-      const raw = localStorage.getItem("sidebar-collapsed");
-      return raw
-        ? JSON.parse(raw)
-        : {
-            pinned: true,
-            recent: false,
-            folders: true,
-            templates: true,
-          };
-    } catch {
-      return {
-        pinned: true,
-        recent: false,
-        folders: true,
-        templates: true,
-      };
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("sidebar-collapsed", JSON.stringify(collapsed));
-    } catch {}
-  }, [collapsed]);
+	async function newChat() {
+		try {
+			await chatApi.clearHistory();
+			setMessages([]);
+		} catch {
+			toast.error("Couldn't clear the conversation.");
+		}
+	}
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem("sidebar-collapsed-state");
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
+	// Proposals filed by answers on screen show under that answer; older pending ones gather at the end.
+	const shown = new Set(messages.flatMap((m) => m.answer?.proposals ?? []));
+	const waiting = proposals.filter((p) => !shown.has(p.id));
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        "sidebar-collapsed-state",
-        JSON.stringify(sidebarCollapsed)
-      );
-    } catch {}
-  }, [sidebarCollapsed]);
+	const proposalCards = (list: Proposal[]) => list.map((p) => <ProposalCard key={p.id} proposal={p} />);
+	const waitingBlock = waiting.length > 0 && (
+		<div className="flex w-full flex-col gap-2">
+			<span className="bui-label text-ink-3">Waiting for your decision</span>
+			{proposalCards(waiting)}
+		</div>
+	);
 
-  const [conversations, setConversations] = useState<Conversation[]>(
-    INITIAL_CONVERSATIONS
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
-  const [folders, setFolders] = useState<Folder[]>(INITIAL_FOLDERS);
+	return (
+		<DashboardShell contentClassName="p-0 sm:p-0 lg:p-0 gap-0">
+			<div className="bui relative flex h-[calc(100dvh-3.5rem)] flex-col">
+				{messages.length > 0 && (
+					<Button
+						variant="quiet"
+						size="xs"
+						onClick={() => void newChat()}
+						disabled={busy}
+						className="absolute top-3 right-4 z-10"
+					>
+						<Plus className="size-3.5" /> New chat
+					</Button>
+				)}
 
-  const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
+				{loaded && messages.length === 0 ? (
+					<div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-[8vh]">
+						<div className="flex w-full max-w-2xl flex-col items-center" style={{ animation: "fade-up 600ms both" }}>
+							<span className="bui-label text-ink-3">Ask Lumen</span>
+							<h1 className="mt-5 text-center font-display text-[40px] leading-[1.05] font-light text-ink sm:text-[52px]">
+								{greeting()}.
+								<br />
+								What shall we <em>look into</em>?
+							</h1>
+							<p className="mt-4 max-w-md text-center text-[16px] leading-relaxed font-light text-ink-2">
+								Ask about spending, invoices or contracts. Answers come with their sources.
+							</p>
+							<div className="mt-8 w-full">
+								<PromptBar hero onSend={(text) => void ask(text)} busy={busy} />
+							</div>
+							<div className="mt-4 flex flex-wrap justify-center gap-2">
+								{suggestions.map((text, i) => (
+									<button
+										key={text}
+										type="button"
+										onClick={() => void ask(text)}
+										className="rounded-full border border-line px-3.5 py-1.5 text-[13px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:bg-hover hover:text-ink"
+										style={{ animation: `fade-up 400ms ease ${200 + i * 60}ms both` }}
+									>
+										{text}
+									</button>
+								))}
+							</div>
+							{waitingBlock && <div className="mt-10 w-full">{waitingBlock}</div>}
+						</div>
+					</div>
+				) : (
+					<>
+						<div className="min-h-0 flex-1 overflow-y-auto">
+							<div className="mx-auto flex w-full max-w-3xl flex-col gap-9 px-4 pt-14 pb-8">
+								{messages.map((m) =>
+									m.role === "user" ? (
+										<div key={m.id} className="flex justify-end pl-14">
+											<div
+												className="rounded-[18px] bg-field px-4 py-2.5 text-[15px] leading-[1.5] whitespace-pre-wrap text-ink"
+												style={{ animation: "fade-up 300ms cubic-bezier(0.23,1,0.32,1) both" }}
+											>
+												{m.content}
+											</div>
+										</div>
+									) : m.pending ? (
+										<Thinking key={m.id} />
+									) : m.error ? (
+										<div key={m.id} className="flex items-center gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-ink">
+											<span className="flex-1">{m.content}</span>
+											{m.question && (
+												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.id)}>
+													Try again
+												</Button>
+											)}
+										</div>
+									) : (
+										<div key={m.id} className="flex flex-col gap-2.5">
+											{m.answer && <WorkTrace steps={m.answer.steps} elapsedMs={m.elapsedMs} />}
+											<Answer
+												content={m.content}
+												sources={m.answer?.sources}
+												showEvidenceNote={
+													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
+												}
+												onRetry={m.question && !busy ? () => void ask(m.question!, m.id) : undefined}
+											>
+												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}
+											</Answer>
+										</div>
+									)
+								)}
+								{waitingBlock}
+								<div ref={bottomRef} />
+							</div>
+						</div>
 
-  const [isThinking, setIsThinking] = useState(false);
-  const [thinkingConvId, setThinkingConvId] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-
-  // Fetch suggestions and restore chat history on mount
-  useEffect(() => {
-    chatApi
-      .getSuggestions()
-      .then((response) => {
-        if (response.suggestions) {
-          setSuggestions(response.suggestions);
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to fetch suggestions:", error);
-      });
-
-    chatApi
-      .getHistory(100)
-      .then((response) => {
-        if (!response.success || !response.messages?.length) return;
-        const historyMessages: MessageType[] = response.messages.map(
-          (m: { id: string; role: string; content: string; created_at: string }) => ({
-            id: m.id,
-            role: m.role as "user" | "assistant",
-            content: m.content,
-            createdAt: m.created_at,
-          })
-        );
-        const id = "server-history";
-        const last = historyMessages[historyMessages.length - 1];
-        setConversations([
-          {
-            id,
-            title: "Recent conversation",
-            updatedAt: last?.createdAt || new Date().toISOString(),
-            messageCount: historyMessages.length,
-            preview: last?.content?.slice(0, 80) || "Chat history",
-            pinned: false,
-            folder: null,
-            messages: historyMessages,
-          },
-        ]);
-        setSelectedId(id);
-      })
-      .catch((error) => {
-        console.error("Failed to load chat history:", error);
-      });
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        createNewChat();
-      }
-      if (!e.metaKey && !e.ctrlKey && e.key === "/") {
-        const tag = document.activeElement?.tagName?.toLowerCase();
-        if (tag !== "input" && tag !== "textarea") {
-          e.preventDefault();
-          searchRef.current?.focus();
-        }
-      }
-      if (e.key === "Escape" && sidebarOpen) setSidebarOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sidebarOpen, conversations]);
-
-  useEffect(() => {
-    if (!selectedId && conversations.length > 0) {
-      setSelectedId(conversations[0].id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length]);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return conversations;
-    const q = query.toLowerCase();
-    return conversations.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) || c.preview.toLowerCase().includes(q)
-    );
-  }, [conversations, query]);
-
-  const pinned = filtered
-    .filter((c) => c.pinned)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-
-  const recent = filtered
-    .filter((c) => !c.pinned)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-    .slice(0, 10);
-
-  const folderCounts = React.useMemo(() => {
-    const map = Object.fromEntries(folders.map((f) => [f.name, 0]));
-    for (const c of conversations) {
-      if (c.folder != null && map[c.folder] != null) {
-        map[c.folder] += 1;
-      }
-    }
-    return map;
-  }, [conversations, folders]);
-
-  function togglePin(id: string) {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
-    );
-  }
-
-  function createNewChat() {
-    const id = Math.random().toString(36).slice(2);
-    const item = {
-      id,
-      title: "New Chat",
-      updatedAt: new Date().toISOString(),
-      messageCount: 0,
-      preview: "Say hello to start...",
-      pinned: false,
-      folder: "Work Projects",
-      messages: [], // Ensure messages array is empty for new chats
-    };
-    setConversations((prev) => [item, ...prev]);
-    setSelectedId(id);
-    setSidebarOpen(false);
-  }
-
-  function createFolder(name?: string) {
-    const folderName = name ?? prompt("Folder name");
-    if (!folderName) return;
-    if (folders.some((f) => f.name.toLowerCase() === folderName.toLowerCase())) {
-      toast.error("Folder already exists.");
-      return;
-    }
-    setFolders((prev) => [
-      ...prev,
-      { id: Math.random().toString(36).slice(2), name: folderName },
-    ]);
-  }
-
-  function sendMessage(convId: string, content: string) {
-    if (!content.trim()) return;
-    const now = new Date().toISOString();
-    const userMsg: MessageType = {
-      id: Math.random().toString(36).slice(2),
-      role: "user",
-      content,
-      createdAt: now,
-    };
-
-    // Add user message immediately
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== convId) return c;
-        const msgs = [...(c.messages || []), userMsg];
-        return {
-          ...c,
-          messages: msgs,
-          updatedAt: now,
-          messageCount: msgs.length,
-          preview: content.slice(0, 80),
-        };
-      })
-    );
-
-    // Show thinking state
-    setIsThinking(true);
-    setThinkingConvId(convId);
-
-    // Call the actual API
-    const currentConvId = convId;
-    chatApi
-      .sendMessage(content)
-      .then((response) => {
-        setIsThinking(false);
-        setThinkingConvId(null);
-
-        if (response.success && response.data) {
-          // Add AI response
-          const asstMsg: MessageType = {
-            id: Math.random().toString(36).slice(2),
-            role: "assistant",
-            content:
-              response.data.answer ||
-              response.data.response ||
-              "I received your message.",
-            createdAt: new Date().toISOString(),
-          };
-
-          setConversations((prev) =>
-            prev.map((c) => {
-              if (c.id !== currentConvId) return c;
-              const msgs = [...(c.messages || []), asstMsg];
-              return {
-                ...c,
-                messages: msgs,
-                updatedAt: new Date().toISOString(),
-                messageCount: msgs.length,
-                preview: asstMsg.content.slice(0, 80),
-              };
-            })
-          );
-        } else {
-          // Handle error response
-          throw new Error(response.error || "Failed to get response");
-        }
-      })
-      .catch((error) => {
-        console.error("Chat API error:", error);
-        setIsThinking(false);
-        setThinkingConvId(null);
-
-        // Prefer the backend's user-facing message; axios's own message is just
-        // "Request failed with status code 503".
-        const serverMessage: string | undefined = error?.response?.data?.error;
-        const errorMsg: MessageType = {
-          id: Math.random().toString(36).slice(2),
-          role: "assistant",
-          content:
-            serverMessage ??
-            "Sorry, I couldn't process that request. Please try again.",
-          createdAt: new Date().toISOString(),
-        };
-
-        setConversations((prev) =>
-          prev.map((c) => {
-            if (c.id !== currentConvId) return c;
-            const msgs = [...(c.messages || []), errorMsg];
-            return {
-              ...c,
-              messages: msgs,
-              updatedAt: new Date().toISOString(),
-              messageCount: msgs.length,
-              preview: errorMsg.content.slice(0, 80),
-            };
-          })
-        );
-      });
-  }
-
-  function editMessage(convId: string, messageId: string, newContent: string) {
-    const now = new Date().toISOString();
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== convId) return c;
-        const msgs = (c.messages || []).map((m) =>
-          m.id === messageId ? { ...m, content: newContent, editedAt: now } : m
-        );
-        return {
-          ...c,
-          messages: msgs,
-          preview: msgs[msgs.length - 1]?.content?.slice(0, 80) || c.preview,
-        };
-      })
-    );
-  }
-
-  function resendMessage(convId: string, messageId: string) {
-    const conv = conversations.find((c) => c.id === convId);
-    const msg = conv?.messages?.find((m) => m.id === messageId);
-    if (!msg) return;
-    sendMessage(convId, msg.content);
-  }
-
-  function pauseThinking() {
-    setIsThinking(false);
-    setThinkingConvId(null);
-  }
-
-  function handleUseTemplate(template: Template) {
-    // This will be passed down to the Composer component
-    // The Composer will handle inserting the template content
-    if (composerRef.current) {
-      composerRef.current.insertTemplate(template.content);
-    }
-  }
-
-  const composerRef = useRef<ChatPaneHandle>(null);
-
-  const selected = conversations.find((c) => c.id === selectedId) || null;
-
-  return (
-    <DashboardShell
-      title="Ask Lumen"
-      description="Query invoices, vendors, anomalies, and spending patterns from the same workspace as the rest of your finance operations."
-      eyebrow="Finance Copilot"
-      contentClassName="gap-4"
-      actions={
-        <>
-          <Button
-            variant="outline"
-            className="md:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <PanelLeft className="h-4 w-4" />
-            Open threads
-          </Button>
-          <Button onClick={createNewChat}>New thread</Button>
-        </>
-      }
-    >
-      <div className="overflow-hidden rounded-3xl border border-border/70 bg-card/70 shadow-lg shadow-black/10">
-        <div className="flex min-h-[720px]">
-          <Sidebar
-            open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            collapsed={collapsed}
-            setCollapsed={setCollapsed}
-            sidebarCollapsed={sidebarCollapsed}
-            setSidebarCollapsed={setSidebarCollapsed}
-            conversations={conversations}
-            pinned={pinned}
-            recent={recent}
-            folders={folders}
-            folderCounts={folderCounts}
-            selectedId={selectedId}
-            onSelect={(id) => setSelectedId(id)}
-            togglePin={togglePin}
-            query={query}
-            setQuery={setQuery}
-            searchRef={searchRef}
-            createFolder={createFolder}
-            createNewChat={createNewChat}
-            templates={templates}
-            setTemplates={setTemplates}
-            onUseTemplate={handleUseTemplate}
-          />
-
-          <main className="relative flex min-w-0 flex-1 flex-col bg-background/40">
-            <ChatPane
-              ref={composerRef}
-              conversation={selected}
-              onSend={(content) => {
-                if (selected) sendMessage(selected.id, content);
-              }}
-              onEditMessage={(messageId, newContent) =>
-                selected && editMessage(selected.id, messageId, newContent)
-              }
-              onResendMessage={(messageId) =>
-                selected && resendMessage(selected.id, messageId)
-              }
-              isThinking={isThinking && thinkingConvId === selected?.id}
-              onPauseThinking={pauseThinking}
-              suggestions={suggestions}
-            />
-          </main>
-        </div>
-      </div>
-    </DashboardShell>
-  );
+						<div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
+							<PromptBar onSend={(text) => void ask(text)} busy={busy} />
+							<p className="mt-2 text-center text-[11.5px] text-ink-3">
+								Lumen cites its sources and only proposes changes; nothing is applied until you approve it.
+							</p>
+						</div>
+					</>
+				)}
+			</div>
+		</DashboardShell>
+	);
 }

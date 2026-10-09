@@ -19,7 +19,7 @@ class _Resp:
 def test_providers_are_registered():
     from llm.providers import PROVIDERS
 
-    assert set(PROVIDERS) == {"openrouter", "groq", "ollama"}
+    assert set(PROVIDERS) == {"openrouter", "groq", "ollama", "gemini"}
     assert PROVIDERS["groq"].base_url == "https://api.groq.com/openai/v1"
     assert PROVIDERS["ollama"].base_url == "http://localhost:11434/v1"
 
@@ -167,3 +167,25 @@ def test_shipped_registry_has_no_openrouter_free_and_a_valid_judge():
     reg = Registry.load()
     for tier in ("openrouter", "groq", "ollama"):
         assert reg.check(tier, env={}) == []
+
+
+def test_a_registry_row_can_name_its_own_provider(tmp_path):
+    """Groq has no vision model, so the groq tier reads invoices with Gemini first (2026-10-09), then openrouter."""
+    from llm.providers import PROVIDERS
+    from llm.registry import Registry
+
+    reg = Registry.load(_write(tmp_path, """
+groq:
+  vision: [{model: gemini-2.5-flash-lite, provider: gemini, family: gemini}]
+openrouter:
+  vision: [{model: google/gemma-x:free, family: gemma}]
+"""))
+    assert [(e.provider, e.model) for e in reg.chain("groq", "vision", env={})] == [
+        ("gemini", "gemini-2.5-flash-lite"), ("openrouter", "google/gemma-x:free")]
+    assert PROVIDERS["gemini"].key_env == "GEMINI_API_KEY"
+
+
+def test_the_shipped_registry_reads_invoices_with_gemini_first_on_groq():
+    from llm.registry import Registry
+
+    assert Registry.load().chain("groq", "vision", env={})[0].provider == "gemini"

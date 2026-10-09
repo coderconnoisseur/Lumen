@@ -107,3 +107,14 @@ def test_pdf_without_text_is_a_clear_422(client):
     pdf.save()
     r = _upload(client, data=buf.getvalue(), name="scan.pdf")
     assert r.status_code == 422 and "Scanned" in r.json()["error"]
+
+
+def test_the_original_pdf_is_kept_listed_and_removed_with_the_document(client):
+    import utils.files
+
+    doc = _upload(client).json()["document"]
+    key = doc["file_key"]
+    assert utils.files.get_store().get(key)[0] == PDF
+    assert [d["file_key"] for d in client.get("/api/documents", headers=bearer("alice")).json()["documents"]] == [key]
+    client.delete(f"/api/documents/{doc['id']}", headers=bearer("alice"))
+    assert utils.files.get_store().get(key) is None

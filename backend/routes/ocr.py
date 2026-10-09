@@ -16,9 +16,9 @@ from utils.image_processing import (
     pil_image_to_bytes,
     render_pdf_first_page,
 )
-from utils.openrouter import extract_and_structure_with_openrouter
-from utils.normalize import normalize_transaction
-from utils.save_transaction import save_transaction_detailed
+from api.review import read_with_feedback, submit_invoice
+from models.database import db
+from utils.files import invoice_key, keep
 
 logger = logging.getLogger(__name__)
 # Create blueprint
@@ -83,8 +83,8 @@ def extract_invoice_data():
                 return api_error("This PDF has no pages.", status=422, code="pdf_empty")
 
             image_base64 = image_to_base64(pil_image_to_bytes(first_page, format='PNG'))
-            logger.info("Processing PDF page 1/%d with OpenRouter...", total_pages)
-            structured_data = extract_and_structure_with_openrouter(image_base64, 'image/png')
+            logger.info("Processing PDF page 1/%d with the vision model...", total_pages)
+            structured_data = read_with_feedback(db.engine, str(user_id), image_base64, 'image/png')
             structured_data['pages_processed'] = 1
             structured_data['total_pages'] = total_pages
         elif file_ext in CONVERT_TO_PNG:
@@ -97,11 +97,11 @@ def extract_invoice_data():
                     status=422,
                     code="image_unreadable",
                 )
-            logger.info("Processing %s image as PNG with OpenRouter...", file_ext)
-            structured_data = extract_and_structure_with_openrouter(image_to_base64(png), 'image/png')
+            logger.info("Processing %s image as PNG with the vision model...", file_ext)
+            structured_data = read_with_feedback(db.engine, str(user_id), image_to_base64(png), 'image/png')
         elif file_ext in MEDIA_TYPES:
-            logger.info("Processing %s image with OpenRouter...", file_ext)
-            structured_data = extract_and_structure_with_openrouter(
+            logger.info("Processing %s image with the vision model...", file_ext)
+            structured_data = read_with_feedback(db.engine, str(user_id),
                 image_to_base64(file_content), MEDIA_TYPES[file_ext]
             )
         else:
@@ -114,8 +114,9 @@ def extract_invoice_data():
     structured_data['source_file'] = file.filename
     structured_data['file_type'] = file_ext
 
-    # Step 2: Normalize the OCR data (never raises; unparseable fields become None)
-    normalized = normalize_transaction(structured_data)
+    # Step 2: the reader already returns the fixed, validated structure (EXT-01); keep the original file
+    normalized = structured_data
+    normalized['file_key'] = keep(invoice_key(str(user_id), file_content, file_ext), file_content)
     if normalized["total_amount"] is None and not normalized["vendor_name"]:
         logger.info("OCR found no invoice data in %r", file.filename)
         logger.debug("OCR reply for %r: %s", file.filename, structured_data)
@@ -125,10 +126,10 @@ def extract_invoice_data():
             code="no_invoice_data",
         )
 
-    # Step 3: Save. If this fails the user must know: reporting success would
-    # lose the invoice silently.
+    # Step 3: Check (SPEC-EXTRACT): nothing doubtful -> saved as a transaction; otherwise it waits in the
+    # review queue. If this fails the user must know: reporting success would lose the invoice silently.
     try:
-        transaction_id, created = save_transaction_detailed(user_id, normalized, email=g.user_email)
+        item = submit_invoice(db.engine, user_id, normalized, email=g.user_email)
     except Exception as e:
         return api_error(
             "We read the invoice but couldn't save it. Please try again.",
@@ -136,17 +137,19 @@ def extract_invoice_data():
             log=e,
         )
 
-    if created:
-        logger.info("Transaction %s saved for user %s", transaction_id, user_id)
+    rules = [f["rule"] for f in item["flags"]]
+    if item["status"] == "approved":
+        logger.info("Transaction %s saved for user %s", item["transaction_id"], user_id)
         message = 'Transaction extracted and stored successfully'
     else:
-        message = 'This invoice was already uploaded'
+        message = 'Sent to review: ' + '; '.join(f["detail"] for f in item["flags"])
 
     return jsonify({
         'success': True,
-        'duplicate': not created,
+        'duplicate': 'duplicate' in rules,
         'message': message,
-        'transaction_id': str(transaction_id),
+        'transaction_id': item["transaction_id"],
+        'review': {k: item[k] for k in ("id", "status", "confidence", "flags")},
         'data': normalized,
         'ocr_data': structured_data,
     }), 200

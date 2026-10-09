@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 17 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 22 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -274,21 +274,66 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 - **PRs #2-#16 merged into `refactor`** (owner OK). #16 fixed CI: SQLAlchemy 2.1 switches `postgresql://` to
   psycopg 3 (not installed), and the RAG tests need a pgvector image. SPEC-DEPLOY approved (#17).
 
+Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
+
+## Deferred (owner: later)
+- **Harder invoice test set** (2026-10-09): the synthetic set is read perfectly (56/56), so it can't show gains or
+  measure loop A. Later: tougher generated invoices (low resolution, heavy blur, photo shadows/perspective, other
+  currencies, unusual labels) and a public real-receipt benchmark (e.g. CORD v2, CC-BY 4.0; download needs OK).
+- **Agent prompt: add `currency`, `po_number`** to the schema summary with the next agent re-recording (~one day of
+  Groq quota); until then `agent.prompts._NOT_IN_PROMPT` hides them and `get_schema` lists them.
+- Generation suite (AI judge on written answers) + ~20 owner labels; release-0 / BASELINE.md / README tables.
+- Agent extras AGT-05 (memory) and AGT-06 (tracing) only if a real need appears.
+- **General finance questions with live data** (2026-10-09, owner): "What is the INR to USD rate today?" gets "I don't
+  have that information": the agent only sees the user's own data and has no live sources. Later: a tool for exchange
+  rates (and similar public facts) from a free rates API, cited like other evidence; also lets totals be shown in
+  one currency.
+- **Document Q&A citation format** (2026-10-09): the live model sometimes writes citations as `[ id#s04 ]` or
+  `【id#s04】`. The agent accepts both now (`agent/graph.py`); `rag/answer.py` (`/api/documents/ask`) still has the
+  strict pattern, so such citations are dropped there. Fixing it may move the RAG eval numbers; re-run them with it.
+- **Product vision shown on the landing page** (2026-10-09, owner): Lumen grows into a full AI money advisor on par with
+  useorigin.com. The home page already describes these; none are built yet: bank/card statement import and
+  "connected accounts"; budgets ("left to spend"); subscription/recurring-charge detection and cancellation nudges;
+  savings suggestions ("ways to save", idle cash); a money health score with an action list; proactive
+  notifications (statement dates, renewals, unusual bills); time-series forecasting of spend and cash flow; agent
+  tools for web search and files attached in chat; agent memory of goals ("remember I'm saving for a car", see
+  AGT-05). Each needs its own spec and eval before it's built.
+
 ## Next step
+**Now (2026-10-09): UI phase.** A separate agent polishes the UI with the owner (SPEC-UX, the polish backlog below and in
+`TODO.md`). The invoice + RAG backend is complete; the backend work resumes afterwards from the Deferred list.
+
 In order (each step: TDD, small commits, a PR stacked on the previous one, a STORY entry + benchmark snapshot):
 1. **Deploy (SPEC-DEPLOY):** built (PR `feat/deploy-config`): render.yaml (API only, CI-gated), keep-warm workflow,
    **Try the demo** (anonymous sign-in + `POST /api/demo/start` seeding a private copy; 20 agent questions/visitor/
    day), waking-up banner, owner runbook `docs/DEPLOY.md`. `get_anomalies` now names vendor/date/amount in INR (3 agent cases re-recorded). Left: release `refactor` ->
    `main`; owner runs `docs/DEPLOY.md`; then check the acceptance list on the live site.
-2. **Record `agent_sql` and `agent_safety` on Groq** (`python -m evals.run --tier groq --suite agent_sql --record`;
-   ~200K tokens/day/model, patient mode waits out TPM). Then the agent-vs-pipeline comparison (AGT-07 report).
-   Always replay immediately after recording.
+2. **AGT-07 done (2026-10-09):** prompt v3 re-recorded: agent SQL 31/32 vs pipeline 29/32 (3 fixed, 1 defensible
+   regression), safety 0 leaks / 0 injections, routing 24/24. Gates met: `/chat` now runs the agent (demo cap shared with
+   `/api/agent/ask`; the old pipeline stays only as the eval baseline). Found while testing: Supabase's clock ahead
+   of ours made fresh tokens "not yet valid"; JWT check now allows 30 s skew, and a failed demo setup signs out.
+   `docs/direction/benchmarks/2026-10-09-agt07-final-dev.md`, STORY 21.
 3. **Groq baseline suites:** `safety` and `sql` test split on Groq; `extraction` stays on OpenRouter vision (50
    requests/day): record over several days.
 4. **Generation suite** (judge = qwen on Groq) + prompt the owner for ~20 judge labels (`evals/data/judge_gold.jsonl`).
 5. **release-0** for both splits, `docs/direction/BASELINE.md`, `evals.report` → README tables, `pytest -m eval`
    replaying the committed suites.
-6. **Switch `/chat` to the agent** only if AGT-07 shows it's no worse on SQL and passes both safety gates; that also
-   fixes the 7,270-token synthesis prompt.
-7. **SPEC-EXTRACT build** (structured extraction, rule checks, confidence, review queue; auto-approve high confidence).
+6. ~~Switch `/chat` to the agent~~ done 2026-10-09.
+7. **SPEC-EXTRACT build:** EXT-02 rules done (`extract/validate.py`, `validation` suite: all planted faults
+   caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Review queue
+   done (`api/review.py`: auto-approve high confidence, flagged items wait, approve-with-edits re-checks, reject;
+   audit-logged; `purchase_orders` + `review_items` tables). Upload, batch and email all go through the checks
+   (`submit_invoice`); minimal `/review` page. SPEC-FEEDBACK approved (3; rejections only reset).
+   Loop B built (`suppressed_warnings`, notes, `review_items.extracted`, `feedback` suite): review load 48 → 44 of
+   120, 0 missed; variant "only unexplained rejections reset" approved and shipped 2026-10-09: 48 → 36, 0 missed
+   (`benchmarks/2026-10-07-feedback-loop-b.md`, STORY 20). Loop A needs EXT-01. EXT-01 built 2026-10-09 (`extract/read.py`, fixed schema incl.
+   currency/PO/line items/notes, validated, one retry; extraction suite scores the new fields, end-to-end fault
+   detection and an injection hard gate). Recorded 2026-10-09 on Gemini 3.1 Flash-Lite: 56/56 all fields
+   right, every planted fault caught end to end, 0/34 false flags (`benchmarks/2026-10-09-extraction-ext01-gemini-
+   dev.md`, STORY 22). **Saturated**: a harder real-world set is needed before loop A can show a gain.
+   Transactions now store `currency` and `po_number` as printed (fixes CHF shown as ₹ at the data level).
+   Original uploads kept (local folder / private Supabase bucket), served to their owner via `/api/files`;
+   "Open original" on the documents and review test pages.
+   Loop A built 2026-10-09 (`corrections_for`, `read_with_feedback`, hints in the prompt); measurement waits for
+   the harder set.
 8. UI refactor (owner-led, last).

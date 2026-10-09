@@ -14,10 +14,10 @@ from utils.image_processing import (
     image_to_base64,
 )
 from utils.llm import LLMError
-from utils.openrouter import extract_and_structure_with_openrouter
+from api.review import read_with_feedback, submit_invoice
 from routes.ocr import OCR_LLM_MESSAGES
-from utils.normalize import normalize_transaction
-from utils.save_transaction import save_transaction
+from models.database import db
+from utils.files import invoice_key, keep
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,7 @@ def extract_batch():
             return jsonify({"error": "No pages found in PDF"}), 400
 
         results = []
+        file_key = keep(invoice_key(str(user_id), file_content, "pdf"), file_content)  # one original for all pages
         saved_ids = []
 
         for idx, page_image in enumerate(images):
@@ -70,21 +71,24 @@ def extract_batch():
             image_base64 = image_to_base64(img_bytes)
 
             try:
-                page_data = extract_and_structure_with_openrouter(
+                page_data = read_with_feedback(db.engine, str(user_id),
                     image_base64, "image/png"
                 )
                 page_data["page_number"] = idx + 1
+                page_data["file_key"] = file_key
                 page_data["source_file"] = file.filename
 
-                normalized = normalize_transaction(page_data)
-                transaction_id = save_transaction(user_id, normalized, email=g.user_email)
-                saved_ids.append(str(transaction_id))
+                normalized = page_data
+                # Checked like a single upload: saved if nothing is doubtful, otherwise queued for review.
+                item = submit_invoice(db.engine, user_id, normalized, email=g.user_email)
+                saved_ids.append(item["id"])
 
                 results.append(
                     {
                         "page_number": idx + 1,
                         "success": True,
-                        "transaction_id": str(transaction_id),
+                        "transaction_id": item["transaction_id"],
+                        "review": {k: item[k] for k in ("id", "status", "confidence", "flags")},
                         "vendor_name": normalized.get("vendor_name"),
                         "total_amount": normalized.get("total_amount"),
                     }
@@ -115,8 +119,9 @@ def extract_batch():
                 "success": True,
                 "total_pages": len(images),
                 "processed_pages": len(results),
-                "saved_count": len(saved_ids),
-                "transaction_ids": saved_ids,
+                "saved_count": len(saved_ids),  # pages saved or queued
+                "transaction_ids": [r["transaction_id"] for r in results if r.get("transaction_id")],
+                "review_count": sum(r.get("review", {}).get("status") == "flagged" for r in results),
                 "data": results,
             }
         ), 200

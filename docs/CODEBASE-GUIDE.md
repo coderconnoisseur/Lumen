@@ -13,10 +13,10 @@ Last updated: 2026-10-04 (after RAG; the agent section is filled in when SPEC-AG
 ```
 frontend/ (Next.js)  ──JWT──▶  backend/asgi.py (FastAPI, uvicorn, 1 worker)
                                  ├── /api/documents/*  → api/documents.py → rag/   (new, FastAPI-native)
-                                 ├── /api/agent/*      → (SPEC-AGENT, coming)
+                                 ├── /api/agent/*      → api/agent.py → agent/  (proposals approve/reject)
                                  └── everything else   → Flask app (app.py, routes/*) mounted behind FastAPI
                                                           ├── /extract           invoice upload → vision LLM
-                                                          ├── /chat              Ask Lumen (SQL → answer)
+                                                          ├── /chat              Ask Lumen (the agent) + history
                                                           ├── /transactions ...  CRUD
                                                           └── /api/analytics/... dashboards, anomalies, forecasts
 all LLM calls ───────────────────────────────────────▶ llm/client.py (one client: failover, deadline, record/replay)
@@ -45,7 +45,7 @@ search. The agent's job (next) is to pick the right one.
 | `api/errors.py` | Maps errors to the app-wide body `{success: false, error, code}`; `LLMError` → 429/502/503. |
 | `api/documents.py` | `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST /api/documents/search`, `POST /api/documents/ask`. Gets the RAG service via `Depends(get_service)`, which tests override with fakes. |
 | `api/demo.py` | `POST /api/demo/start`: for anonymous (demo) accounts only, seeds the caller's own copy of the demo data once (`scripts/seed_demo_data.seed`). `api/agent.py` caps demo accounts at `DEMO_QUESTIONS_PER_DAY` (20) agent questions a day. |
-| `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen + history), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
+| `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen = the agent since 2026-10-09, + history; demo accounts share the 20/day cap), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
 
 ### Auth and tenancy (the rule everything follows)
 - `utils/auth.py`: verifies the Supabase JWT (JWKS, RS256/ES256, audience, issuer, role). `require_auth` (Flask)
@@ -223,6 +223,84 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
 
-## 8. Coming next (filled in as it ships)
-- **Extraction** (SPEC-EXTRACT): schema-validated invoices, rule checks, confidence, review queue (auto-approve
-  high confidence).
+## 7c. Ask Lumen screen (frontend, UI phase)
+- `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
+  It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
+  original's `file_key`), `steps` (tool, summary, `latency_ms`), `proposals`. The SQL the agent ran stays
+  server-side (not shown to users). History (`GET /chat/history`)
+  keeps only the text, so older answers show citation numbers without passages.
+- `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
+  `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
+  `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
+  full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
+  answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
+- Look: components adapted from Beautiful UI (beautifului.dev, MIT), styled after the owner's reference (near-black
+  canvas, flat colour steps, light serif display = Newsreader, Inter UI, Roboto Mono uppercase labels, white as the
+  only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
+  theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
+
+## 7d. Landing page (frontend, UI phase)
+- `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
+  Lumen's own copy, positioned as the AI money advisor Lumen is growing into (unbuilt parts: PROGRESS, Deferred,
+  "Product vision"). Sections: glass nav; sky-video hero with a phone of cycling glass cards; a promise panel with a
+  horizon glow; an auto-scrolling feature carousel (`components/home/feature-carousel.tsx`); a stack of cycling
+  notifications over a dotted grid; three photo + screen pairs; "Nothing changes without you" with a working
+  approve/reject card (`proposal-demo.tsx`); the Ask Lumen phone that plays a scripted conversation (`chat-demo.tsx`);
+  example questions; a closing call to action over a photo.
+- Showcase screens (`mocks.tsx`) are polished versions of the app with sample data, in Hanken Grotesk (loaded in
+  `page.tsx` as `--font-ui`); headlines use the Newsreader serif, labels Roboto Mono. No numeric claims about
+  Lumen itself, testimonials or customer logos.
+- Media: Pexels photos and a 1080p sky video (first frame trimmed; `sky-poster.jpg` paints first) in `public/home/` (sources listed in `components/home/scenes.tsx`;
+  Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
+- Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
+  headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
+- Every **Get started** / **Log in** goes to `/signin`. Only `components/landing/Aurora.tsx` remains of the old
+  template landing (the sign-in background).
+
+## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
+- `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
+  JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO
+  number, line items, subtotal**, tax, total, payment method, address, category, **notes**), amounts and dates
+  cleaned with `utils/normalize` helpers; an unusable reply gets one retry, then `LLMError(BAD_RESPONSE)`. Text on
+  the invoice is data: `notes` keeps it verbatim for the injection check. Used by upload, batch and the email poller
+  (the old `utils/openrouter.py` is gone).
+- Vision models: the groq tier tries **Gemini 3.1 Flash-Lite** first (`provider: gemini` in `llm/registry.yaml`,
+  key `GEMINI_API_KEY`; free tier ~1K requests/day), then OpenRouter's free chain. A registry row may name its own
+  provider.
+- `extract/validate.py`: `validate(invoice, Context) -> [Flag]`, pure rules, no LLM: `total_mismatch` (line items
+  + tax vs total, 1%), `duplicate` (vendor + invoice number already stored), `unknown_vendor` (warn),
+  `bad_date` (future or > 2 years), `no_currency` (warn), `unknown_po` (warn) / `po_mismatch` (vendor or amount),
+  `possible_injection` (instruction-like text). `confidence(flags)`: high = no flags, medium = warnings only,
+  low = any failure. `Context` carries the user's known vendors, stored invoice numbers and purchase orders.
+- `evals/suites/validation.py`: the rules on the labelled invoices (recall per fault type, precision per rule,
+  false flags on clean invoices).
+- `api/review.py`: the review queue. `POST /api/review` checks an extracted invoice: high confidence becomes a
+  transaction at once (`review_auto_approved`), otherwise it waits as `flagged`. `GET /api/review?status=`,
+  `POST /api/review/{id}/approve` (optional `edits`, re-checked before approval; optional `note`) and `/reject`.
+  Only approved invoices become transactions, written in the same database transaction as the status change;
+  every step goes to `audit_events` (detail has `review_item_id`). Tables `review_items`, `purchase_orders`
+  (the demo seeds its POs).
+- **Every way an invoice arrives goes through the checks:** `/extract` (upload), `/extract-batch` (multi-page
+  PDF) and the email poller call `api.review.submit_invoice`, the only place an invoice becomes a transaction
+  (`utils/save_transaction.py` is gone). Upload responses carry `review: {id, status, confidence, flags}` and
+  `transaction_id` only when approved; a re-upload is flagged as a duplicate. Rules skip what today's reader
+  can't see: no currency field → no currency warning; an unpriced line item → no totals check; a user with no
+  history → no unknown-vendor warning.
+- `/review` (frontend, minimal test page): flagged invoices with their reasons; approve (optionally with a
+  corrected total) or reject.
+- **Feedback loop B** (SPEC-FEEDBACK): `extract.validate.suppressed_warnings(history)` reads the user's review
+  history (newest first; `api.review._history`): a warning (`unknown_vendor`, `unknown_po`, `no_currency`)
+  approved unchanged `STREAK` (3) times in a row for a vendor becomes a `note` flag (visible, never lowers
+  confidence); a rejection or an edited approval ends the streak; failures never adapt. `review_items.extracted`
+  keeps what the reader produced, so "edited" = approved invoice differs from it. Measured by
+  `evals/suites/feedback.py` (simulated 6-month stream, with vs without; missed faults must stay 0).
+- **Original files** (`utils/files.py`, `api/files.py`): every uploaded invoice (upload, PDF batch, email) and document
+  keeps its original: `{user}/invoices/{sha256}.{ext}` (content-addressed) and `{user}/docs/{doc id}.pdf`. Local
+  folder `backend/instance/files` by default; a private Supabase Storage bucket (`lumen-files`, created on first use)
+  when `SUPABASE_SERVICE_ROLE_KEY` is set. `GET /api/files/{key}` serves a file only to its owner (anything else is
+  404). Transactions carry `file_key`; documents list `file_key`; a storage failure never loses the upload.
+- **Feedback loop A** (SPEC-FEEDBACK): `api.review.corrections_for(engine, user, vendor)` returns the fields a
+  reviewer corrected on that user's approved invoices from that vendor (`extracted` vs approved, newest first, max
+  3, as `{field, read, correct}`). `read_with_feedback` (used by upload, batch and email) reads once and, only if
+  that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
+  as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.

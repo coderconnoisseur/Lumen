@@ -229,3 +229,18 @@ def result_sets_contain(gold: Iterable, pred: Iterable, *, ordered: bool) -> boo
         if (projected == gold_rows) if ordered else (Counter(projected) == Counter(gold_rows)):
             return True
     return False
+
+
+_DASHES = str.maketrans({c: "-" for c in "‐‑‒–—−"})
+
+
+def answer_contains(gold: Iterable, answer: str, *, max_cells: int = 20) -> bool:
+    """Every gold value appears in the answer text (numbers to 2 decimals, text case-insensitive). For answers that
+    came without SQL rows, e.g. from the vendor lookup (owner-approved, 2026-10-07). Large results never pass."""
+    cells = [c for row in gold for c in _row(row) if c is not None]
+    if not cells or len(cells) > max_cells:
+        return False
+    text = answer.translate(_DASHES).lower()
+    numbers = {f"{float(n.replace(',', '')):.2f}" for n in re.findall(r"\d[\d,]*(?:\.\d+)?", text)}
+    return all(c in numbers if re.fullmatch(r"-?\d+\.\d\d", c) else c.translate(_DASHES).lower() in text
+               for c in cells)

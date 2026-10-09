@@ -337,10 +337,33 @@ export const ocrApi = {
 	},
 };
 
+export interface ChatSource {
+	chunk_id: string;
+	title: string;
+	section: string;
+	text: string;
+	file_key: string;
+}
+
+export interface ChatStep {
+	tool: string;
+	summary: string | null;
+	latency_ms: number | null;
+}
+
+/** One Ask Lumen answer: markdown citing `[<doc id>#sNN]`, plus the evidence behind it. */
+export interface ChatAnswer {
+	response: string;
+	sources: ChatSource[];
+	steps: ChatStep[];
+	proposals: string[];
+	stopped: string;
+}
+
 export const chatApi = {
-	sendMessage: async (query: string) => {
+	sendMessage: async (query: string): Promise<ChatAnswer> => {
 		const response = await apiClient.post("/chat", { query });
-		return response.data;
+		return response.data.data;
 	},
 
 	getSuggestions: async () => {
@@ -571,6 +594,7 @@ export interface LumenDocument {
 	filename: string | null;
 	chunk_count: number;
 	created_at: string | null;
+	file_key?: string | null;
 }
 
 export interface DocumentSource {
@@ -615,24 +639,6 @@ export const documentsApi = {
 	},
 };
 
-export interface AgentStep {
-	tool: string;
-	args: Record<string, unknown>;
-	summary: string;
-	latency_ms: number;
-}
-
-export interface AgentAnswer {
-	answer: string;
-	citations: string[];
-	sources: DocumentSource[];
-	steps: AgentStep[];
-	sql: string[];
-	proposals: string[];
-	stopped: string;
-	llm_calls: number;
-}
-
 export interface Proposal {
 	id: string;
 	type: string;
@@ -644,13 +650,8 @@ export interface Proposal {
 	created_at: string | null;
 }
 
-// The tool-calling agent (SPEC-AGENT), served by the FastAPI routes under /api/agent.
+// The agent's proposals (SPEC-AGENT), served by the FastAPI routes under /api/agent. Questions go through chatApi.
 export const agentApi = {
-	ask: async (question: string): Promise<AgentAnswer> => {
-		const response = await apiClient.post("/api/agent/ask", { question });
-		return response.data;
-	},
-
 	proposals: async (): Promise<Proposal[]> => {
 		const response = await apiClient.get("/api/agent/proposals", { params: { status: "pending" } });
 		return response.data.proposals;
@@ -658,5 +659,43 @@ export const agentApi = {
 
 	decide: async (id: string, decision: "approve" | "reject"): Promise<void> => {
 		await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+	},
+};
+
+export interface ReviewFlag {
+	rule: string;
+	severity: "warn" | "fail";
+	detail: string;
+}
+
+export interface ReviewItem {
+	id: string;
+	status: "flagged" | "approved" | "rejected";
+	confidence: "high" | "medium" | "low";
+	invoice: Record<string, unknown>;
+	flags: ReviewFlag[];
+	transaction_id: string | null;
+	note: string | null;
+	created_at: string | null;
+}
+
+// Review queue (SPEC-EXTRACT): invoices the checks weren't sure about.
+export const reviewApi = {
+	list: async (): Promise<ReviewItem[]> => {
+		const response = await apiClient.get("/api/review", { params: { status: "flagged" } });
+		return response.data.items;
+	},
+
+	decide: async (id: string, decision: "approve" | "reject", body: { edits?: Record<string, unknown>; note?: string } = {}): Promise<ReviewItem> => {
+		const response = await apiClient.post(`/api/review/${encodeURIComponent(id)}/${decision}`, body);
+		return response.data.item;
+	},
+};
+
+// Original uploads (invoices, documents) are only served to their owner, so fetch with the token and open a blob.
+export const filesApi = {
+	open: async (key: string): Promise<void> => {
+		const response = await apiClient.get(`/api/files/${key}`, { responseType: "blob" });
+		window.open(URL.createObjectURL(response.data as Blob), "_blank", "noopener");
 	},
 };

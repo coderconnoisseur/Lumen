@@ -219,6 +219,8 @@ class Config:
     # backend feature that needs to call Supabase REST as the anonymous role
     # doesn't need a config change.
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    # Server-side only: stores original files in a private Storage bucket (utils/files.py). Unset = local folder.
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
     @classmethod
     def validate(cls) -> None:

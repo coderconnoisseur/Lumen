@@ -27,6 +27,7 @@ SHARMA_OCR = {
     "payment_method": "UPI",
     "tax_amount": "Rs 171.00",
     "category": "Shopping",
+    "currency": "INR",
 }
 
 
@@ -167,7 +168,7 @@ def _reply(content):
     ],
 )
 def test_parse_json_reply_accepts_wrapped_json(content):
-    from utils.openrouter import parse_json_reply
+    from extract.read import parse_json_reply
 
     assert parse_json_reply(content) == {"vendor_name": "A"}
 
@@ -175,7 +176,7 @@ def test_parse_json_reply_accepts_wrapped_json(content):
 @pytest.mark.parametrize("content", ["I cannot read this image.", "{not json}", "[1, 2]"])
 def test_parse_json_reply_rejects_non_objects(content):
     from utils.llm import LLMError
-    from utils.openrouter import parse_json_reply
+    from extract.read import parse_json_reply
 
     with pytest.raises(LLMError) as excinfo:
         parse_json_reply(content)
@@ -186,11 +187,11 @@ def test_vision_reply_text_stays_out_of_info_logs(monkeypatch, caplog):
     import logging
 
     from utils import llm
-    from utils.openrouter import extract_and_structure_with_openrouter
+    from extract.read import read_invoice
 
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _reply("Invoice for Mr Secret, Rs 500"))
     with caplog.at_level(logging.INFO), pytest.raises(llm.LLMError) as excinfo:
-        extract_and_structure_with_openrouter("aGk=", "image/png")
+        read_invoice("aGk=", "image/png")
     assert "Mr Secret" not in excinfo.value.detail
     assert not [r for r in caplog.records if "Mr Secret" in r.getMessage()]
 
@@ -208,7 +209,7 @@ def test_vision_reply_text_stays_out_of_info_logs(monkeypatch, caplog):
 )
 def test_vision_call_raises_typed_errors(monkeypatch, status, body, kind, expected_calls):
     from utils import llm
-    from utils.openrouter import extract_and_structure_with_openrouter
+    from extract.read import read_invoice
 
     calls = []
 
@@ -218,7 +219,7 @@ def test_vision_call_raises_typed_errors(monkeypatch, status, body, kind, expect
 
     monkeypatch.setattr(llm.requests, "post", post)
     with pytest.raises(llm.LLMError) as excinfo:
-        extract_and_structure_with_openrouter("aGk=", "image/png")
+        read_invoice("aGk=", "image/png")
     assert excinfo.value.kind == kind
     assert calls == ["google/gemma-4-31b-it:free", "qwen/qwen3.8-27b:free"][:expected_calls]
 
@@ -227,7 +228,7 @@ def test_vision_call_sends_image_and_retries_unparseable_reply(monkeypatch):
     monkeypatch.setenv("LLM_VISION_MODEL", "vision/primary:free")
     monkeypatch.setenv("LLM_VISION_FALLBACK_MODELS", "vision/backup:free,openrouter/free")
     from utils import llm
-    from utils.openrouter import extract_and_structure_with_openrouter
+    from extract.read import read_invoice
 
     sent = []
     replies = iter([_reply("Sorry, the image is blurry."), _reply('{"vendor_name": "A"}')])
@@ -237,7 +238,7 @@ def test_vision_call_sends_image_and_retries_unparseable_reply(monkeypatch):
         return next(replies)
 
     monkeypatch.setattr(llm.requests, "post", post)
-    assert extract_and_structure_with_openrouter("aGk=", "image/png") == {"vendor_name": "A"}
+    assert read_invoice("aGk=", "image/png")["vendor_name"] == "A"
     assert len(sent) == 2
     # The configured chain is tried client-side, primary first (SPEC-LLM).
     assert [s["model"] for s in sent] == ["vision/primary:free", "vision/primary:free"]
@@ -257,7 +258,7 @@ def test_vision_call_sends_image_and_retries_unparseable_reply(monkeypatch):
 def test_vision_call_makes_at_most_two_requests(monkeypatch, first, second):
     # Two 55s calls fit in gunicorn's 120s worker timeout; a third would not.
     from utils import llm
-    from utils.openrouter import extract_and_structure_with_openrouter
+    from extract.read import read_invoice
 
     sent = []
     replies = iter([_reply(first), _reply(second), _reply('{"vendor_name": "A"}')])
@@ -268,18 +269,18 @@ def test_vision_call_makes_at_most_two_requests(monkeypatch, first, second):
 
     monkeypatch.setattr(llm.requests, "post", post)
     with pytest.raises(llm.LLMError) as excinfo:
-        extract_and_structure_with_openrouter("aGk=", "image/png")
+        read_invoice("aGk=", "image/png")
     assert excinfo.value.kind == llm.LLMError.BAD_RESPONSE
     assert sent == [55, 55]
 
 
 def test_vision_call_retries_empty_reply(monkeypatch):
     from utils import llm
-    from utils.openrouter import extract_and_structure_with_openrouter
+    from extract.read import read_invoice
 
     replies = iter([_reply(""), _reply('{"vendor_name": "A"}')])
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: next(replies))
-    assert extract_and_structure_with_openrouter("aGk=", "image/png") == {"vendor_name": "A"}
+    assert read_invoice("aGk=", "image/png")["vendor_name"] == "A"
 
 
 # --- POST /extract ------------------------------------------------------------
@@ -333,8 +334,10 @@ def client(authed_client, monkeypatch):
 
 @pytest.fixture
 def ocr(monkeypatch):
-    """Replace the vision call; `ocr.result` is what it returns, `ocr.calls` what it got."""
-    import routes.ocr
+    """Replace the vision model; `ocr.result` is the JSON it replies with, `ocr.calls` the media types it saw."""
+    import json as _json
+
+    import extract.read
 
     class Fake:
         def __init__(self):
@@ -342,15 +345,17 @@ def ocr(monkeypatch):
             self.calls = []
             self.images = []
 
-        def __call__(self, image_base64, media_type):
+        def __call__(self, content, **kwargs):
+            url = content[1]["image_url"]["url"]
+            media_type, image_base64 = url[len("data:"):].split(";base64,")
             self.calls.append(media_type)
             self.images.append(base64.b64decode(image_base64))
             if isinstance(self.result, Exception):
                 raise self.result
-            return dict(self.result)
+            return _json.dumps(self.result)
 
     fake = Fake()
-    monkeypatch.setattr(routes.ocr, "extract_and_structure_with_openrouter", fake)
+    monkeypatch.setattr(extract.read, "chat_completion", fake)
     return fake
 
 
@@ -392,9 +397,9 @@ def test_extract_image_saves_and_shows_everywhere(client, ocr):
     assert "1121" in summary.get_data(as_text=True)
 
     # Ask Lumen's SQL step reads the same database
-    import routes.chat
+    from ai.sql_agent import SQLAgent
 
-    result = routes.chat.engine.sql_agent.execute_sql(
+    result = SQLAgent().execute_sql(
         "SELECT COALESCE(SUM(total_amount), 0) AS total FROM transactions WHERE user_id = 'user-1'",
         "user-1",
     )
@@ -414,19 +419,27 @@ def test_extract_creates_local_user_row_for_foreign_key(client, ocr):
         assert user is not None and user.email == "u@example.com"
 
 
-def test_reupload_is_reported_as_duplicate(client, ocr):
+def test_reupload_is_flagged_as_a_duplicate_for_review(client, ocr):
     first = _upload(client, _png_bytes()).get_json()
+    assert first["review"]["status"] == "approved" and first["transaction_id"]
     second = _upload(client, _png_bytes()).get_json()
-    assert second["duplicate"] is True
-    assert second["transaction_id"] == first["transaction_id"]
-    assert second["message"] == "This invoice was already uploaded"
+    assert second["duplicate"] is True and second["transaction_id"] is None
+    assert second["review"]["status"] == "flagged" and second["message"].startswith("Sent to review")
     assert len(_rows()) == 1
 
 
+def test_a_doubtful_invoice_waits_for_review_instead_of_becoming_a_transaction(client, ocr):
+    ocr.result = {**SHARMA_OCR, "total_amount": "Rs 2,121.00"}  # line items + tax say 1,121
+    body = _upload(client, _png_bytes()).get_json()
+    assert body["success"] and body["transaction_id"] is None
+    assert [f["rule"] for f in body["review"]["flags"]] == ["total_mismatch"]
+    assert _rows() == []
+
+
 def test_receipts_without_invoice_number_are_not_deduplicated(client, ocr):
-    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 40", "invoice_number": None}
+    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 40", "invoice_number": None, "date": "2026-09-01", "currency": "INR"}
     first = _upload(client, _png_bytes()).get_json()
-    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 60", "invoice_number": None}
+    ocr.result = {"vendor_name": "Chai Point", "total_amount": "Rs 60", "invoice_number": None, "date": "2026-09-02", "currency": "INR"}
     second = _upload(client, _png_bytes()).get_json()
     assert second["duplicate"] is False
     assert first["transaction_id"] != second["transaction_id"]
@@ -488,7 +501,7 @@ def test_save_failure_is_an_error_not_a_silent_success(client, ocr, monkeypatch)
     def broken(*a, **k):
         raise RuntimeError("database is locked")
 
-    monkeypatch.setattr(routes.ocr, "save_transaction_detailed", broken)
+    monkeypatch.setattr(routes.ocr, "submit_invoice", broken)
     resp = _upload(client, _png_bytes())
     assert resp.status_code == 500
     body = resp.get_json()
@@ -572,3 +585,23 @@ def test_a4_pdf_page_is_still_rendered_at_200_dpi():
     page, _ = render_pdf_first_page(_pdf_page(595, 842))
     assert page.width == 1653  # 595 pt at 200 dpi
     assert max(page.size) < 2500
+
+
+def test_the_transaction_list_shows_currency(client, ocr):
+    ocr.result = {**SHARMA_OCR, "currency": "CHF"}
+    body = _upload(client, _png_bytes()).get_json()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["currency"] == "CHF" and tx["po_number"] is None
+
+
+def test_the_original_upload_is_kept_and_linked_from_the_transaction(client, ocr):
+    import utils.files
+
+    png = _png_bytes()
+    body = _upload(client, png).get_json()
+    key = body["data"]["file_key"]
+    assert key and utils.files.get_store().get(key)[0] == png
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["file_key"] == key

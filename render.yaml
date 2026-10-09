@@ -32,16 +32,22 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # Server-side only: keeps original uploads in a private Storage bucket (utils/files.py).
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: SUPABASE_JWT_AUD
         value: authenticated
       - key: ALLOWED_ORIGINS
         value: https://lumen.nishantbuilds.me
       - key: FRONTEND_URL
         value: https://lumen.nishantbuilds.me
-      # Text models come from the Groq chain in llm/registry.yaml; invoice images use OpenRouter's free vision model.
+      # Text models come from the Groq chain in llm/registry.yaml; invoice images are read by Gemini (free tier),
+      # falling back to OpenRouter's free vision model.
       - key: LUMEN_LLM_TIER
         value: groq
       - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false

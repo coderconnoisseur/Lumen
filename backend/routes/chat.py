@@ -4,7 +4,6 @@ import uuid
 
 from flask import Blueprint, g, request, jsonify
 
-from ai.hybrid_query_engine import HybridQueryEngine
 from models import ChatMessage
 from models.database import db
 from utils.auth import require_auth
@@ -16,21 +15,30 @@ logger = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat", __name__)
 
-engine = HybridQueryEngine()
+def _ask(question: str, user_id: str) -> dict:
+    """Ask Lumen is the agent (SPEC-AGENT, switched after AGT-07 passed its gates on 2026-10-09): it picks its tools
+    (SQL, documents, anomalies, forecast, invoices), cites evidence and only proposes changes."""
+    from datetime import date
 
+    from agent.graph import run_agent
+    from agent.tools import ToolContext
+    from api.agent import get_agent_deps
+    from utils.files import document_key
 
-def _sanitize_chat_result(result: dict) -> dict:
-    safe = {
-        "query": result.get("query"),
-        "query_type": result.get("query_type"),
-        "response": result.get("response"),
-    }
-    raw = result.get("raw_results") or {}
-    if raw.get("success") is False:
-        safe["data_error"] = raw.get("error", "Query failed")
-    elif "data" in raw:
-        safe["row_count"] = raw.get("row_count", len(raw.get("data", [])))
-    return safe
+    deps = get_agent_deps()
+    ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
+                      today=deps.today or date.today())
+    out = run_agent(question, ctx, complete=deps.complete)
+    # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
+    # The SQL stays server-side: it's an internal detail, not something to show users.
+    return {"query": question, "query_type": "agent", "response": out["answer"],
+            "row_count": len(out["rows"]) if out["rows"] is not None else None,
+            "sources": [{**{k: s[k] for k in ("chunk_id", "title", "section", "text")},
+                         "file_key": document_key(user_id, s["chunk_id"].split("#")[0])} for s in out["sources"]],
+            "steps": [{"tool": s["tool"], "summary": s.get("summary"), "latency_ms": s.get("latency_ms")}
+                      for s in out["steps"]],
+            "stopped": out["stopped"],
+            "proposals": out["proposals"]}
 
 
 def _save_exchange(user_id: str, question: str, answer: str) -> None:
@@ -67,9 +75,15 @@ def chat():
 
     user_id = str(g.user_id)
 
+    from api.agent import DEMO_QUESTIONS_PER_DAY, count_demo_question
+
+    if not count_demo_question(g.jwt_claims, request.headers.get("Authorization", ""), request.remote_addr or ""):
+        return api_error(f"The demo allows {DEMO_QUESTIONS_PER_DAY} questions a day. Sign up to keep going.",
+                         status=429, code="demo_limit")
+
     try:
         logger.info("Processing chat query for user=%s", user_id)
-        result = engine.query(query, user_id)
+        result = _ask(query, user_id)
     except LLMError as e:
         return llm_api_error(e, _LLM_MESSAGES, context=f"Chat failed for user={user_id}")
     except Exception as e:
@@ -82,7 +96,7 @@ def chat():
         db.session.rollback()
         logger.exception("Failed to save chat history for user=%s: %s", user_id, e)
 
-    return jsonify({"success": True, "data": _sanitize_chat_result(result)}), 200
+    return jsonify({"success": True, "data": result}), 200
 
 
 @chat_bp.route("/chat/history", methods=["GET"])
@@ -129,12 +143,9 @@ def clear_chat_history():
 @require_auth
 def get_suggestions():
     suggestions = [
-        "Where did I spend the most last month?",
-        "Show me all grocery purchases",
-        "What's my average restaurant spending?",
-        "Find transactions above ₹1000",
-        "Show me coffee-related purchases",
-        "What's my spending trend over the last 3 months?",
-        "Which category is the cheapest?",
+        "Which vendor did I spend the most with?",
+        "What is my average electricity bill?",
+        "What's the notice period in the TechHub contract?",
+        "Invoice FM-202606-U10223 looks miscategorised; propose Shopping.",
     ]
     return jsonify({"suggestions": suggestions}), 200

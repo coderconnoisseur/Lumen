@@ -45,6 +45,9 @@ class Transaction(db.Model):
 
     address = db.Column(db.String, nullable=True)
     category = db.Column(db.String, nullable=True)
+    currency = db.Column(db.String(3), nullable=True)  # as printed (ISO code), never converted; NULL = old rows
+    po_number = db.Column(db.String, nullable=True)
+    file_key = db.Column(db.String, nullable=True)  # the original upload (utils/files.py), served by /api/files
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -284,3 +287,38 @@ class AuditEvent(db.Model):
     proposal_id = db.Column(String(36), nullable=True, index=True)
     detail = db.Column(Text, nullable=True)  # JSON
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class PurchaseOrder(db.Model):
+    """A purchase order the user issued; invoices that cite it are checked against it (SPEC-EXTRACT)."""
+
+    __tablename__ = "purchase_orders"
+    __table_args__ = (db.UniqueConstraint("user_id", "po_number", name="uq_purchase_orders_user_po"),)
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    po_number = db.Column(db.String(100), nullable=False)
+    vendor_name = db.Column(db.String, nullable=False)
+    issue_date = db.Column(db.String(10), nullable=True)  # 'YYYY-MM-DD', like transactions.date
+    lines = db.Column(Text, nullable=False, default="[]")  # JSON [{item, quantity, unit_price}]
+    currency = db.Column(db.String(3), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ReviewItem(db.Model):
+    """An extracted invoice and its checks. High confidence is approved automatically; the rest wait here for a
+    person. Only approved invoices become transactions (SPEC-EXTRACT, EXT-03)."""
+
+    __tablename__ = "review_items"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    invoice = db.Column(Text, nullable=False)  # JSON, the extracted (or edited) invoice
+    extracted = db.Column(Text, nullable=True)  # JSON, what the reader produced; differs from `invoice` if edited
+    flags = db.Column(Text, nullable=False, default="[]")  # JSON [{rule, severity, detail}]
+    confidence = db.Column(db.String(10), nullable=False)  # high | medium | low
+    status = db.Column(db.String(20), nullable=False)  # flagged | approved | rejected
+    transaction_id = db.Column(String(36), nullable=True)
+    note = db.Column(Text, nullable=True)  # the reviewer's reason
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    decided_at = db.Column(db.DateTime, nullable=True)

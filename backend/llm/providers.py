@@ -39,6 +39,8 @@ def kind_for_status(status: int) -> str:
 
 
 def error_message(body) -> str:
+    if isinstance(body, list) and body:  # Gemini wraps its error object in a list
+        body = body[0]
     err = body.get("error") if isinstance(body, dict) else None
     if isinstance(err, dict):
         return str(err.get("message") or err)
@@ -156,4 +158,7 @@ PROVIDERS: dict[str, Provider] = {
     "openrouter": _OpenRouter("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_BASE_URL", "OPENROUTER_API_KEY"),
     "groq": _Groq("groq", "https://api.groq.com/openai/v1", "GROQ_BASE_URL", "GROQ_API_KEY"),
     "ollama": _Ollama("ollama", "http://localhost:11434/v1", "OLLAMA_BASE_URL", None),
+    # Google AI Studio's OpenAI-compatible endpoint; free tier ~1K requests/day on Flash-Lite (vision, 2026-10-09).
+    "gemini": Provider("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "GEMINI_BASE_URL",
+                       "GEMINI_API_KEY"),
 }

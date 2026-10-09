@@ -101,3 +101,20 @@ def test_seeding_works_on_postgres():
     counts = seed(engine, store, FakeEmbedder(), user)
     assert _count(engine, user) == counts["transactions"] > 100
     assert len(store.list_documents(user)) == counts["documents"] > 0
+
+
+def test_the_demo_includes_purchase_orders(app):
+    client, engine, _ = app
+    client.post("/api/demo/start", headers=bearer(VISITOR))
+    with engine.connect() as c:
+        n = c.execute(text("SELECT COUNT(*) FROM purchase_orders WHERE user_id = :u"), {"u": VISITOR}).scalar()
+    assert n > 0
+
+
+def test_demo_documents_have_their_original_pdfs(app):
+    import utils.files
+
+    client, _, store = app
+    client.post("/api/demo/start", headers=bearer(VISITOR))
+    docs = store.list_documents(VISITOR)
+    assert docs and all(utils.files.get_store().get(utils.files.document_key(VISITOR, d["id"])) for d in docs)

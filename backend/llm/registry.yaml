@@ -23,13 +23,16 @@ openrouter:
   judge:
     - {model: google/gemma-4-31b-it:free, family: gemma}
 
-# Chosen by the LLM-02 bench (docs/direction/LLM-BENCH.md). No vision model on Groq: the openrouter chain is used.
+# Chosen by the LLM-02 bench (docs/direction/LLM-BENCH.md). No vision model on Groq: invoices are read by Gemini
+# (free tier ~1K requests/day), then the openrouter chain. Without GEMINI_API_KEY the chain skips to openrouter.
 groq:
   text:
     - {model: openai/gpt-oss-120b, family: openai}
     - {model: qwen/qwen3.8-27b, family: qwen}
     - {model: openai/gpt-oss-20b, family: openai}
-  vision: []
+  vision:
+    # gemini-2.5-flash-lite is closed to new users (404, 2026-10-09); pinned, not -latest, so recordings replay.
+    - {model: gemini-3.1-flash-lite, provider: gemini, family: gemini}
   judge:
     - {model: qwen/qwen3.8-27b, family: qwen}
 

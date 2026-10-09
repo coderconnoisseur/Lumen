@@ -32,6 +32,26 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
             logger.warning("Transaction index migration skipped: %s", e)
 
 
+# Columns added after their table first shipped (create_all doesn't alter existing tables). All nullable.
+_ADDED_COLUMNS = {
+    "review_items": [("extracted", "TEXT")],  # SPEC-FEEDBACK
+    "transactions": [("currency", "VARCHAR(3)"), ("po_number", "VARCHAR"), ("file_key", "VARCHAR")],  # EXT-01
+}
+
+
+def _add_missing_columns() -> None:
+    for table, columns in _ADDED_COLUMNS.items():
+        try:
+            have = {c["name"] for c in inspect(db.engine).get_columns(table)}
+            for name, sql_type in columns:
+                if name not in have:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
+                    logger.info("Added %s.%s", table, name)
+        except Exception as e:
+            logger.warning("Column migration for %s skipped: %s", table, e)
+
+
 RAG_TABLES = {"documents", "document_chunks"}
 
 
@@ -63,6 +83,7 @@ def init_db(app: Flask):
                 tables = [t for t in tables if t.name not in RAG_TABLES]
             db.metadata.create_all(db.engine, tables=tables)
             _migrate_transaction_unique_index(app)
+            _add_missing_columns()
             logger.info("Database connected and tables initialized")
     except Exception as e:
         logger.warning("Could not connect to database: %s", e)

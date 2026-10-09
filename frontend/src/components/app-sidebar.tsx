@@ -72,9 +72,9 @@ const data = {
 			icon: FileText,
 		},
 		{
-			name: "Agent (test)",
-			url: "/agent",
-			icon: Bot,
+			name: "Review (test)",
+			url: "/review",
+			icon: FileText,
 		},
 	],
 };

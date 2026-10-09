@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Newsreader, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ServerWake } from "@/components/server-wake";
@@ -15,6 +15,20 @@ const inter = Inter({
 const jetBrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
 	variable: "--font-mono",
+});
+
+// Display serif (light, editorial headlines) and the uppercase label mono of the new look.
+const newsreader = Newsreader({
+	subsets: ["latin"],
+	weight: ["300", "400"],
+	style: ["normal", "italic"],
+	variable: "--font-newsreader",
+});
+
+const robotoMono = Roboto_Mono({
+	subsets: ["latin"],
+	weight: ["400", "500"],
+	variable: "--font-roboto-mono",
 });
 
 export const metadata: Metadata = {
@@ -112,7 +126,7 @@ export default function RootLayout({
 	return (
 		<html
 			lang="en"
-			className={`${inter.variable} ${jetBrainsMono.variable} dark`}
+			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${robotoMono.variable} dark`}
 		>
 			<body className="min-h-screen bg-background font-sans text-foreground antialiased">
 				<ServerWake />
