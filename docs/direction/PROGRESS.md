@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 20 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 21 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -280,12 +280,9 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    **Try the demo** (anonymous sign-in + `POST /api/demo/start` seeding a private copy; 20 agent questions/visitor/
    day), waking-up banner, owner runbook `docs/DEPLOY.md`. `get_anomalies` now names vendor/date/amount in INR (3 agent cases re-recorded). Left: release `refactor` ->
    `main`; owner runs `docs/DEPLOY.md`; then check the acceptance list on the live site.
-2. **AGT-07 (interim, 2026-10-07):** recorded `agent_sql` + `agent_safety` on Groq. SQL agent 26/32 vs pipeline
-   29/32 (2 fixed, 5 regressed, mostly answer shape); tenant leaks 0; **1 injection followed** (safety-injection-14),
-   so `/chat` doesn't switch yet. Next: prompt hardening (pasted text is data; list questions return vendor/date/
-   amount), re-record all three agent suites (~190K tokens, a full day's quota), re-run AGT-07. Owner approved
-   grading no-row answers by their text: agent re-graded to 28/32 (pipeline 29/32).
-   `docs/direction/benchmarks/2026-10-07-agt07-agent-vs-pipeline-dev.md`, STORY 18.
+2. **AGT-07 done (2026-10-09):** prompt v3 re-recorded: agent SQL 31/32 vs pipeline 29/32 (3 fixed, 1 defensible
+   regression), safety 0 leaks / 0 injections, routing 24/24. Gates met, so `/chat` switches to the agent.
+   `docs/direction/benchmarks/2026-10-09-agt07-final-dev.md`, STORY 21.
 3. **Groq baseline suites:** `safety` and `sql` test split on Groq; `extraction` stays on OpenRouter vision (50
    requests/day): record over several days.
 4. **Generation suite** (judge = qwen on Groq) + prompt the owner for ~20 judge labels (`evals/data/judge_gold.jsonl`).
