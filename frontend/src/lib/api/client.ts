@@ -356,7 +356,6 @@ export interface ChatAnswer {
 	response: string;
 	sources: ChatSource[];
 	steps: ChatStep[];
-	sql: string[];
 	proposals: string[];
 	stopped: string;
 }

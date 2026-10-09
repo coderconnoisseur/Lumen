@@ -2,7 +2,7 @@
 
 // Ask Lumen: one chat with the agent. Every answer shows its sources, the steps behind it, and any change it proposes.
 import { useEffect, useRef, useState } from "react";
-import { CornerDownRight, Plus, Sparkles } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Answer } from "@/components/ask/answer";
 import { Button } from "@/components/ask/button";
 import { PromptBar } from "@/components/ask/prompt-bar";
@@ -27,6 +27,11 @@ type Message = {
 
 // Tools whose results are the user's own data; an answer built on them has evidence even without a cited passage.
 const DATA_TOOLS = new Set(["run_sql", "get_invoice", "get_anomalies", "forecast", "lookup_vendors"]);
+
+function greeting() {
+	const hour = new Date().getHours();
+	return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+}
 
 function errorMessage(error: unknown): string {
 	return (
@@ -104,105 +109,114 @@ export default function ChatbotContent() {
 	const shown = new Set(messages.flatMap((m) => m.answer?.proposals ?? []));
 	const waiting = proposals.filter((p) => !shown.has(p.id));
 
+	const proposalCards = (list: Proposal[]) => list.map((p) => <ProposalCard key={p.id} proposal={p} />);
+	const waitingBlock = waiting.length > 0 && (
+		<div className="flex w-full flex-col gap-2">
+			<span className="bui-label text-ink-3">Waiting for your decision</span>
+			{proposalCards(waiting)}
+		</div>
+	);
+
 	return (
 		<DashboardShell contentClassName="p-0 sm:p-0 lg:p-0 gap-0">
-			<div className="bui flex h-[calc(100dvh-3.5rem)] flex-col">
-				<div className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
-					<span className="text-[13px] font-medium text-ink">Ask Lumen</span>
-					{messages.length > 0 && (
-						<Button variant="quiet" size="xs" onClick={() => void newChat()} disabled={busy}>
-							<Plus className="size-3.5" /> New chat
-						</Button>
-					)}
-				</div>
+			<div className="bui relative flex h-[calc(100dvh-3.5rem)] flex-col">
+				{messages.length > 0 && (
+					<Button
+						variant="quiet"
+						size="xs"
+						onClick={() => void newChat()}
+						disabled={busy}
+						className="absolute top-3 right-4 z-10"
+					>
+						<Plus className="size-3.5" /> New chat
+					</Button>
+				)}
 
-				<div className="min-h-0 flex-1 overflow-y-auto">
-					<div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">
-						{loaded && messages.length === 0 && (
-							<div className="mt-[8vh] flex flex-col items-center text-center" style={{ animation: "fade-up 400ms both" }}>
-								<Sparkles className="size-6 text-accent-ink" />
-								<h1 className="mt-3 text-xl font-semibold text-ink">What would you like to know?</h1>
-								<p className="mt-1.5 max-w-md text-[13.5px] text-ink-2">
-									Ask about your spending, invoices and documents. Every answer shows its sources and the steps behind
-									it, and changes are only proposed for you to approve.
-								</p>
-								<div className="mt-6 flex w-full max-w-md flex-col text-left">
-									{suggestions.map((text, i) => (
-										<button
-											key={text}
-											type="button"
-											onClick={() => void ask(text)}
-											className="flex items-center gap-2 rounded-[7px] border-b border-line px-2 py-2 text-[13px] text-ink transition-colors duration-100 hover:bg-hover-2"
-											style={{ animation: `fade-up 350ms cubic-bezier(0.23,1,0.32,1) ${i * 70}ms both` }}
-										>
-											<CornerDownRight className="size-3 shrink-0 text-ink-3" />
-											{text}
-										</button>
-									))}
-								</div>
+				{loaded && messages.length === 0 ? (
+					<div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-[8vh]">
+						<div className="flex w-full max-w-2xl flex-col items-center" style={{ animation: "fade-up 600ms both" }}>
+							<span className="bui-label text-ink-3">Ask Lumen</span>
+							<h1 className="mt-5 text-center font-display text-[40px] leading-[1.05] font-light text-ink sm:text-[52px]">
+								{greeting()}.
+								<br />
+								What shall we <em>look into</em>?
+							</h1>
+							<p className="mt-4 max-w-md text-center text-[16px] leading-relaxed font-light text-ink-2">
+								Ask about spending, invoices or contracts. Answers come with their sources.
+							</p>
+							<div className="mt-8 w-full">
+								<PromptBar hero onSend={(text) => void ask(text)} busy={busy} />
 							</div>
-						)}
-
-						{messages.map((m) =>
-							m.role === "user" ? (
-								<div key={m.id} className="flex justify-end pl-14">
-									<div
-										className="rounded-xl bg-field px-3 py-2 text-[14px] leading-[1.45] whitespace-pre-wrap text-ink"
-										style={{ animation: "fade-up 300ms cubic-bezier(0.23,1,0.32,1) both" }}
+							<div className="mt-4 flex flex-wrap justify-center gap-2">
+								{suggestions.map((text, i) => (
+									<button
+										key={text}
+										type="button"
+										onClick={() => void ask(text)}
+										className="rounded-full border border-line px-3.5 py-1.5 text-[13px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:bg-hover hover:text-ink"
+										style={{ animation: `fade-up 400ms ease ${200 + i * 60}ms both` }}
 									>
-										{m.content}
-									</div>
-								</div>
-							) : m.pending ? (
-								<Thinking key={m.id} />
-							) : m.error ? (
-								<div key={m.id} className="flex items-center gap-3 rounded-card bg-red-tint px-3 py-2.5 text-[13px] text-ink">
-									<span className="flex-1">{m.content}</span>
-									{m.question && (
-										<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.id)}>
-											Try again
-										</Button>
-									)}
-								</div>
-							) : (
-								<div key={m.id} className="flex flex-col gap-2">
-									{m.answer && <WorkTrace steps={m.answer.steps} sql={m.answer.sql} elapsedMs={m.elapsedMs} />}
-									<Answer
-										content={m.content}
-										sources={m.answer?.sources}
-										showEvidenceNote={
-											!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
-										}
-										onRetry={m.question && !busy ? () => void ask(m.question!, m.id) : undefined}
-									>
-										{proposals
-											.filter((p) => m.answer?.proposals.includes(p.id))
-											.map((p) => (
-												<ProposalCard key={p.id} proposal={p} />
-											))}
-									</Answer>
-								</div>
-							)
-						)}
-
-						{waiting.length > 0 && (
-							<div className="flex flex-col gap-2">
-								<p className="text-[12px] font-medium text-ink-2">Waiting for your decision</p>
-								{waiting.map((p) => (
-									<ProposalCard key={p.id} proposal={p} />
+										{text}
+									</button>
 								))}
 							</div>
-						)}
-						<div ref={bottomRef} />
+							{waitingBlock && <div className="mt-10 w-full">{waitingBlock}</div>}
+						</div>
 					</div>
-				</div>
+				) : (
+					<>
+						<div className="min-h-0 flex-1 overflow-y-auto">
+							<div className="mx-auto flex w-full max-w-3xl flex-col gap-9 px-4 pt-14 pb-8">
+								{messages.map((m) =>
+									m.role === "user" ? (
+										<div key={m.id} className="flex justify-end pl-14">
+											<div
+												className="rounded-[18px] bg-field px-4 py-2.5 text-[15px] leading-[1.5] whitespace-pre-wrap text-ink"
+												style={{ animation: "fade-up 300ms cubic-bezier(0.23,1,0.32,1) both" }}
+											>
+												{m.content}
+											</div>
+										</div>
+									) : m.pending ? (
+										<Thinking key={m.id} />
+									) : m.error ? (
+										<div key={m.id} className="flex items-center gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-ink">
+											<span className="flex-1">{m.content}</span>
+											{m.question && (
+												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.id)}>
+													Try again
+												</Button>
+											)}
+										</div>
+									) : (
+										<div key={m.id} className="flex flex-col gap-2.5">
+											{m.answer && <WorkTrace steps={m.answer.steps} elapsedMs={m.elapsedMs} />}
+											<Answer
+												content={m.content}
+												sources={m.answer?.sources}
+												showEvidenceNote={
+													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
+												}
+												onRetry={m.question && !busy ? () => void ask(m.question!, m.id) : undefined}
+											>
+												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}
+											</Answer>
+										</div>
+									)
+								)}
+								{waitingBlock}
+								<div ref={bottomRef} />
+							</div>
+						</div>
 
-				<div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
-					<PromptBar onSend={(text) => void ask(text)} busy={busy} />
-					<p className="mt-2 text-center text-[11.5px] text-ink-3">
-						Lumen cites its sources and only proposes changes; nothing is applied until you approve it.
-					</p>
-				</div>
+						<div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
+							<PromptBar onSend={(text) => void ask(text)} busy={busy} />
+							<p className="mt-2 text-center text-[11.5px] text-ink-3">
+								Lumen cites its sources and only proposes changes; nothing is applied until you approve it.
+							</p>
+						</div>
+					</>
+				)}
 			</div>
 		</DashboardShell>
 	);

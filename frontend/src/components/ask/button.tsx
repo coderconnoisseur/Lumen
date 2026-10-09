@@ -12,7 +12,6 @@ const buttonVariants = cva(
 			variant: {
 				primary: `bg-ink text-canvas hover:opacity-90 ${filledShadow}`,
 				secondary: "bg-surface text-ink shadow-btn hover:bg-inset",
-				accent: `bg-accent text-white hover:bg-accent-ink ${filledShadow}`,
 				quiet: "text-ink-2 hover:bg-hover hover:text-ink",
 			},
 			size: {

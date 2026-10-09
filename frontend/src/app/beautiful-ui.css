@@ -1,43 +1,44 @@
-/* Design tokens and keyframes adapted from Beautiful UI (https://www.beautifului.dev), MIT License,
- * Copyright (c) Turbo. Dark values only (the app is always dark), scoped to `.bui` so the shadcn tokens
- * elsewhere (notably --accent) are untouched. */
+/* Component styles adapted from Beautiful UI (https://www.beautifului.dev), MIT License, Copyright (c) Turbo.
+ * Palette and type follow the owner's reference style (near-black canvas, flat colour steps instead of shadows,
+ * light serif display, sans UI, uppercase mono labels, white as the only primary action). Scoped to `.bui` so
+ * the rest of the app's shadcn theme (notably --accent) is untouched. */
 
 .bui {
-	--page: oklch(0.209 0.004 264.477);
-	--canvas: oklch(0.231 0.004 264.487);
-	--surface: oklch(0.26 0.006 271.191);
-	--inset: oklch(0.243 0.004 264.492);
-	--hover: oklch(0.289 0.006 271.22);
-	--hover-2: oklch(0.318 0.007 274.747);
+	--page: #0f1011;
+	--canvas: #090a0b;
+	--surface: #161718;
+	--inset: #121314;
+	--hover: #1f2021;
+	--hover-2: #2e2e2e;
 
-	--ink: oklch(0.964 0.002 247.839);
-	--ink-2: oklch(0.731 0.008 260.731);
-	--ink-3: oklch(0.541 0.01 264.484);
+	--ink: #f5f5f7;
+	--ink-2: #9f9fa0;
+	--ink-3: #6a6b6b;
 
-	--line: oklch(0.308 0.006 258.354);
-	--line-strong: oklch(0.356 0.007 264.474);
-	--field: oklch(0.293 0.006 271.223);
+	--line: rgb(255 255 255 / 0.08);
+	--line-strong: rgb(255 255 255 / 0.16);
+	--field: #2e2e2e;
 
-	--accent: oklch(0.68 0.173 253.301);
-	--accent-ink: oklch(0.788 0.113 248.33);
-	--accent-tint: oklch(0.68 0.173 253.301 / 0.16);
+	--accent: #847dff;
+	--accent-ink: #d1c9ff;
+	--accent-tint: rgb(132 125 255 / 0.16);
 
-	--green: oklch(0.705 0.154 153.814);
-	--green-tint: oklch(0.705 0.154 153.814 / 0.14);
-	--orange: oklch(0.746 0.156 55.642);
-	--orange-tint: oklch(0.746 0.156 55.642 / 0.14);
-	--red: oklch(0.666 0.18 21.433);
-	--red-tint: oklch(0.666 0.18 21.433 / 0.14);
+	--green: #4ade80;
+	--green-tint: rgb(74 222 128 / 0.12);
+	--orange: #f5a35c;
+	--orange-tint: rgb(245 163 92 / 0.12);
+	--red: #f87171;
+	--red-tint: rgb(248 113 113 / 0.12);
 
+	/* flat: elevation is a hairline, never a drop shadow */
 	--shadow-hairline: 0 0 0 1px var(--line);
-	--shadow-btn: 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.3);
-	--shadow-card: 0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2), 0 2px 6px oklch(0 0 0 / 0.2);
-	--shadow-raised: 0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
+	--shadow-btn: 0 0 0 1px var(--line-strong);
+	--shadow-card: 0 0 0 1px var(--line);
+	--shadow-raised: 0 0 0 1px var(--line-strong);
 
 	background: var(--page);
 	color: var(--ink);
-	font-size: 14px;
-	letter-spacing: -0.01em;
+	font-size: 15px;
 }
 
 @theme inline {
@@ -67,6 +68,9 @@
 	--shadow-card: var(--shadow-card);
 	--shadow-raised: var(--shadow-raised);
 
+	--font-display: var(--font-newsreader), Georgia, serif;
+	--font-label: var(--font-roboto-mono), ui-monospace, monospace;
+
 	--radius-chip: 6px;
 	--radius-control: 8px;
 	--radius-card: 10px;
@@ -88,9 +92,9 @@
 }
 
 /* Markdown answers: lists, tables and code like a modern chat app. */
-.bui-md { font-size: 14px; line-height: 1.65; color: var(--ink); }
+.bui-md { font-size: 15px; line-height: 1.7; color: var(--ink); }
 .bui-md > * + * { margin-top: 0.75em; }
-.bui-md h1, .bui-md h2, .bui-md h3 { font-weight: 600; line-height: 1.3; margin-top: 1.1em; }
+.bui-md h1, .bui-md h2, .bui-md h3 { font-weight: 500; line-height: 1.3; margin-top: 1.1em; }
 .bui-md h1 { font-size: 1.15em; }
 .bui-md h2 { font-size: 1.08em; }
 .bui-md h3 { font-size: 1em; }
@@ -99,7 +103,7 @@
 .bui-md li + li { margin-top: 0.25em; }
 .bui-md li::marker { color: var(--ink-3); }
 .bui-md strong { font-weight: 600; }
-.bui-md a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.bui-md a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .bui-md code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inset); padding: 0.1em 0.35em; border-radius: 5px; box-shadow: var(--shadow-hairline); }
 .bui-md pre { background: var(--inset); border-radius: var(--radius-card); box-shadow: var(--shadow-hairline); padding: 10px 12px; overflow-x: auto; }
 .bui-md pre code { background: none; box-shadow: none; padding: 0; }
@@ -113,3 +117,6 @@
 @media (prefers-reduced-motion: reduce) {
 	.bui *, .bui *::before, .bui *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* uppercase mono micro-label (eyebrows, badges, data annotations) */
+.bui-label { font-family: var(--font-label); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }

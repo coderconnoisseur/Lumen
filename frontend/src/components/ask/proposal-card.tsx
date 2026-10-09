@@ -56,7 +56,7 @@ export function ProposalCard({ proposal }: { proposal: Proposal }) {
 						{proposal.target}
 					</span>
 					{details.map(([key, value]) => (
-						<span key={key} className="mr-1 inline-flex items-center rounded-chip bg-accent-tint px-1.5 text-[12px] text-accent-ink">
+						<span key={key} className="mr-1 inline-flex items-center rounded-chip bg-hover-2 px-1.5 text-[12px] text-ink">
 							{key.replace(/_/g, " ")}: {String(value)}
 						</span>
 					))}
@@ -77,7 +77,7 @@ export function ProposalCard({ proposal }: { proposal: Proposal }) {
 						<Button variant="secondary" disabled={busy} onClick={() => void decide("reject")}>
 							Reject
 						</Button>
-						<Button variant="accent" disabled={busy} onClick={() => void decide("approve")}>
+						<Button variant="primary" disabled={busy} onClick={() => void decide("approve")}>
 							Approve
 						</Button>
 					</span>

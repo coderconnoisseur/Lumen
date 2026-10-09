@@ -28,7 +28,7 @@ function CitationChip({ number, source, onClick }: { number: number; source?: Ch
 			className="mx-0.5 inline-flex h-[18px] max-w-56 translate-y-[-1px] items-center gap-1 rounded-[5px] bg-inset px-1 align-middle font-mono text-[10.5px] text-ink-2 shadow-hairline transition-colors duration-150 hover:bg-hover hover:text-ink disabled:cursor-default"
 			style={{ animation: "pop-in 250ms cubic-bezier(0.23,1,0.32,1) both" }}
 		>
-			<span className="flex size-3 shrink-0 items-center justify-center rounded-[3px] bg-accent-tint text-[8px] font-bold text-accent-ink">
+			<span className="flex size-3 shrink-0 items-center justify-center rounded-[3px] bg-hover-2 text-[8px] font-semibold text-ink">
 				{number}
 			</span>
 			{source && <span className="truncate font-sans">{source.title}</span>}
@@ -42,11 +42,11 @@ function SourceCard({ source, number, active }: { source: ChatSource; number: nu
 			id={`source-${source.chunk_id}`}
 			className={cn(
 				"overflow-hidden rounded-card bg-surface shadow-card transition-shadow duration-300",
-				active && "ring-1 ring-accent"
+				active && "ring-1 ring-ink-3"
 			)}
 		>
 			<div className="flex items-center gap-2.5 border-b border-line px-3 py-2.5">
-				<span className="flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-accent-tint text-[9px] font-bold text-accent-ink">
+				<span className="flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-hover-2 text-[9px] font-semibold text-ink">
 					{number}
 				</span>
 				<span className="min-w-0 truncate text-[13px] font-medium text-ink">{source.title}</span>
@@ -177,7 +177,7 @@ export function Answer({
 							{sources.slice(0, 4).map((s, i) => (
 								<span
 									key={s.chunk_id}
-									className="flex size-3.5 items-center justify-center rounded-full bg-accent-tint text-[8px] font-bold text-accent-ink shadow-[0_0_0_1.5px_var(--page)]"
+									className="flex size-3.5 items-center justify-center rounded-full bg-hover-2 text-[8px] font-semibold text-ink shadow-[0_0_0_1.5px_var(--page)]"
 								>
 									{i + 1}
 								</span>
