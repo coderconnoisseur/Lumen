@@ -94,7 +94,8 @@ def _record(session: Session, user_id: str, inv: dict, email: str | None = None)
     tx = Transaction(id=str(uuid.uuid4()), user_id=user_id, vendor_name=inv["vendor_name"],
                      invoice_number=inv["invoice_number"], date=inv["date"], total_amount=inv["total_amount"],
                      tax_amount=inv.get("tax_amount"), payment_method=inv.get("payment_method"),
-                     address=inv.get("address"), category=inv.get("category"))
+                     address=inv.get("address"), category=inv.get("category"), currency=inv.get("currency"),
+                     po_number=inv.get("po_number"))
     session.add(tx)
     for i in inv.get("items") or []:
         session.add(TransactionItem(id=str(uuid.uuid4()), transaction_id=tx.id, item_name=i["item_name"],

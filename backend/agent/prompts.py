@@ -31,12 +31,17 @@ FORCE_ANSWER = ("You have used the maximum number of tool calls. Answer now from
                 "and say if something is missing.")
 
 
+# user_id: the server scopes every query to the signed-in user. currency/po_number (EXT-01, 2026-10-09) reach the
+# prompt with the next agent re-recording (the prompt is part of every recorded request); get_schema lists them.
+# ponytail: hidden columns; drop currency/po_number from this set when the agent suites are re-recorded.
+_NOT_IN_PROMPT = {"user_id", "currency", "po_number"}
+
+
 def _schema() -> str:
-    """One line per table, generated from the models (like get_schema). user_id is omitted: the server scopes
-    every query to the signed-in user."""
+    """One line per table, generated from the models (like get_schema)."""
     from models import Transaction, TransactionItem
 
-    return "\n".join(f"  {m.__tablename__}({', '.join(c.name for c in m.__table__.columns if c.name != 'user_id')})"
+    return "\n".join(f"  {m.__tablename__}({', '.join(c.name for c in m.__table__.columns if c.name not in _NOT_IN_PROMPT)})"
                      for m in (Transaction, TransactionItem))
 
 

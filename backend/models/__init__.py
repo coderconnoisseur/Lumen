@@ -45,6 +45,8 @@ class Transaction(db.Model):
 
     address = db.Column(db.String, nullable=True)
     category = db.Column(db.String, nullable=True)
+    currency = db.Column(db.String(3), nullable=True)  # as printed (ISO code), never converted; NULL = old rows
+    po_number = db.Column(db.String, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

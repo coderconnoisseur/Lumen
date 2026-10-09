@@ -89,6 +89,8 @@ def get_transactions(user_id=None):
                 'payment_method': txn.payment_method,
                 'address': txn.address,
                 'category': txn.category,
+                'currency': txn.currency,
+                'po_number': txn.po_number,
                 'created_at': txn.created_at.isoformat() if txn.created_at else None,
                 'items': [
                     {
@@ -292,6 +294,8 @@ def update_transaction(transaction_id):
                 'payment_method': updated_transaction.payment_method,
                 'address': updated_transaction.address,
                 'category': updated_transaction.category,
+                'currency': updated_transaction.currency,
+                'po_number': updated_transaction.po_number,
                 'items': [
                     {
                         'item_name': item.item_name,

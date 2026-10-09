@@ -55,14 +55,14 @@ def test_schema_is_generated_from_the_models(db, world):
 def test_system_prompt_lists_every_queryable_column():
     """The model guessed `amount`, `vendor` and a `vendors` table before calling get_schema; the prompt now
     carries the real columns, generated from the models. user_id is left out: the server scopes every query."""
-    from agent.prompts import system_prompt
+    from agent.prompts import _NOT_IN_PROMPT, system_prompt
     from evals.generator.world import AS_OF
     from models import Transaction, TransactionItem
 
     prompt = system_prompt(AS_OF)
     for model in (Transaction, TransactionItem):
         for col in model.__table__.columns:
-            assert (col.name in prompt) == (col.name != "user_id"), col.name
+            assert (col.name in prompt) == (col.name not in _NOT_IN_PROMPT), col.name
     assert AS_OF.isoformat() in prompt
 
 
