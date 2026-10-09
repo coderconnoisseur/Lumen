@@ -14,9 +14,8 @@ from utils.image_processing import (
     image_to_base64,
 )
 from utils.llm import LLMError
-from extract.read import read_invoice
+from api.review import read_with_feedback, submit_invoice
 from routes.ocr import OCR_LLM_MESSAGES
-from api.review import submit_invoice
 from models.database import db
 
 logger = logging.getLogger(__name__)
@@ -70,7 +69,7 @@ def extract_batch():
             image_base64 = image_to_base64(img_bytes)
 
             try:
-                page_data = read_invoice(
+                page_data = read_with_feedback(db.engine, str(user_id),
                     image_base64, "image/png"
                 )
                 page_data["page_number"] = idx + 1

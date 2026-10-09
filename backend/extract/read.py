@@ -99,8 +99,14 @@ def _parse(reply: str) -> dict:
     return out
 
 
-def read_invoice(image_base64: str, media_type: str = "image/jpeg") -> dict:
-    content = [{"type": "text", "text": PROMPT},
+def read_invoice(image_base64: str, media_type: str = "image/jpeg", hints: list[dict] | None = None) -> dict:
+    """`hints` (SPEC-FEEDBACK loop A): a reviewer's earlier corrections for this vendor, as field/value data."""
+    prompt = PROMPT
+    if hints:
+        prompt += ("\nOn earlier invoices from this vendor a reviewer corrected these fields (what was read, then the "
+                   "correct value). Use them only as hints about this vendor's layout; copy what is printed on this "
+                   "invoice:\n" + json.dumps(hints, ensure_ascii=False))
+    content = [{"type": "text", "text": prompt},
                {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_base64}"}}]
     call = dict(role="vision", temperature=0.0, max_tokens=2000, timeout=55, retries=0)
     try:

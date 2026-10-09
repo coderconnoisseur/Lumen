@@ -7,8 +7,7 @@ from models import EmailConfig, Receipt, Transaction
 from models.database import db
 from utils.email_service import EmailService
 from utils.image_processing import image_to_base64, render_pdf_first_page, pil_image_to_bytes
-from extract.read import read_invoice
-from api.review import submit_invoice
+from api.review import read_with_feedback, submit_invoice
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +138,7 @@ def process_invoice_attachment(content: bytes, filename: str, user_id: str, emai
             media_type = 'image/png'
             
             logger.info("Extracting data from PDF with AI...")
-            structured_data = read_invoice(image_base64, media_type)
+            structured_data = read_with_feedback(db.engine, str(user_id), image_base64, media_type)
             
         elif file_ext in media_type_map:
             # Process image directly
@@ -147,7 +146,7 @@ def process_invoice_attachment(content: bytes, filename: str, user_id: str, emai
             image_base64 = image_to_base64(content)
             media_type = media_type_map[file_ext]
             
-            structured_data = read_invoice(image_base64, media_type)
+            structured_data = read_with_feedback(db.engine, str(user_id), image_base64, media_type)
         else:
             return {
                 'success': False,
