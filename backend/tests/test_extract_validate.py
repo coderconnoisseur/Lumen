@@ -88,3 +88,60 @@ def test_a_line_item_without_an_amount_skips_the_totals_check():
 def test_a_new_user_is_not_warned_about_every_vendor():
     fresh = Context(today=CTX.today)
     assert "unknown_vendor" not in {f.rule for f in validate(_inv(), fresh)}
+
+
+# --- SPEC-FEEDBACK loop B: warnings adapt, failures never do ---
+
+def _h(status, rules, edited=False, vendor="techhub electronics"):
+    return {"vendor": vendor, "status": status, "edited": edited, "rules": set(rules)}
+
+
+def test_three_unchanged_approvals_in_a_row_suppress_that_warning_for_that_vendor():
+    from extract.validate import suppressed_warnings
+
+    hist = [_h("approved", ["unknown_po"])] * 3  # newest first
+    assert suppressed_warnings(hist) == {("techhub electronics", "unknown_po")}
+    assert suppressed_warnings(hist[:2]) == set()  # two isn't enough
+
+
+def test_a_rejection_or_an_edited_approval_breaks_the_streak():
+    from extract.validate import suppressed_warnings
+
+    assert suppressed_warnings([_h("approved", ["unknown_po"])] * 2 + [_h("rejected", [])]
+                               + [_h("approved", ["unknown_po"])] * 3) == set()
+    assert suppressed_warnings([_h("approved", ["unknown_po"])] * 2
+                               + [_h("approved", ["unknown_po"], edited=True), _h("approved", ["unknown_po"])]) == set()
+
+
+def test_invoices_without_that_warning_neither_count_nor_break_the_streak():
+    from extract.validate import suppressed_warnings
+
+    hist = [_h("approved", ["unknown_po"]), _h("approved", []), _h("approved", ["unknown_po"]),
+            _h("flagged", ["unknown_po"]), _h("approved", ["unknown_po"])]  # undecided items are skipped too
+    assert suppressed_warnings(hist) == {("techhub electronics", "unknown_po")}
+
+
+@pytest.mark.parametrize("rule", ["total_mismatch", "duplicate", "bad_date", "po_mismatch", "possible_injection"])
+def test_failures_are_never_suppressed(rule):
+    from extract.validate import suppressed_warnings
+
+    assert suppressed_warnings([_h("approved", [rule])] * 10) == set()
+
+
+def test_a_suppressed_warning_is_shown_as_a_note_and_keeps_confidence_high():
+    ctx = Context(today=CTX.today, known_vendors=CTX.known_vendors, purchase_orders=CTX.purchase_orders,
+                  suppressed={("techhub electronics", "unknown_po")})
+    flags = validate(_inv(vendor_name="TechHub Electronics", po_number="REF-9"), ctx)
+    assert [(f.rule, f.severity) for f in flags] == [("unknown_po", "note")]
+    assert confidence(flags) == "high"
+    # ...but a real fault on the same vendor is still caught
+    bad = validate(_inv(vendor_name="TechHub Electronics", po_number="REF-9", total_amount=999.0), ctx)
+    assert confidence(bad) == "low"
+
+
+def test_the_feedback_stream_misses_no_fault_and_never_adds_review_work():
+    from evals.suites import feedback
+
+    m = feedback.run("none", "dev")["metrics"]
+    assert m["missed_faults"] == {"with_loop_b": 0, "without": 0}
+    assert m["review_load"]["with_loop_b"]["passed"] <= m["review_load"]["without"]["passed"]

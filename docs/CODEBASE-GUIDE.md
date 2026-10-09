@@ -245,4 +245,10 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   history → no unknown-vendor warning.
 - `/review` (frontend, minimal test page): flagged invoices with their reasons; approve (optionally with a
   corrected total) or reject.
-- Coming: structured vision extraction (EXT-01), feedback loops (SPEC-FEEDBACK, draft).
+- **Feedback loop B** (SPEC-FEEDBACK): `extract.validate.suppressed_warnings(history)` reads the user's review
+  history (newest first; `api.review._history`): a warning (`unknown_vendor`, `unknown_po`, `no_currency`)
+  approved unchanged `STREAK` (3) times in a row for a vendor becomes a `note` flag (visible, never lowers
+  confidence); a rejection or an edited approval ends the streak; failures never adapt. `review_items.extracted`
+  keeps what the reader produced, so "edited" = approved invoice differs from it. Measured by
+  `evals/suites/feedback.py` (simulated 6-month stream, with vs without; missed faults must stay 0).
+- Coming: structured vision extraction (EXT-01), feedback loop A (corrections as examples).

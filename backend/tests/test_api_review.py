@@ -105,3 +105,33 @@ def test_a_purchase_order_is_checked_from_the_database(client):
                   {"u": ALICE, "l": json.dumps([{"item": "Milk 1L", "quantity": 5, "unit_price": 60.0}])})
     item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(po_number="PO-7")}).json()["item"]
     assert [f["rule"] for f in item["flags"]] == ["po_mismatch"]  # ordered 5, billed 2
+
+
+def test_three_unchanged_approvals_silence_a_warning_for_that_user_only(client):
+    """SPEC-FEEDBACK loop B, through the API: FreshMart prints its own reference in the PO field."""
+    def send(user, n):
+        return client.post("/api/review", headers=bearer(user),
+                           json={"invoice": invoice(invoice_number=f"FM-REF-{n}", po_number=f"REF-{n}")}).json()["item"]
+
+    for n in range(3):
+        item = send(ALICE, n)
+        assert item["status"] == "flagged" and [f["rule"] for f in item["flags"]] == ["unknown_po"]
+        client.post(f"/api/review/{item['id']}/approve", headers=bearer(ALICE), json={})
+    fourth = send(ALICE, 3)
+    assert fourth["status"] == "approved" and fourth["flags"][0]["severity"] == "note"
+
+    with client.engine.begin() as c:  # Bob has the same vendor history but none of Alice's approvals
+        c.execute(text("INSERT INTO transactions (id, user_id, vendor_name, invoice_number, date, total_amount) "
+                       "VALUES ('t9', :u, 'FreshMart Supermarket', 'FM-1', '2026-05-02', 300)"), {"u": BOB})
+    assert send(BOB, 4)["status"] == "flagged"
+
+
+def test_an_edited_approval_does_not_teach(client):
+    for n in range(3):
+        item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(
+            invoice_number=f"FM-E-{n}", po_number=f"REF-{n}")}).json()["item"]
+        client.post(f"/api/review/{item['id']}/approve", headers=bearer(ALICE),
+                    json={"edits": {"payment_method": "Cash"} if n == 1 else {}})
+    item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(
+        invoice_number="FM-E-9", po_number="REF-9")}).json()["item"]
+    assert item["status"] == "flagged"  # newest approvals: 1 unchanged, then an edited one ends the streak

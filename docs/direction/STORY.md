@@ -227,3 +227,16 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** Every planted fault caught on both splits (11/11 dev, 5/5 test), zero false flags on 24 clean invoices.
   Reported as a ceiling (the rules know the fault types, the input is gold); the real number arrives when the vision
   model's reads feed the same rules. Story point: separate what the model must do from what code can guarantee.
+
+## 20. A feedback loop that learns without ever relaxing safety (SPEC-FEEDBACK loop B)
+- **S:** A review queue is only useful if it doesn't drown people in harmless warnings, but "learning" must never
+  let a real fault through.
+- **T:** Let warnings a user keeps approving go quiet per vendor, keep failures untouchable, and prove both.
+- **A:** Derived streaks from the user's own review history (3 unchanged approvals in a row; edits and rejections end
+  them), shown as visible notes, never applied to failure rules, per user. Built a 6-month simulated stream through
+  the real review path with a scripted reviewer, run with and without the loop; planted faults deliberately on the
+  vendors whose warnings get silenced.
+- **R:** 0 missed faults in every run. As specified, review load fell only 48 → 44: one rejected *fault* from a quirky
+  vendor reset everything learned about it. Measuring a variant (only rejections no failure explains reset) gave
+  48 → 36 and halved months 4-6, still 0 missed; taken to the owner rather than shipped silently. Story point: the
+  eval found a design flaw in an approved spec before users did.
