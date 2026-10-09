@@ -39,6 +39,8 @@ def kind_for_status(status: int) -> str:
 
 
 def error_message(body) -> str:
+    if isinstance(body, list) and body:  # Gemini wraps its error object in a list
+        body = body[0]
     err = body.get("error") if isinstance(body, dict) else None
     if isinstance(err, dict):
         return str(err.get("message") or err)

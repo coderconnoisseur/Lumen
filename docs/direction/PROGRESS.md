@@ -302,6 +302,6 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    120, 0 missed; variant "only unexplained rejections reset" approved and shipped 2026-10-09: 48 → 36, 0 missed
    (`benchmarks/2026-10-07-feedback-loop-b.md`, STORY 20). Loop A needs EXT-01. EXT-01 built 2026-10-09 (`extract/read.py`, fixed schema incl.
    currency/PO/line items/notes, validated, one retry; extraction suite scores the new fields, end-to-end fault
-   detection and an injection hard gate). Vision on Gemini 2.5 Flash-Lite (free ~1K/day) once the owner adds
+   detection and an injection hard gate). Vision on Gemini 3.1 Flash-Lite (free ~1K/day) once the owner adds
    `GEMINI_API_KEY`; then record + replay `extraction` (80 images, one sitting) and write the snapshot.
 8. UI refactor (owner-led, last).
