@@ -10,4 +10,10 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -fsS --max-time 90 --retry 2 https://api.lumen.nishantbuilds.me/health
+      # Until the DNS record exists there is nothing to keep warm; after that, a failed ping is a real outage.
+      - run: |
+          if ! getent hosts api.lumen.nishantbuilds.me > /dev/null; then
+            echo "api.lumen.nishantbuilds.me doesn't resolve yet (DNS not set up); skipping."
+            exit 0
+          fi
+          curl -fsS --max-time 90 --retry 2 https://api.lumen.nishantbuilds.me/health
