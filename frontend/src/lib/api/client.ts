@@ -571,6 +571,7 @@ export interface LumenDocument {
 	filename: string | null;
 	chunk_count: number;
 	created_at: string | null;
+	file_key?: string | null;
 }
 
 export interface DocumentSource {
@@ -688,5 +689,13 @@ export const reviewApi = {
 	decide: async (id: string, decision: "approve" | "reject", body: { edits?: Record<string, unknown>; note?: string } = {}): Promise<ReviewItem> => {
 		const response = await apiClient.post(`/api/review/${encodeURIComponent(id)}/${decision}`, body);
 		return response.data.item;
+	},
+};
+
+// Original uploads (invoices, documents) are only served to their owner, so fetch with the token and open a blob.
+export const filesApi = {
+	open: async (key: string): Promise<void> => {
+		const response = await apiClient.get(`/api/files/${key}`, { responseType: "blob" });
+		window.open(URL.createObjectURL(response.data as Blob), "_blank", "noopener");
 	},
 };

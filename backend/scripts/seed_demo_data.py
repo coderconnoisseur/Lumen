@@ -54,6 +54,7 @@ def seed(engine, store, embedder, user_id: str) -> dict:
     from evals.generator.world import build_world
     from models.database import db
     from rag.ingest import ingest_pdf
+    from utils import files
 
     world = build_world(42)
     source = next(u for u in world["users"] if u["key"] == "u1")
@@ -87,9 +88,11 @@ def seed(engine, store, embedder, user_id: str) -> dict:
     corpus = BACKEND / "evals" / "data" / "corpus"
     docs = sorted(p for p in corpus.glob("*.pdf") if "-u1-" in p.name or p.name.startswith("po-po-u1"))
     for path in docs:
-        ingest_pdf(store, embedder, user_id=user_id, data=path.read_bytes(), filename=path.name,
-                   doc_type="purchase_order" if path.name.startswith("po-") else
-                   "policy" if path.name.startswith("policy") else "contract")
+        data = path.read_bytes()
+        doc_id = ingest_pdf(store, embedder, user_id=user_id, data=data, filename=path.name,
+                            doc_type="purchase_order" if path.name.startswith("po-") else
+                            "policy" if path.name.startswith("policy") else "contract")
+        files.keep(files.document_key(user_id, doc_id), data)  # so "Open original" works for demo documents
     return {"transactions": len(rows), "transaction_items": len(items), "documents": len(docs)}
 
 

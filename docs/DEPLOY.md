@@ -19,13 +19,15 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
    This is `DATABASE_URL` for Render. The database is in `ap-southeast-1` (Singapore), so `render.yaml` runs the
    API in Render's Singapore region.
 4. **Project Settings → API**: copy the **Project URL** (`SUPABASE_URL`, also `NEXT_PUBLIC_SUPABASE_URL`) and the
-   **anon public** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+   **anon public** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`), and the **service_role** key (`SUPABASE_SERVICE_ROLE_KEY`, for
+   Render only: the API keeps original uploads in a private Storage bucket, `lumen-files`, created on first upload).
 
 ## 2. Render (the API)
 1. Sign in at render.com with GitHub. If asked, give the Render GitHub app access to `coderconnoisseur/Lumen`.
 2. **New → Blueprint** → pick `coderconnoisseur/Lumen`, branch `main`. It reads `render.yaml` and proposes one
    service, `lumen-api` (free).
-3. Fill the five secret values it asks for: `DATABASE_URL` (step 1.3), `SUPABASE_URL` (1.4), `GROQ_API_KEY`,
+3. Fill the six secret values it asks for: `DATABASE_URL` (step 1.3), `SUPABASE_URL` (1.4),
+   `SUPABASE_SERVICE_ROLE_KEY` (1.4, the **service_role** key: server only, never in the frontend), `GROQ_API_KEY`,
    `GEMINI_API_KEY` and `OPENROUTER_API_KEY` (same values as your local `backend/.env`). Everything else is preset. → **Apply**.
 4. Wait for the first deploy (5-10 min: it installs the ML packages). Open
    `https://lumen-api.onrender.com/health` (the exact `.onrender.com` name is on the service page): it should say

@@ -9,6 +9,8 @@ from api.deps import current_user, rate_limit
 from config import Config
 from rag.service import DOC_TYPES, RagService, get_service
 
+from utils import files
+
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
@@ -34,18 +36,24 @@ def upload(file: UploadFile = File(...), doc_type: str = Form("other"), claims: 
         document = rag.ingest(claims["sub"], data, file.filename or "document.pdf", doc_type)
     except ValueError:  # no text layer (e.g. a scanned PDF): OCR for documents is not built yet
         raise HTTPException(422, "No readable text found in this PDF. Scanned documents aren't supported yet.")
-    return {"success": True, "document": document}
+    files.keep(files.document_key(claims["sub"], document["id"]), data)  # the original PDF, opened from references
+    return {"success": True, "document": _with_file(claims["sub"], document)}
+
+
+def _with_file(user_id: str, document: dict) -> dict:
+    return {**document, "file_key": files.document_key(user_id, document["id"])}
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
 def list_documents(claims: dict = Depends(current_user), rag: RagService = Depends(get_service)):
-    return {"success": True, "documents": rag.store.list_documents(claims["sub"])}
+    return {"success": True, "documents": [_with_file(claims["sub"], d) for d in rag.store.list_documents(claims["sub"])]}
 
 
 @router.delete("/{doc_id}", dependencies=[Depends(rate_limit())])
 def delete_document(doc_id: str, claims: dict = Depends(current_user), rag: RagService = Depends(get_service)):
     if not rag.store.delete_document(claims["sub"], doc_id):
         raise HTTPException(404, "Document not found")
+    files.get_store().delete(files.document_key(claims["sub"], doc_id))
     return {"success": True}
 
 

@@ -17,6 +17,7 @@ from utils.llm import LLMError
 from api.review import read_with_feedback, submit_invoice
 from routes.ocr import OCR_LLM_MESSAGES
 from models.database import db
+from utils.files import invoice_key, keep
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def extract_batch():
             return jsonify({"error": "No pages found in PDF"}), 400
 
         results = []
+        file_key = keep(invoice_key(str(user_id), file_content, "pdf"), file_content)  # one original for all pages
         saved_ids = []
 
         for idx, page_image in enumerate(images):
@@ -73,6 +75,7 @@ def extract_batch():
                     image_base64, "image/png"
                 )
                 page_data["page_number"] = idx + 1
+                page_data["file_key"] = file_key
                 page_data["source_file"] = file.filename
 
                 normalized = page_data

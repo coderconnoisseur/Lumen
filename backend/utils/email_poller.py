@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from models import EmailConfig, Receipt, Transaction
 from models.database import db
+from utils.files import invoice_key, keep
 from utils.email_service import EmailService
 from utils.image_processing import image_to_base64, render_pdf_first_page, pil_image_to_bytes
 from api.review import read_with_feedback, submit_invoice
@@ -158,6 +159,7 @@ def process_invoice_attachment(content: bytes, filename: str, user_id: str, emai
         structured_data['source_file'] = filename
         structured_data['file_type'] = file_ext
         structured_data['source'] = 'email'
+        structured_data['file_key'] = keep(invoice_key(str(user_id), content, file_ext), content)
         
         # Normalize the data
         logger.info("Normalizing transaction data...")

@@ -315,6 +315,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    right, every planted fault caught end to end, 0/34 false flags (`benchmarks/2026-10-09-extraction-ext01-gemini-
    dev.md`, STORY 22). **Saturated**: a harder real-world set is needed before loop A can show a gain.
    Transactions now store `currency` and `po_number` as printed (fixes CHF shown as ₹ at the data level).
+   Original uploads kept (local folder / private Supabase bucket), served to their owner via `/api/files`;
+   "Open original" on the documents and review test pages.
    Loop A built 2026-10-09 (`corrections_for`, `read_with_feedback`, hints in the prompt); measurement waits for
    the harder set.
 8. UI refactor (owner-led, last).

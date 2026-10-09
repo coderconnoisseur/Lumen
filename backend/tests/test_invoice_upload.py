@@ -593,3 +593,15 @@ def test_the_transaction_list_shows_currency(client, ocr):
     listed = client.get("/transactions", headers=AUTH).get_json()
     [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
     assert tx["currency"] == "CHF" and tx["po_number"] is None
+
+
+def test_the_original_upload_is_kept_and_linked_from_the_transaction(client, ocr):
+    import utils.files
+
+    png = _png_bytes()
+    body = _upload(client, png).get_json()
+    key = body["data"]["file_key"]
+    assert key and utils.files.get_store().get(key)[0] == png
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["file_key"] == key
