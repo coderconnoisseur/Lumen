@@ -230,7 +230,7 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   cleaned with `utils/normalize` helpers; an unusable reply gets one retry, then `LLMError(BAD_RESPONSE)`. Text on
   the invoice is data: `notes` keeps it verbatim for the injection check. Used by upload, batch and the email poller
   (the old `utils/openrouter.py` is gone).
-- Vision models: the groq tier tries **Gemini 2.5 Flash-Lite** first (`provider: gemini` in `llm/registry.yaml`,
+- Vision models: the groq tier tries **Gemini 3.1 Flash-Lite** first (`provider: gemini` in `llm/registry.yaml`,
   key `GEMINI_API_KEY`; free tier ~1K requests/day), then OpenRouter's free chain. A registry row may name its own
   provider.
 - `extract/validate.py`: `validate(invoice, Context) -> [Flag]`, pure rules, no LLM: `total_mismatch` (line items

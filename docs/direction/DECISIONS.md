@@ -24,7 +24,7 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-03 | Gated SQL metric = column-tolerant execution accuracy; strict reported alongside | Owner (delegated) | Extra columns don't make an answer wrong, wrong rows do | `PROGRESS.md` |
 | 2026-10-04 | Groq text chain gpt-oss-120b → qwen3.8-27b → gpt-oss-20b; judge = qwen (different family) | Build | Tied on SQL; 120b best point estimate, no fallbacks | `LLM-BENCH.md` |
 | 2026-10-04 | Invoice images stay on OpenRouter's free vision model | Build | Groq has no vision model | `LLM-BENCH.md` |
-| 2026-10-09 | Invoice images move to Gemini 2.5 Flash-Lite (free ~1K/day), OpenRouter as fallback | Owner | OpenRouter's ~50/day made one recording take days; Groq's key has no vision model | `llm/registry.yaml` |
+| 2026-10-09 | Invoice images move to Gemini 3.1 Flash-Lite (free ~1K/day), OpenRouter as fallback | Owner | OpenRouter's ~50/day made one recording take days; Groq's key has no vision model | `llm/registry.yaml` |
 | 2026-10-09 | Never block on recordings or quotas: run them in the background and keep building; order invoice+RAG → UI polish → more features | Owner | Keep moving | memory |
 | 2026-10-04 | After every recording, replay immediately and confirm the numbers match | Build | A recorder bug once made replays fail (STORY 15) | `STORY.md` 15 |
 | 2026-10-06 | Agent grader: an answer from `lookup_vendors` counts as the SQL route; "not found" after the right tool is an answer | Owner | Grade the agent, not its phrasing; old and new runs re-scored alike | `STORY.md` 17 |

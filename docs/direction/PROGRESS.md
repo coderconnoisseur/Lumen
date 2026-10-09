@@ -256,7 +256,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   tokens: the old pipeline dumps up to 100 SQL rows into the answer prompt. Fix when `/chat` moves to the agent, or
   cap the rows/raise max_tokens before then.
 - **Where every benchmark lives:** `docs/direction/benchmarks/` (dated snapshots), `docs/direction/LLM-BENCH.md`
-  (model choice), `docs/direction/STORY.md` (STAR narrative, 21 entries), `backend/evals/results/` (bench JSON;
+  (model choice), `docs/direction/STORY.md` (STAR narrative, 22 entries), `backend/evals/results/` (bench JSON;
   release JSON once release-0 exists), and the recordings that reproduce them in `backend/evals/cassettes/`.
 
 ## 2026-10-06: agent prompt iteration (PR #15, `feat/agent-prompt-schema`)
@@ -302,6 +302,7 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    120, 0 missed; variant "only unexplained rejections reset" approved and shipped 2026-10-09: 48 → 36, 0 missed
    (`benchmarks/2026-10-07-feedback-loop-b.md`, STORY 20). Loop A needs EXT-01. EXT-01 built 2026-10-09 (`extract/read.py`, fixed schema incl.
    currency/PO/line items/notes, validated, one retry; extraction suite scores the new fields, end-to-end fault
-   detection and an injection hard gate). Vision on Gemini 2.5 Flash-Lite (free ~1K/day) once the owner adds
-   `GEMINI_API_KEY`; then record + replay `extraction` (80 images, one sitting) and write the snapshot.
+   detection and an injection hard gate). Recorded 2026-10-09 on Gemini 3.1 Flash-Lite: 56/56 all fields
+   right, every planted fault caught end to end, 0/34 false flags (`benchmarks/2026-10-09-extraction-ext01-gemini-
+   dev.md`, STORY 22). **Saturated**: a harder real-world set is needed before loop A can show a gain.
 8. UI refactor (owner-led, last).
