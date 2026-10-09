@@ -284,6 +284,13 @@ Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
   Groq quota); until then `agent.prompts._NOT_IN_PROMPT` hides them and `get_schema` lists them.
 - Generation suite (AI judge on written answers) + ~20 owner labels; release-0 / BASELINE.md / README tables.
 - Agent extras AGT-05 (memory) and AGT-06 (tracing) only if a real need appears.
+- **General finance questions with live data** (2026-10-09, owner): "What is the INR to USD rate today?" gets "I don't
+  have that information": the agent only sees the user's own data and has no live sources. Later: a tool for exchange
+  rates (and similar public facts) from a free rates API, cited like other evidence; also lets totals be shown in
+  one currency.
+- **Document Q&A citation format** (2026-10-09): the live model sometimes writes citations as `[ id#s04 ]` or
+  `【id#s04】`. The agent accepts both now (`agent/graph.py`); `rag/answer.py` (`/api/documents/ask`) still has the
+  strict pattern, so such citations are dropped there. Fixing it may move the RAG eval numbers; re-run them with it.
 
 ## Next step
 **Now (2026-10-09): UI phase.** A separate agent polishes the UI with the owner (SPEC-UX, the polish backlog below and in
