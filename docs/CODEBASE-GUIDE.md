@@ -260,4 +260,8 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   confidence); a rejection or an edited approval ends the streak; failures never adapt. `review_items.extracted`
   keeps what the reader produced, so "edited" = approved invoice differs from it. Measured by
   `evals/suites/feedback.py` (simulated 6-month stream, with vs without; missed faults must stay 0).
-- Coming: structured vision extraction (EXT-01), feedback loop A (corrections as examples).
+- **Feedback loop A** (SPEC-FEEDBACK): `api.review.corrections_for(engine, user, vendor)` returns the fields a
+  reviewer corrected on that user's approved invoices from that vendor (`extracted` vs approved, newest first, max
+  3, as `{field, read, correct}`). `read_with_feedback` (used by upload, batch and email) reads once and, only if
+  that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
+  as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.

@@ -16,8 +16,7 @@ from utils.image_processing import (
     pil_image_to_bytes,
     render_pdf_first_page,
 )
-from extract.read import read_invoice
-from api.review import submit_invoice
+from api.review import read_with_feedback, submit_invoice
 from models.database import db
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ def extract_invoice_data():
 
             image_base64 = image_to_base64(pil_image_to_bytes(first_page, format='PNG'))
             logger.info("Processing PDF page 1/%d with the vision model...", total_pages)
-            structured_data = read_invoice(image_base64, 'image/png')
+            structured_data = read_with_feedback(db.engine, str(user_id), image_base64, 'image/png')
             structured_data['pages_processed'] = 1
             structured_data['total_pages'] = total_pages
         elif file_ext in CONVERT_TO_PNG:
@@ -98,10 +97,10 @@ def extract_invoice_data():
                     code="image_unreadable",
                 )
             logger.info("Processing %s image as PNG with the vision model...", file_ext)
-            structured_data = read_invoice(image_to_base64(png), 'image/png')
+            structured_data = read_with_feedback(db.engine, str(user_id), image_to_base64(png), 'image/png')
         elif file_ext in MEDIA_TYPES:
             logger.info("Processing %s image with the vision model...", file_ext)
-            structured_data = read_invoice(
+            structured_data = read_with_feedback(db.engine, str(user_id),
                 image_to_base64(file_content), MEDIA_TYPES[file_ext]
             )
         else:

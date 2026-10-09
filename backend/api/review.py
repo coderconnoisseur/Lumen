@@ -133,6 +133,47 @@ def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | Non
         return _item_dict(item)
 
 
+CORRECTABLE = ("vendor_name", "invoice_number", "date", "currency", "po_number", "subtotal", "tax_amount",
+               "total_amount", "payment_method", "address", "category")
+MAX_HINTS = 3
+
+
+def corrections_for(engine: Engine, user_id: str, vendor: str | None, limit: int = MAX_HINTS) -> list[dict]:
+    """SPEC-FEEDBACK loop A: fields a reviewer corrected on this user's approved invoices from `vendor`, newest
+    first, as {field, read, correct}. Never crosses users."""
+    from models import ReviewItem
+
+    if not vendor:
+        return []
+    out = []
+    with Session(engine) as session:
+        rows = session.scalars(select(ReviewItem).where(ReviewItem.user_id == user_id, ReviewItem.status == "approved",
+                                                        ReviewItem.extracted.is_not(None))
+                               .order_by(ReviewItem.created_at.desc(), ReviewItem.id.desc())).all()
+        for r in rows:
+            approved, read = json.loads(r.invoice), json.loads(r.extracted)
+            if (approved.get("vendor_name") or "").lower() != vendor.lower():
+                continue
+            out += [{"field": f, "read": read.get(f), "correct": approved.get(f)}
+                    for f in CORRECTABLE if read.get(f) != approved.get(f)]
+            if len(out) >= limit:
+                break
+    return out[:limit]
+
+
+def read_with_feedback(engine: Engine, user_id: str, image_base64: str, media_type: str) -> dict:
+    """Read an invoice; if the user has corrected this vendor's invoices before, read it again with those
+    corrections as hints (one extra call, only for vendors with a correction history). The hints used are kept on
+    the invoice (`feedback_hints`) so the reviewer can see them."""
+    from extract import read
+
+    inv = read.read_invoice(image_base64, media_type)
+    hints = corrections_for(engine, user_id, inv.get("vendor_name"))
+    if hints:
+        inv = {**read.read_invoice(image_base64, media_type, hints=hints), "feedback_hints": hints}
+    return inv
+
+
 @router.post("", dependencies=[Depends(rate_limit())])
 def submit(body: Submit, claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
     return {"success": True, "item": submit_invoice(engine, claims["sub"], body.invoice, claims.get("email"))}

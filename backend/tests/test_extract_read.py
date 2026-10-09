@@ -75,3 +75,13 @@ def test_junk_line_items_are_dropped_not_fatal(model):
     replies, _ = model
     replies.append(json.dumps({**REPLY, "items": "two things"}))
     assert read_invoice("aGk=", "image/png")["items"] == []
+
+
+def test_hints_go_into_the_prompt_as_field_value_data(model):
+    from extract.read import read_invoice
+
+    replies, prompts = model
+    replies.append(json.dumps(REPLY))
+    read_invoice("aGk=", "image/png", hints=[{"field": "total_amount", "read": 999.0, "correct": 1903.88}])
+    text = prompts[0][0]["text"]
+    assert '"field": "total_amount"' in text and "corrected" in text

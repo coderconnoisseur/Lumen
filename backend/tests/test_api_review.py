@@ -145,3 +145,31 @@ def test_an_approved_invoice_keeps_its_currency_and_po_number(client):
         row = c.execute(text("SELECT currency, po_number FROM transactions WHERE id = :t"),
                         {"t": item["transaction_id"]}).one()
     assert tuple(row) == ("CHF", None)
+# --- SPEC-FEEDBACK loop A: a reviewer's corrections become hints for that vendor's next invoice ---
+
+def test_corrections_come_from_edited_approvals_of_that_vendor_for_that_user_only(client):
+    from api.review import corrections_for
+
+    item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(total_amount=999.0)}).json()["item"]
+    client.post(f"/api/review/{item['id']}/approve", headers=bearer(ALICE), json={"edits": {"total_amount": 126.0}})
+    assert corrections_for(client.engine, ALICE, "freshmart supermarket") == [
+        {"field": "total_amount", "read": 999.0, "correct": 126.0}]
+    assert corrections_for(client.engine, BOB, "FreshMart Supermarket") == []
+    assert corrections_for(client.engine, ALICE, "Other Vendor") == []
+
+
+def test_a_vendor_with_corrections_is_read_again_with_them_as_hints(client, monkeypatch):
+    import api.review as review
+    import extract.read
+
+    item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(total_amount=999.0)}).json()["item"]
+    client.post(f"/api/review/{item['id']}/approve", headers=bearer(ALICE), json={"edits": {"total_amount": 126.0}})
+    seen = []
+    monkeypatch.setattr(extract.read, "read_invoice", lambda b64, media, hints=None: seen.append(hints) or
+                        {**invoice(invoice_number="FM-9"), "vendor_name": "FreshMart Supermarket"})
+    out = review.read_with_feedback(client.engine, ALICE, "aGk=", "image/png")
+    assert seen == [None, [{"field": "total_amount", "read": 999.0, "correct": 126.0}]]
+    assert out["feedback_hints"] == seen[1]
+    seen.clear()
+    review.read_with_feedback(client.engine, BOB, "aGk=", "image/png")
+    assert seen == [None]  # no history: one read only
