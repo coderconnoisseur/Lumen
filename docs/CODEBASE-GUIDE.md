@@ -240,12 +240,18 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
 ## 7d. Landing page (frontend, UI phase)
-- `/` (`app/page.tsx`): one static, server-rendered page in the same reference style as Ask Lumen (glass nav, serif
-  hero over a night-sky gradient with a mock answer, colour feature tiles, a light "measured, not claimed" card,
-  three steps, closing call to action). Every **Try the demo** / **Log in** goes to `/signin`.
-- The results card quotes `docs/direction/STORY.md` (entries 21 and 22); update `STATS` in `page.tsx` when they're
-  re-measured. The old template landing components are gone; only `components/landing/Aurora.tsx` (the sign-in
-  background) remains.
+- `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
+  Lumen's own copy and screens: glass nav; sky hero with a phone of cycling glass cards; a promise panel with a
+  horizon glow; an auto-scrolling feature carousel (`components/home/feature-carousel.tsx`); cycling notifications
+  over a dotted grid; three scene + screen pairs; a full-bleed "nothing changes without you" section; the Ask Lumen
+  phone with a typing input (`typing-input.tsx`); a grid of example questions; a closing call to action over hills.
+- No numeric claims, testimonials or customer logos. Product screens are markup with sample data
+  (`components/home/mocks.tsx`); photos/video are stood in for by CSS/SVG scenes (`scenes.tsx`), to be swapped
+  for licensed photography when the owner picks some.
+- Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
+  headline rise, fades, cycling cards, marquees, drifting sky) and turns it all off for reduced motion.
+- Every **Get started** / **Log in** goes to `/signin`. Only `components/landing/Aurora.tsx` remains of the old
+  template landing (the sign-in background).
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
