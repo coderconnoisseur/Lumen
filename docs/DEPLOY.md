@@ -23,17 +23,24 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
    Render only: the API keeps original uploads in a private Storage bucket, `lumen-files`, created on first upload).
 
 ## 2. Render (the API)
-1. Sign in at render.com with GitHub. If asked, give the Render GitHub app access to `coderconnoisseur/Lumen`.
-2. **New → Blueprint** → pick `coderconnoisseur/Lumen`, branch `main`. It reads `render.yaml` and proposes one
-   service, `lumen-api` (free).
-3. Fill the six secret values it asks for: `DATABASE_URL` (step 1.3), `SUPABASE_URL` (1.4),
-   `SUPABASE_SERVICE_ROLE_KEY` (1.4, the **service_role** key: server only, never in the frontend), `GROQ_API_KEY`,
-   `GEMINI_API_KEY` and `OPENROUTER_API_KEY` (same values as your local `backend/.env`). Everything else is preset. → **Apply**.
-4. Wait for the first deploy (5-10 min: it installs the ML packages). Open
-   `https://lumen-api.onrender.com/health` (the exact `.onrender.com` name is on the service page): it should say
-   healthy and name the Groq tier.
-5. Service → **Settings → Custom Domains**: `api.lumen.nishantbuilds.me` is listed (from `render.yaml`). Note the
-   target it shows (`lumen-api.onrender.com` or similar) for step 4.
+The API runs as **`lumen-api-sg`** in Render's **Singapore** region, next to the database (created 2026-10-09 with the
+non-secret settings already filled in). An older `lumen-api` service in Oregon came from the first blueprint run; it
+never went live (its `DATABASE_URL` was Supabase's direct address, which is IPv6-only and unreachable from Render's
+free tier). Delete it: open it → **Settings** → bottom of the page → **Delete Web Service**.
+
+1. Open `lumen-api-sg` → **Environment** → **Add Environment Variable**, and add:
+   - `DATABASE_URL`: the **Session pooler** URI from step 1.3 (host ending in `pooler.supabase.com`, port
+     `5432`, user `postgres.<project ref>`). Not the "Direct connection" one.
+   - `SUPABASE_SERVICE_ROLE_KEY` (1.4, the **service_role** key: server only, never in the frontend).
+   - `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`: same values as your local `backend/.env`.
+   - `SECRET_KEY` and `EMAIL_ENCRYPTION_KEY`: click **Generate** for each.
+
+   → **Save, rebuild, and deploy**.
+2. **Settings**: Health Check Path = `/health`; Auto-Deploy = **After CI checks pass**.
+3. Wait for the deploy (5-10 min: it installs the ML packages), then open the service's `.onrender.com` URL +
+   `/health`: it should say healthy and name the Groq tier.
+4. **Settings → Custom Domains → Add**: `api.lumen.nishantbuilds.me`. Note the target it shows (the service's
+   `.onrender.com` host) for step 4.
 
 ## 3. Vercel (the website)
 1. Sign in at vercel.com with GitHub → **Add New → Project** → import `coderconnoisseur/Lumen`.
