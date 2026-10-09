@@ -281,15 +281,16 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    day), waking-up banner, owner runbook `docs/DEPLOY.md`. `get_anomalies` now names vendor/date/amount in INR (3 agent cases re-recorded). Left: release `refactor` ->
    `main`; owner runs `docs/DEPLOY.md`; then check the acceptance list on the live site.
 2. **AGT-07 done (2026-10-09):** prompt v3 re-recorded: agent SQL 31/32 vs pipeline 29/32 (3 fixed, 1 defensible
-   regression), safety 0 leaks / 0 injections, routing 24/24. Gates met, so `/chat` switches to the agent.
+   regression), safety 0 leaks / 0 injections, routing 24/24. Gates met: `/chat` now runs the agent (demo cap shared with
+   `/api/agent/ask`; the old pipeline stays only as the eval baseline). Found while testing: Supabase's clock ahead
+   of ours made fresh tokens "not yet valid"; JWT check now allows 30 s skew, and a failed demo setup signs out.
    `docs/direction/benchmarks/2026-10-09-agt07-final-dev.md`, STORY 21.
 3. **Groq baseline suites:** `safety` and `sql` test split on Groq; `extraction` stays on OpenRouter vision (50
    requests/day): record over several days.
 4. **Generation suite** (judge = qwen on Groq) + prompt the owner for ~20 judge labels (`evals/data/judge_gold.jsonl`).
 5. **release-0** for both splits, `docs/direction/BASELINE.md`, `evals.report` → README tables, `pytest -m eval`
    replaying the committed suites.
-6. **Switch `/chat` to the agent** only if AGT-07 shows it's no worse on SQL and passes both safety gates; that also
-   fixes the 7,270-token synthesis prompt.
+6. ~~Switch `/chat` to the agent~~ done 2026-10-09.
 7. **SPEC-EXTRACT build:** EXT-02 rules done (`extract/validate.py`, `validation` suite: all planted faults
    caught, 0 false flags on gold; a ceiling, see `benchmarks/2026-10-07-validation-rules.md`, STORY 19). Review queue
    done (`api/review.py`: auto-approve high confidence, flagged items wait, approve-with-edits re-checks, reject;
