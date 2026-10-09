@@ -18,6 +18,9 @@ import numpy as np
 
 DIM = 384
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+# Model files live inside the project: Render keeps it from build to runtime (unlike /tmp), so
+# `python -m scripts.fetch_models` in the build command means no download on the first question.
+MODEL_CACHE = str(Path(__file__).resolve().parents[1] / ".models")
 
 
 class Embedder(Protocol):
@@ -61,7 +64,7 @@ class FastEmbedder:
         if self._model is None:
             from fastembed import TextEmbedding
 
-            self._model = TextEmbedding(model_name=self.model_id)
+            self._model = TextEmbedding(model_name=self.model_id, cache_dir=MODEL_CACHE)
         return self._model
 
     def embed_passages(self, texts: list[str]) -> np.ndarray:

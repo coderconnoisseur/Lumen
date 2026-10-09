@@ -47,8 +47,10 @@ class FlashReranker:
             return []
         from flashrank import Ranker, RerankRequest
 
+        from rag.embed import MODEL_CACHE
+
         if self._ranker is None:
-            self._ranker = Ranker(model_name=self.model_id)
+            self._ranker = Ranker(model_name=self.model_id, cache_dir=MODEL_CACHE)
         results = self._ranker.rerank(RerankRequest(query=query, passages=[
             {"id": i, "text": p} for i, p in enumerate(passages)]))
         by_id = {int(r["id"]): float(r["score"]) for r in results}
