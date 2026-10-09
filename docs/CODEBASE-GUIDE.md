@@ -226,15 +226,18 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 ## 7c. Ask Lumen screen (frontend, UI phase)
 - `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
   It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
-  original's `file_key`), `steps` (tool, summary, `latency_ms`), `sql`, `proposals`. History (`GET /chat/history`)
+  original's `file_key`), `steps` (tool, summary, `latency_ms`), `proposals`. The SQL the agent ran stays
+  server-side (not shown to users). History (`GET /chat/history`)
   keeps only the text, so older answers show citation numbers without passages.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
-  `work-trace.tsx` ("Thinking" timer, then the collapsible list of tools the agent ran with the SQL),
+  `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
-- Look: adapted from Beautiful UI (beautifului.dev, MIT). Its tokens live in `app/beautiful-ui.css`, scoped to a
-  `.bui` wrapper so the rest of the app's shadcn theme (notably `--accent`) is untouched.
+- Look: components adapted from Beautiful UI (beautifului.dev, MIT), styled after the owner's reference (near-black
+  canvas, flat colour steps, light serif display = Newsreader, Inter UI, Roboto Mono uppercase labels, white as the
+  only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
+  theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact

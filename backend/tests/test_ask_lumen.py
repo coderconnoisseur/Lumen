@@ -297,7 +297,7 @@ def test_chat_is_the_agent(authed_client, monkeypatch):
     body = resp.get_json()["data"]
     assert resp.status_code == 200 and body["response"] == "You have no transactions yet."
     assert body["query_type"] == "agent" and [s["tool"] for s in body["steps"]] == ["run_sql"]
-    assert body["sql"] == ["SELECT COUNT(*) AS n FROM transactions"] and "latency_ms" in body["steps"][0]
+    assert "sql" not in body and "latency_ms" in body["steps"][0]  # queries stay server-side
     assert body["sources"] == [] and body["stopped"]
 
 

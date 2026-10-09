@@ -29,14 +29,15 @@ def _ask(question: str, user_id: str) -> dict:
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today())
     out = run_agent(question, ctx, complete=deps.complete)
-    # Evidence for the UI (passages, the original file, timings, SQL); built after the run, so prompts don't change.
+    # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
+    # The SQL stays server-side: it's an internal detail, not something to show users.
     return {"query": question, "query_type": "agent", "response": out["answer"],
             "row_count": len(out["rows"]) if out["rows"] is not None else None,
             "sources": [{**{k: s[k] for k in ("chunk_id", "title", "section", "text")},
                          "file_key": document_key(user_id, s["chunk_id"].split("#")[0])} for s in out["sources"]],
             "steps": [{"tool": s["tool"], "summary": s.get("summary"), "latency_ms": s.get("latency_ms")}
                       for s in out["steps"]],
-            "sql": out["sql"], "stopped": out["stopped"],
+            "stopped": out["stopped"],
             "proposals": out["proposals"]}
 
 
