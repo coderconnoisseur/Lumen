@@ -86,13 +86,17 @@ def validate(inv: dict, ctx: Context) -> list[Flag]:
 
 def suppressed_warnings(history: list[dict]) -> set[tuple[str, str]]:
     """SPEC-FEEDBACK loop B. `history`: the user's review items, newest first, as
-    {"vendor": lower-case, "status", "edited": bool, "rules": set of flagged rules}. A warning approved unchanged
-    STREAK times in a row for a vendor is silenced for it; a rejection or an edited approval ends that vendor's
-    streak; items without the warning, and undecided ones, neither count nor break it."""
+    {"vendor": lower-case, "status", "edited": bool, "rules": set of flagged rules, "explained": bool (it had a
+    failure)}. A warning approved unchanged STREAK times in a row for a vendor is silenced for it; an edited
+    approval, or a rejection no failure explains, ends that vendor's streak (a rejected wrong total says nothing
+    about its harmless warnings: owner, 2026-10-09); items without the warning, and undecided ones, neither count
+    nor break it."""
     streaks: dict[tuple[str, str], int] = {}
     ended: set[str] = set()
     for h in history:
         if h["vendor"] in ended or h["status"] not in ("approved", "rejected"):
+            continue
+        if h["status"] == "rejected" and h.get("explained"):
             continue
         if h["status"] == "rejected" or h["edited"]:
             ended.add(h["vendor"])

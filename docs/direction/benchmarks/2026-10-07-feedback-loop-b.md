@@ -22,3 +22,5 @@ new vendors, which should be checked), and every planted fault, including those 
 reaches a person. The variant changes the approved spec, so it waits for the owner.
 
 Caveats: a synthetic stream designed to contain recurring harmless warnings; the reviewer is perfect; small n.
+
+**2026-10-09:** the owner approved the variant; it shipped and the suite reproduces 36/120, 24 false alarms, 0 missed.

@@ -92,8 +92,8 @@ def test_a_new_user_is_not_warned_about_every_vendor():
 
 # --- SPEC-FEEDBACK loop B: warnings adapt, failures never do ---
 
-def _h(status, rules, edited=False, vendor="techhub electronics"):
-    return {"vendor": vendor, "status": status, "edited": edited, "rules": set(rules)}
+def _h(status, rules, edited=False, vendor="techhub electronics", explained=False):
+    return {"vendor": vendor, "status": status, "edited": edited, "rules": set(rules), "explained": explained}
 
 
 def test_three_unchanged_approvals_in_a_row_suppress_that_warning_for_that_vendor():
@@ -145,3 +145,11 @@ def test_the_feedback_stream_misses_no_fault_and_never_adds_review_work():
     m = feedback.run("none", "dev")["metrics"]
     assert m["missed_faults"] == {"with_loop_b": 0, "without": 0}
     assert m["review_load"]["with_loop_b"]["passed"] <= m["review_load"]["without"]["passed"]
+
+
+def test_a_rejection_that_a_failure_explains_does_not_reset_the_streak():
+    """Owner decision 2026-10-09: rejecting a wrong total says nothing about the vendor's harmless warnings."""
+    from extract.validate import suppressed_warnings
+
+    hist = [_h("approved", ["unknown_po"])] * 2 + [_h("rejected", ["unknown_po", "total_mismatch"], explained=True)]         + [_h("approved", ["unknown_po"])]
+    assert suppressed_warnings(hist) == {("techhub electronics", "unknown_po")}

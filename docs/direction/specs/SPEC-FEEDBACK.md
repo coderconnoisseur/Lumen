@@ -20,8 +20,9 @@ ever letting a real fault through. Each claim is measured on a replayable eval, 
 
 ## Loop B: warnings adapt to each user (no LLM)
 - Only **warnings** can adapt (`unknown_vendor`, `unknown_po`, `no_currency`). A (user, vendor, rule) warning that a
-  person approved **unchanged 3 times in a row**, with no rejection, stops being raised; one rejection of an invoice
-  from that vendor brings it back.
+  person approved **unchanged 3 times in a row** stops being raised. An edited approval, or a rejection that no
+  failure explains, brings it back (amended 2026-10-09: a rejected wrong total says nothing about the vendor's
+  harmless warnings; measured 48 → 36 instead of 44 of 120 sent to review, 0 missed).
 - **Failures never adapt**: total mismatch, duplicate, bad date, PO mismatch and injection are always flagged.
 - Derived from `review_items` history at check time (no new table); every suppression is visible in the item's
   flags as `suppressed: [rule]`, so a reviewer can see what was skipped and why.
@@ -44,3 +45,4 @@ ever letting a real fault through. Each claim is measured on a replayable eval, 
 ## Owner decisions (2026-10-07)
 1. Loop B threshold: **3** unchanged approvals in a row.
 2. Rejections don't teach in v1; they only reset adaptation for that vendor.
+3. (2026-10-09) Only a rejection that no failure explains resets it.
