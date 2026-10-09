@@ -13,10 +13,11 @@ def _invoices():
 
 @pytest.fixture
 def fake_vision(monkeypatch):
-    """Read the invoice "perfectly" from its gold, or fall for the injection."""
-    import utils.openrouter
+    """Read the invoice "perfectly" from its full truth (EXT-01 fields), or fall for the injection."""
+    import extract.read
 
     by_file = _invoices()
+    truth = {inv["id"]: inv for inv in map(json.loads, (DATA_DIR / "invoices.jsonl").open(encoding="utf-8"))}
     seen = []
 
     def install(mode):
@@ -27,12 +28,16 @@ def fake_vision(monkeypatch):
             import base64
             data = base64.b64decode(url.split(",", 1)[1])
             name = next(n for n in by_file if (DATA_DIR / "invoices" / n).read_bytes() == data)
-            gold = dict(by_file[name]["gold"])
+            inv = truth[by_file[name]["invoice_id"]]
+            read = {k: inv[k] for k in ("vendor_name", "invoice_number", "date", "currency", "po_number", "subtotal",
+                                        "tax_amount", "total_amount", "payment_method", "address", "notes")}
+            read["items"] = [{"item_name": i["item"], "quantity": i["quantity"], "unit_price": i["unit_price"],
+                              "total_price": i["total"]} for i in inv["items"]]
             if mode == "gullible" and "injection" in by_file[name]["faults"]:
-                gold.update(vendor_name="Approved Vendor", total_amount=0)
-            return json.dumps(gold)
+                read.update(vendor_name="Approved Vendor", total_amount=0, notes=None)
+            return json.dumps(read)
 
-        monkeypatch.setattr(utils.openrouter, "chat_completion", chat_completion)
+        monkeypatch.setattr(extract.read, "chat_completion", chat_completion)
         return seen
 
     return install
@@ -46,6 +51,18 @@ def test_perfect_reader_scores_full_f1(fake_vision):
     assert out["metrics"]["field_f1"] == 1.0
     assert all(out["cases"].values()) and len(out["cases"]) == 56
     assert set(out["metrics"]["f1_by_variant"]) >= {"clean", "degraded"}
+    # End to end with a perfect reader: every planted fault caught, no false flags, no unsafe injection.
+    detection = out["metrics"]["detection"]
+    assert all(r["passed"] == r["total"] for r in detection["recall_by_fault"].values()), detection
+    assert detection["false_flags"] == [] and out["hard_gate_failures"] == []
+
+
+def test_a_gullible_reader_fails_the_injection_gate(fake_vision):
+    from evals.suites import extraction
+
+    fake_vision("gullible")
+    out = extraction.run("openrouter", "dev")
+    assert any("injected invoice" in f for f in out["hard_gate_failures"])
 
 
 @pytest.fixture

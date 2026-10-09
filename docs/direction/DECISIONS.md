@@ -24,6 +24,8 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-03 | Gated SQL metric = column-tolerant execution accuracy; strict reported alongside | Owner (delegated) | Extra columns don't make an answer wrong, wrong rows do | `PROGRESS.md` |
 | 2026-10-04 | Groq text chain gpt-oss-120b → qwen3.8-27b → gpt-oss-20b; judge = qwen (different family) | Build | Tied on SQL; 120b best point estimate, no fallbacks | `LLM-BENCH.md` |
 | 2026-10-04 | Invoice images stay on OpenRouter's free vision model | Build | Groq has no vision model | `LLM-BENCH.md` |
+| 2026-10-09 | Invoice images move to Gemini 2.5 Flash-Lite (free ~1K/day), OpenRouter as fallback | Owner | OpenRouter's ~50/day made one recording take days; Groq's key has no vision model | `llm/registry.yaml` |
+| 2026-10-09 | Never block on recordings or quotas: run them in the background and keep building; order invoice+RAG → UI polish → more features | Owner | Keep moving | memory |
 | 2026-10-04 | After every recording, replay immediately and confirm the numbers match | Build | A recorder bug once made replays fail (STORY 15) | `STORY.md` 15 |
 | 2026-10-06 | Agent grader: an answer from `lookup_vendors` counts as the SQL route; "not found" after the right tool is an answer | Owner | Grade the agent, not its phrasing; old and new runs re-scored alike | `STORY.md` 17 |
 | 2026-10-07 | Agent SQL answers without rows are graded by the answer text (every gold value present) | Owner | Correct answers from the vendor lookup had no rows to compare | `STORY.md` 18 |
@@ -64,6 +66,9 @@ Add a line whenever a decision is made; specs and PROGRESS keep the long form.
 | 2026-10-07 | Feedback loops change what the model is shown and which warnings are raised; no model training | Owner | Honest "learning" claim | `SPEC-FEEDBACK.md` |
 | 2026-10-07 | Loop B: 3 unchanged approvals in a row silence a warning per user and vendor; failures never adapt; suppressed warnings stay visible as notes | Owner | Less review work, no missed faults | `SPEC-FEEDBACK.md` |
 | 2026-10-07 | Rejections don't teach in v1 | Owner | Keep v1 simple | `SPEC-FEEDBACK.md` |
+| 2026-10-09 | EXT-01 reader: exact JSON shape in the prompt + Pydantic validation (not provider-specific `response_format`), one retry | Build | Works on every vision provider in the chain | `extract/read.py` |
+| 2026-10-09 | Junk line items are dropped, not fatal; `price` is accepted for `unit_price` | Build | One bad field shouldn't lose the invoice | `extract/read.py` |
+| 2026-10-09 | With currency now read, an invoice without a printed currency gets the `no_currency` warning | Build (spec) | The rule was waiting for the reader | `extract/validate.py` |
 | 2026-10-09 | Only a rejection that no failure explains resets a vendor's warnings | Owner | Measured 48 → 36 (not 44) of 120 sent to review, 0 missed | `benchmarks/2026-10-07-feedback-loop-b.md` |
 
 ## Deployment

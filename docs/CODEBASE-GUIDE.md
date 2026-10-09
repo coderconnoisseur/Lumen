@@ -224,6 +224,15 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
+- `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
+  JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO
+  number, line items, subtotal**, tax, total, payment method, address, category, **notes**), amounts and dates
+  cleaned with `utils/normalize` helpers; an unusable reply gets one retry, then `LLMError(BAD_RESPONSE)`. Text on
+  the invoice is data: `notes` keeps it verbatim for the injection check. Used by upload, batch and the email poller
+  (the old `utils/openrouter.py` is gone).
+- Vision models: the groq tier tries **Gemini 2.5 Flash-Lite** first (`provider: gemini` in `llm/registry.yaml`,
+  key `GEMINI_API_KEY`; free tier ~1K requests/day), then OpenRouter's free chain. A registry row may name its own
+  provider.
 - `extract/validate.py`: `validate(invoice, Context) -> [Flag]`, pure rules, no LLM: `total_mismatch` (line items
   + tax vs total, 1%), `duplicate` (vendor + invoice number already stored), `unknown_vendor` (warn),
   `bad_date` (future or > 2 years), `no_currency` (warn), `unknown_po` (warn) / `po_mismatch` (vendor or amount),
