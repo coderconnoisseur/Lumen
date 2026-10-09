@@ -36,7 +36,9 @@ free tier). Delete it: open it → **Settings** → bottom of the page → **Del
    - `SECRET_KEY` and `EMAIL_ENCRYPTION_KEY`: click **Generate** for each.
 
    → **Save, rebuild, and deploy**.
-2. **Settings**: Health Check Path = `/health`; Auto-Deploy = **After CI checks pass**.
+2. **Settings**: Health Check Path = `/health`; Auto-Deploy = **After CI checks pass**; Build Command =
+   `cd backend && pip install -r requirements.txt && python -m scripts.fetch_models` (downloads the document-search
+   models during the build, so the first question doesn't wait about 40 s for them).
 3. Wait for the deploy (5-10 min: it installs the ML packages), then open the service's `.onrender.com` URL +
    `/health`: it should say healthy and name the Groq tier.
 4. **Settings → Custom Domains → Add**: `api.lumen.nishantbuilds.me`. Note the target it shows (the service's

@@ -10,6 +10,8 @@ api/errors.py; parity tests in tests/test_asgi.py).
 """
 from __future__ import annotations
 
+import logging
+import threading
 from contextlib import asynccontextmanager
 
 from a2wsgi import WSGIMiddleware
@@ -40,7 +42,21 @@ def _without_cors_headers(wsgi_app):
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     flask_module.startup_checks()
+    if Config.FLASK_ENV == "production":
+        threading.Thread(target=_warm_retrieval, daemon=True).start()
     yield
+
+
+def _warm_retrieval():
+    """Load the retrieval models into memory while the server boots, not inside the first question."""
+    try:
+        from rag.service import get_service
+        from scripts.fetch_models import warm
+
+        service = get_service()
+        warm(service.embedder, service.reranker)
+    except Exception:  # a cold first question is the fallback, not a crash
+        logging.getLogger(__name__).exception("Retrieval warm-up failed")
 
 
 def create_app(*routers: APIRouter) -> FastAPI:
