@@ -1,0 +1,115 @@
+/* Design tokens and keyframes adapted from Beautiful UI (https://www.beautifului.dev), MIT License,
+ * Copyright (c) Turbo. Dark values only (the app is always dark), scoped to `.bui` so the shadcn tokens
+ * elsewhere (notably --accent) are untouched. */
+
+.bui {
+	--page: oklch(0.209 0.004 264.477);
+	--canvas: oklch(0.231 0.004 264.487);
+	--surface: oklch(0.26 0.006 271.191);
+	--inset: oklch(0.243 0.004 264.492);
+	--hover: oklch(0.289 0.006 271.22);
+	--hover-2: oklch(0.318 0.007 274.747);
+
+	--ink: oklch(0.964 0.002 247.839);
+	--ink-2: oklch(0.731 0.008 260.731);
+	--ink-3: oklch(0.541 0.01 264.484);
+
+	--line: oklch(0.308 0.006 258.354);
+	--line-strong: oklch(0.356 0.007 264.474);
+	--field: oklch(0.293 0.006 271.223);
+
+	--accent: oklch(0.68 0.173 253.301);
+	--accent-ink: oklch(0.788 0.113 248.33);
+	--accent-tint: oklch(0.68 0.173 253.301 / 0.16);
+
+	--green: oklch(0.705 0.154 153.814);
+	--green-tint: oklch(0.705 0.154 153.814 / 0.14);
+	--orange: oklch(0.746 0.156 55.642);
+	--orange-tint: oklch(0.746 0.156 55.642 / 0.14);
+	--red: oklch(0.666 0.18 21.433);
+	--red-tint: oklch(0.666 0.18 21.433 / 0.14);
+
+	--shadow-hairline: 0 0 0 1px var(--line);
+	--shadow-btn: 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.3);
+	--shadow-card: 0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2), 0 2px 6px oklch(0 0 0 / 0.2);
+	--shadow-raised: 0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
+
+	background: var(--page);
+	color: var(--ink);
+	font-size: 14px;
+	letter-spacing: -0.01em;
+}
+
+@theme inline {
+	--color-page: var(--page);
+	--color-canvas: var(--canvas);
+	--color-surface: var(--surface);
+	--color-inset: var(--inset);
+	--color-hover: var(--hover);
+	--color-hover-2: var(--hover-2);
+	--color-ink: var(--ink);
+	--color-ink-2: var(--ink-2);
+	--color-ink-3: var(--ink-3);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-field: var(--field);
+	--color-accent-ink: var(--accent-ink);
+	--color-accent-tint: var(--accent-tint);
+	--color-green: var(--green);
+	--color-green-tint: var(--green-tint);
+	--color-orange: var(--orange);
+	--color-orange-tint: var(--orange-tint);
+	--color-red: var(--red);
+	--color-red-tint: var(--red-tint);
+
+	--shadow-hairline: var(--shadow-hairline);
+	--shadow-btn: var(--shadow-btn);
+	--shadow-card: var(--shadow-card);
+	--shadow-raised: var(--shadow-raised);
+
+	--radius-chip: 6px;
+	--radius-control: 8px;
+	--radius-card: 10px;
+}
+
+@keyframes shimmer-text {
+	from { background-position: 150% center; }
+	to { background-position: -50% center; }
+}
+
+@keyframes fade-up {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop-in {
+	from { opacity: 0; transform: scale(0.95); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+/* Markdown answers: lists, tables and code like a modern chat app. */
+.bui-md { font-size: 14px; line-height: 1.65; color: var(--ink); }
+.bui-md > * + * { margin-top: 0.75em; }
+.bui-md h1, .bui-md h2, .bui-md h3 { font-weight: 600; line-height: 1.3; margin-top: 1.1em; }
+.bui-md h1 { font-size: 1.15em; }
+.bui-md h2 { font-size: 1.08em; }
+.bui-md h3 { font-size: 1em; }
+.bui-md ul { list-style: disc; padding-left: 1.3em; }
+.bui-md ol { list-style: decimal; padding-left: 1.4em; }
+.bui-md li + li { margin-top: 0.25em; }
+.bui-md li::marker { color: var(--ink-3); }
+.bui-md strong { font-weight: 600; }
+.bui-md a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.bui-md code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inset); padding: 0.1em 0.35em; border-radius: 5px; box-shadow: var(--shadow-hairline); }
+.bui-md pre { background: var(--inset); border-radius: var(--radius-card); box-shadow: var(--shadow-hairline); padding: 10px 12px; overflow-x: auto; }
+.bui-md pre code { background: none; box-shadow: none; padding: 0; }
+.bui-md blockquote { border-left: 2px solid var(--line-strong); padding-left: 0.8em; color: var(--ink-2); }
+.bui-md table { display: block; width: max-content; max-width: 100%; overflow-x: auto; border-collapse: separate; border-spacing: 0; border-radius: var(--radius-card); box-shadow: var(--shadow-hairline); font-size: 13px; font-variant-numeric: tabular-nums; }
+.bui-md th { text-align: left; font-weight: 500; color: var(--ink-2); background: var(--inset); }
+.bui-md th, .bui-md td { padding: 7px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.bui-md tr:last-child td { border-bottom: 0; }
+.bui-md hr { border-color: var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+	.bui *, .bui *::before, .bui *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

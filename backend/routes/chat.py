@@ -23,15 +23,20 @@ def _ask(question: str, user_id: str) -> dict:
     from agent.graph import run_agent
     from agent.tools import ToolContext
     from api.agent import get_agent_deps
+    from utils.files import document_key
 
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today())
     out = run_agent(question, ctx, complete=deps.complete)
+    # Evidence for the UI (passages, the original file, timings, SQL); built after the run, so prompts don't change.
     return {"query": question, "query_type": "agent", "response": out["answer"],
             "row_count": len(out["rows"]) if out["rows"] is not None else None,
-            "sources": [{k: s[k] for k in ("chunk_id", "title", "section")} for s in out["sources"]],
-            "steps": [{"tool": s["tool"], "summary": s.get("summary")} for s in out["steps"]],
+            "sources": [{**{k: s[k] for k in ("chunk_id", "title", "section", "text")},
+                         "file_key": document_key(user_id, s["chunk_id"].split("#")[0])} for s in out["sources"]],
+            "steps": [{"tool": s["tool"], "summary": s.get("summary"), "latency_ms": s.get("latency_ms")}
+                      for s in out["steps"]],
+            "sql": out["sql"], "stopped": out["stopped"],
             "proposals": out["proposals"]}
 
 
@@ -137,12 +142,9 @@ def clear_chat_history():
 @require_auth
 def get_suggestions():
     suggestions = [
-        "Where did I spend the most last month?",
-        "Show me all grocery purchases",
-        "What's my average restaurant spending?",
-        "Find transactions above ₹1000",
-        "Show me coffee-related purchases",
-        "What's my spending trend over the last 3 months?",
-        "Which category is the cheapest?",
+        "Which vendor did I spend the most with?",
+        "What is my average electricity bill?",
+        "What's the notice period in the TechHub contract?",
+        "Invoice FM-202606-U10223 looks miscategorised; propose Shopping.",
     ]
     return jsonify({"suggestions": suggestions}), 200

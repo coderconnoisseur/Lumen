@@ -94,6 +94,14 @@ def test_citations_must_come_from_retrieved_passages(ctx):
     assert out["sources"][0]["title"] == "TechHub agreement"
 
 
+def test_citations_with_padding_inside_the_brackets_still_count(ctx):
+    from agent.graph import run_agent
+
+    for answer in ("You pay INR 4,500.00 a month. [ doc#s03 ]", "You pay INR 4,500.00 a month【doc#s03】."):
+        script = Script(_reply(calls=[_call("search_documents", {"query": "TechHub monthly fee"})]), _reply(answer))
+        assert run_agent("What do we pay TechHub monthly?", ctx, complete=script)["citations"] == ["doc#s03"]
+
+
 def test_questions_needing_no_tools_are_answered_directly(ctx):
     from agent.graph import run_agent
 
