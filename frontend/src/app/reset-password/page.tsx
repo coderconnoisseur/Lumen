@@ -117,7 +117,7 @@ export default function ResetPasswordPage() {
 							</button>
 						</form>
 					) : (
-						<Link href="/signin?mode=reset" style={rise(2)} className={`auth-rise mt-8 ${authPrimary}`}>
+						<Link href="/login?mode=reset" style={rise(2)} className={`auth-rise mt-8 ${authPrimary}`}>
 							Request a new link <ArrowRight className="size-3.5" />
 						</Link>
 					)}

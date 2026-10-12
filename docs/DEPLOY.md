@@ -85,7 +85,7 @@ Within ~30 minutes both dashboards show the domain as verified and issue HTTPS c
 
 ## 5. Check it (tell me when you're here)
 - `https://api.lumen.nishantbuilds.me/health` answers.
-- `https://lumen.nishantbuilds.me/signin` → **Try the demo (no sign-up)** → lands on the agent page; ask
+- `https://lumen.nishantbuilds.me/demo` → lands on the agent page; ask
   "What is my average electricity bill?".
 - The keep-warm job (GitHub → Actions → keep-warm) runs every 10 minutes and turns green.
 

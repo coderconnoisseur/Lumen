@@ -19,7 +19,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
 		const query = searchParams.toString();
 		const next = query ? `${pathname}?${query}` : pathname;
-		router.replace(`/signin?reason=unauthorized&next=${encodeURIComponent(next)}`);
+		router.replace(`/login?reason=unauthorized&next=${encodeURIComponent(next)}`);
 	}, [loading, pathname, router, searchParams, user]);
 
 	if (loading) {

@@ -8,7 +8,7 @@ import "@/app/home.css";
 import { NOTIFICATIONS } from "@/components/home/mocks";
 import { Sky } from "@/components/home/sky";
 
-// Shell of the sign-in pages (/signin, /reset-password, /demo), so leaving the landing page feels like one site:
+// Shell of the sign-in pages (/login, /reset-password, /demo), so leaving the landing page feels like one site:
 // the hero's sky on the left with a serif headline and cycling notifications, the near-black form panel on the right.
 // On phones the sky shrinks to a band above the form.
 

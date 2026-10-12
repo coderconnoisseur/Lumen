@@ -77,7 +77,7 @@ function GoogleMark() {
 	);
 }
 
-export default function SignInContent() {
+export default function LoginContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const { loading, user: sessionUser } = useAuth();
@@ -138,7 +138,7 @@ export default function SignInContent() {
 	// Where Supabase sends the user back after clicking an email link. It must
 	// be listed under Auth -> URL Configuration -> Redirect URLs in Supabase.
 	const signInReturnUrl = () =>
-		`${window.location.origin}/signin?next=${encodeURIComponent(next)}`;
+		`${window.location.origin}/login?next=${encodeURIComponent(next)}`;
 
 	const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
