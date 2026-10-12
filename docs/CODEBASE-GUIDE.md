@@ -268,7 +268,10 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
 - `/signin` (`app/signin/signin-content.tsx`): log in, sign up and reset in one form (Google first, then email and
   password, "Forgot password?" under the password, the switch link at the bottom). Changing mode replays the headline
   and the rows' rise. The auth calls are Supabase's (`signInWithPassword`, `signUp`, `resetPasswordForEmail`,
-  `signInWithOAuth`); `AuthProvider` sees the session and the page redirects to `next`.
+  `signInWithOAuth`); `AuthProvider` sees the session and the page redirects to `next`. A demo (anonymous) session
+  doesn't count as signed in here, so demo visitors can still log in or sign up. A failed email or Google link comes
+  back as `#error_description=...`; the page shows it in plain words and drops it from the URL. Google sign-in and
+  email delivery are Supabase dashboard settings (`docs/DEPLOY.md` section 1, steps 5 and 6).
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
