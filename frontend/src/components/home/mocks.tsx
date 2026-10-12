@@ -290,7 +290,7 @@ export function SavingsMock() {
 
 // --- always-on notifications ---------------------------------------------------------------------------------
 
-const NOTIFICATIONS = [
+export const NOTIFICATIONS = [
 	[CreditCard, "Your card statement closes in 6 days. Paying ₹8,000 now keeps you under 30% usage.", "1m ago"],
 	[CalendarClock, "Your gym membership renews Friday. You haven't checked in since July.", "12m ago"],
 	[Home, "Rent took 34% of your income this month, a little above the healthy mark.", "1h ago"],

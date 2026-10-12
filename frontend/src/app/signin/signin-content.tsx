@@ -1,33 +1,39 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-	ArrowRight,
-	Home,
-	LayoutDashboard,
-	Loader2,
-	ShieldAlert,
-} from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import Aurora from "@/components/landing/Aurora";
-import { Button } from "@/components/ui/button";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+	AuthAlert,
+	AuthShell,
+	AuthWaiting,
+	authInput,
+	authLabel,
+	authLink,
+	authPrimary,
+	authSecondary,
+	mono,
+	rise,
+} from "@/components/auth/auth-shell";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "reset";
 
 const MIN_PASSWORD_LENGTH = 8;
+
+const HEADLINES: Record<Mode, ReactNode[]> = {
+	signin: ["Welcome", <><em>back</em>.</>],
+	signup: ["Start minding", <>your <em>money</em>.</>],
+	reset: ["It happens", <>to <em>everyone</em>.</>],
+};
+
+const TITLES: Record<Mode, ReactNode> = {
+	signin: <>Log in to <em>Lumen</em></>,
+	signup: <>Create your <em>account</em></>,
+	reset: <>Reset your <em>password</em></>,
+};
 
 // Only allow same-origin relative paths. "//host" and "/\host" are treated by
 // browsers as protocol-relative URLs and would redirect off-site.
@@ -47,6 +53,17 @@ function friendlyAuthError(message: string): string {
 	return message;
 }
 
+function GoogleMark() {
+	return (
+		<svg aria-hidden viewBox="0 0 24 24" className="size-[18px]">
+			<path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z" />
+			<path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.88-3.02c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.1A12 12 0 0 0 12 24z" />
+			<path fill="#FBBC05" d="M5.29 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.28a12 12 0 0 0 0 10.76l4.01-3.1z" />
+			<path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.59 1.8l3.44-3.44A11.53 11.53 0 0 0 12 0 12 12 0 0 0 1.28 6.62l4.01 3.1C6.23 6.88 8.88 4.77 12 4.77z" />
+		</svg>
+	);
+}
+
 export default function SignInContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -58,58 +75,36 @@ export default function SignInContent() {
 	);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [signedIn, setSignedIn] = useState(false);
 	const [isStartingGoogle, setIsStartingGoogle] = useState(false);
 	const [authError, setAuthError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
-	const [startingDemo, setStartingDemo] = useState(false);
 
 	useEffect(() => {
-		if (!loading && user && !startingDemo) {
+		if (!loading && user) {
 			router.replace(next);
 		}
-	}, [loading, next, router, user, startingDemo]);
-
-	// One-click demo (SPEC-DEPLOY): a throwaway anonymous account with its own copy of the demo data.
-	const handleDemo = async () => {
-		setStartingDemo(true);
-		setAuthError(null);
-		try {
-			const supabase = getSupabaseBrowserClient();
-			const { data, error } = await supabase.auth.signInAnonymously();
-			if (error || !data.session) throw error ?? new Error("No session");
-			const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/demo/start`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${data.session.access_token}` },
-			});
-			if (!res.ok) throw new Error(`Demo setup failed (${res.status})`);
-			router.replace("/chatbot");
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "Something went wrong.";
-			// Don't leave the visitor signed in to an empty demo account: sign out so "Try the demo" starts clean.
-			await getSupabaseBrowserClient().auth.signOut().catch(() => undefined);
-			setAuthError(`Couldn't start the demo. ${message} Please try again.`);
-			setStartingDemo(false);
-		}
-	};
+	}, [loading, next, router, user]);
 
 	const reasonCopy = useMemo(() => {
 		const reason = searchParams.get("reason");
 		if (reason === "expired") {
-			return "Your session expired. Sign in again to continue.";
+			return "Your session expired. Log in again to continue.";
 		}
 		if (reason === "unauthorized") {
-			return "You need to sign in before accessing that page.";
+			return "Log in to open that page.";
 		}
-		return "Sign in to access your invoices and analytics.";
+		return "Pick up right where you left off.";
 	}, [searchParams]);
 
-	const title =
+	const subtitle =
 		mode === "signup"
-			? "Create your account"
+			? "Free to use. Bring your bills, receipts and questions."
 			: mode === "reset"
-			  ? "Reset your password"
-			  : "Sign in to continue";
+			  ? "Enter your email and we'll send you a link to set a new password."
+			  : reasonCopy;
 
 	const switchMode = (nextMode: Mode) => {
 		setMode(nextMode);
@@ -138,6 +133,7 @@ export default function SignInContent() {
 				});
 				if (error) throw error;
 				// AuthProvider picks up the new session and the effect above redirects.
+				setSignedIn(true);
 			} else if (mode === "signup") {
 				const { data, error } = await supabase.auth.signUp({
 					email,
@@ -145,7 +141,9 @@ export default function SignInContent() {
 					options: { emailRedirectTo: signInReturnUrl() },
 				});
 				if (error) throw error;
-				if (!data.session) {
+				if (data.session) {
+					setSignedIn(true);
+				} else {
 					// Email confirmation is on: no session until the link is clicked.
 					setNotice(
 						`We sent a confirmation link to ${email}. Open it to finish creating your account.`
@@ -194,249 +192,154 @@ export default function SignInContent() {
 		}
 	};
 
-	if (loading) {
+	if (loading || (user && !signedIn)) {
 		return (
-			<div className="min-h-screen bg-black text-white relative overflow-hidden">
-				<div className="fixed inset-0">
-					<Aurora
-						colorStops={["#475569", "#64748b", "#475569"]}
-						amplitude={1.2}
-						blend={0.6}
-						speed={0.8}
-					/>
-				</div>
-				<div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-					<div className="flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-md">
-						<Loader2 className="h-5 w-5 animate-spin" />
-						<span className="text-sm text-white/90">
-							Checking your session...
-						</span>
-					</div>
-				</div>
-			</div>
+			<AuthShell headline={HEADLINES.signin}>
+				<AuthWaiting>{loading ? "Checking your session…" : "Taking you in…"}</AuthWaiting>
+			</AuthShell>
 		);
 	}
 
-	const inputClass =
-		"h-11 rounded-xl border-white/20 bg-white/5 text-white placeholder:text-white/40 focus-visible:border-white/40 focus-visible:ring-white/20";
+	const submitLabel =
+		mode === "signup" ? "Create account" : mode === "reset" ? "Send reset link" : "Log in";
 
 	return (
-		<div className="min-h-screen bg-black text-white relative overflow-hidden">
-			<div className="fixed inset-0">
-				<Aurora
-					colorStops={["#475569", "#64748b", "#475569"]}
-					amplitude={1.2}
-					blend={0.6}
-					speed={0.8}
-				/>
-			</div>
+		<AuthShell headline={HEADLINES[mode]} headlineKey={mode}>
+			{/* keyed by mode so the rows rise in again when switching */}
+			<div key={mode}>
+				<h1 style={rise(0)} className="auth-rise font-display text-[34px] leading-[1.1] font-light tracking-[-0.01em] sm:text-[40px]">
+					{TITLES[mode]}
+				</h1>
+				<p style={rise(1)} className="auth-rise mt-3 text-[15.5px] leading-[1.5] text-[#9f9fa0]">
+					{subtitle}
+				</p>
 
-			<div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-				<Card className="w-full max-w-lg border-white/15 bg-white/10 text-white shadow-2xl backdrop-blur-xl">
-					<CardHeader className="space-y-4">
-						<div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
-							<ShieldAlert className="h-6 w-6" />
+				{mode !== "reset" ? (
+					<>
+						<div style={rise(2)} className="auth-rise mt-8">
+							<button
+								type="button"
+								onClick={handleGoogleSignIn}
+								disabled={isStartingGoogle}
+								className={authSecondary}
+							>
+								{isStartingGoogle ? <Loader2 className="size-4 animate-spin" /> : <GoogleMark />}
+								{isStartingGoogle ? "Opening Google…" : "Continue with Google"}
+							</button>
 						</div>
-						<div className="space-y-2">
-							<CardTitle className="text-3xl font-semibold text-white">
-								{title}
-							</CardTitle>
-							<CardDescription className="text-base text-white/75">
-								{mode === "reset"
-									? "Enter your email and we'll send you a link to set a new password."
-									: reasonCopy}
-							</CardDescription>
-						</div>
-					</CardHeader>
-
-					<CardContent className="space-y-6">
-						<form onSubmit={handleEmailSubmit} className="space-y-4" noValidate={false}>
-							<div className="space-y-2">
-								<Label htmlFor="email" className="text-white/85">
-									Email
-								</Label>
-								<Input
-									id="email"
-									type="email"
-									required
-									autoComplete="email"
-									placeholder="you@company.com"
-									value={email}
-									onChange={(e) => setEmail(e.target.value)}
-									className={inputClass}
-								/>
-							</div>
-
-							{mode !== "reset" ? (
-								<div className="space-y-2">
-									<div className="flex items-center justify-between">
-										<Label htmlFor="password" className="text-white/85">
-											Password
-										</Label>
-										{mode === "signin" ? (
-											<button
-												type="button"
-												onClick={() => switchMode("reset")}
-												className="text-xs text-white/60 underline-offset-4 hover:text-white hover:underline"
-											>
-												Forgot password?
-											</button>
-										) : null}
-									</div>
-									<Input
-										id="password"
-										type="password"
-										required
-										minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : undefined}
-										autoComplete={
-											mode === "signup" ? "new-password" : "current-password"
-										}
-										placeholder={
-											mode === "signup"
-												? `At least ${MIN_PASSWORD_LENGTH} characters`
-												: "Your password"
-										}
-										value={password}
-										onChange={(e) => setPassword(e.target.value)}
-										className={inputClass}
-									/>
-								</div>
-							) : null}
-
-							<Button
-								type="submit"
-								disabled={submitting}
-								size="lg"
-								className="w-full rounded-xl bg-white text-black hover:bg-gray-100"
-							>
-								{submitting ? (
-									<>
-										<Loader2 className="h-4 w-4 animate-spin" />
-										Please wait...
-									</>
-								) : mode === "signup" ? (
-									"Create account"
-								) : mode === "reset" ? (
-									"Send reset link"
-								) : (
-									"Sign in"
-								)}
-							</Button>
-
-							<p className="text-center text-sm text-white/60">
-								{mode === "signin" ? (
-									<>
-										New to Lumen?{" "}
-										<button
-											type="button"
-											onClick={() => switchMode("signup")}
-											className="text-white underline-offset-4 hover:underline"
-										>
-											Create an account
-										</button>
-									</>
-								) : (
-									<>
-										{mode === "signup" ? "Already have an account? " : "Remembered it? "}
-										<button
-											type="button"
-											onClick={() => switchMode("signin")}
-											className="text-white underline-offset-4 hover:underline"
-										>
-											Sign in
-										</button>
-									</>
-								)}
-							</p>
-						</form>
-
-						{notice ? (
-							<div
-								role="status"
-								className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100"
-							>
-								{notice}
-							</div>
-						) : null}
-
-						{authError ? (
-							<div
-								role="alert"
-								className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100"
-							>
-								{authError}
-							</div>
-						) : null}
-
-						{mode !== "reset" ? (
-							<>
-								<div className="flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
-									<span className="h-px flex-1 bg-white/15" />
-									or
-									<span className="h-px flex-1 bg-white/15" />
-								</div>
-
-								<Button
-									type="button"
-									onClick={handleGoogleSignIn}
-									disabled={isStartingGoogle}
-									variant="outline"
-									size="lg"
-									className="w-full rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-								>
-									{isStartingGoogle ? (
-										<>
-											<Loader2 className="h-4 w-4 animate-spin" />
-											Starting Google sign-in...
-										</>
-									) : (
-										<>
-											Continue with Google
-											<ArrowRight className="h-4 w-4" />
-										</>
-									)}
-								</Button>
-							</>
-						) : null}
-
-						<Button
-							type="button"
-							size="lg"
-							onClick={handleDemo}
-							disabled={startingDemo}
-							className="w-full rounded-xl"
+						<div
+							style={rise(3)}
+							className={`auth-rise ${mono} my-6 flex items-center gap-3 text-[10.5px] text-[#4a4a4c]`}
 						>
-							{startingDemo ? "Setting up your demo…" : "Try the demo (no sign-up)"}
-						</Button>
-
-						<div className="grid gap-3 sm:grid-cols-2">
-							<Button
-								asChild
-								variant="outline"
-								size="lg"
-								className="rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-							>
-								<Link href="/">
-									<Home className="h-4 w-4" />
-									Back to home
-								</Link>
-							</Button>
-
-							<Button
-								asChild
-								variant="outline"
-								size="lg"
-								className="rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-							>
-								<Link href="/dashboard">
-									<LayoutDashboard className="h-4 w-4" />
-									Open dashboard
-								</Link>
-							</Button>
+							<span className="h-px flex-1 bg-white/[0.08]" />
+							or
+							<span className="h-px flex-1 bg-white/[0.08]" />
 						</div>
-					</CardContent>
-				</Card>
+					</>
+				) : null}
+
+				<form
+					onSubmit={handleEmailSubmit}
+					style={rise(4)}
+					className={`auth-rise space-y-5 ${mode === "reset" ? "mt-8" : ""}`}
+				>
+					<div className="space-y-2">
+						<label htmlFor="email" className={authLabel}>
+							Email
+						</label>
+						<input
+							id="email"
+							type="email"
+							required
+							autoComplete="email"
+							placeholder="you@company.com"
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+							className={authInput}
+						/>
+					</div>
+
+					{mode !== "reset" ? (
+						<div className="space-y-2">
+							<label htmlFor="password" className={authLabel}>
+								Password
+							</label>
+							<div className="relative">
+								<input
+									id="password"
+									type={showPassword ? "text" : "password"}
+									required
+									minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : undefined}
+									autoComplete={mode === "signup" ? "new-password" : "current-password"}
+									value={password}
+									onChange={(e) => setPassword(e.target.value)}
+									className={`${authInput} pr-11`}
+								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword((s) => !s)}
+									aria-label={showPassword ? "Hide password" : "Show password"}
+									className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#6a6b6b] transition-colors hover:text-white"
+								>
+									{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+								</button>
+							</div>
+							{mode === "signin" ? (
+								<button
+									type="button"
+									onClick={() => switchMode("reset")}
+									className="text-[13.5px] text-[#9f9fa0] transition-colors hover:text-white"
+								>
+									Forgot password?
+								</button>
+							) : (
+								<p className="text-[13.5px] text-[#6a6b6b]">At least {MIN_PASSWORD_LENGTH} characters.</p>
+							)}
+						</div>
+					) : null}
+
+					<button type="submit" disabled={submitting || signedIn} className={authPrimary}>
+						{signedIn ? (
+							<>
+								<Check className="size-4" /> Signed in
+							</>
+						) : submitting ? (
+							<>
+								<Loader2 className="size-4 animate-spin" /> Please wait…
+							</>
+						) : (
+							<>
+								{submitLabel} <ArrowRight className="size-3.5" />
+							</>
+						)}
+					</button>
+				</form>
+
+				{notice || authError ? (
+					<div className="mt-5 space-y-3">
+						{notice ? <AuthAlert tone="notice">{notice}</AuthAlert> : null}
+						{authError ? <AuthAlert tone="error">{authError}</AuthAlert> : null}
+					</div>
+				) : null}
+
+				<p style={rise(5)} className="auth-rise mt-8 text-[14.5px] text-[#9f9fa0]">
+					{mode === "signin" ? (
+						<>
+							Don&apos;t have an account?{" "}
+							<button type="button" onClick={() => switchMode("signup")} className={authLink}>
+								Sign up
+							</button>
+						</>
+					) : (
+						<>
+							{mode === "signup" ? "Already have an account? " : "Remembered it? "}
+							<button type="button" onClick={() => switchMode("signin")} className={authLink}>
+								Log in
+							</button>
+						</>
+					)}
+				</p>
 			</div>
-		</div>
+		</AuthShell>
 	);
 }
