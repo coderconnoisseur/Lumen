@@ -1,15 +1,17 @@
-"use client";
-
+import type { Metadata } from "next";
 import { Suspense } from "react";
+import { AuthShell, AuthWaiting } from "@/components/auth/auth-shell";
 import SignInContent from "./signin-content";
+
+export const metadata: Metadata = { title: "Log in" };
 
 export default function SignInPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="flex min-h-screen items-center justify-center bg-black text-white">
-					Loading...
-				</div>
+				<AuthShell headline={["Welcome", <><em>back</em>.</>]}>
+					<AuthWaiting>Loading…</AuthWaiting>
+				</AuthShell>
 			}
 		>
 			<SignInContent />

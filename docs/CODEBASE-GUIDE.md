@@ -213,8 +213,8 @@ The model writes its own search queries, so their embeddings are cached during `
 ## 7. Local demo data
 `python -m scripts.seed_demo_data --user-id <your Supabase user id>` copies the eval world's user u1 (a year of
 transactions, line items, 10 documents) into your local account, touching only the seeded rows. The same `seed()`
-backs the live **Try the demo** button: the sign-in page signs the visitor in anonymously (Supabase) and calls
-`POST /api/demo/start`, so every visitor gets a private copy.
+backs the live **Try the demo** links: the landing page sends them to `/demo` (`app/demo/page.tsx`), which signs the
+visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the chat, so every visitor gets a private copy.
 
 ## 7b. Deployment (SPEC-DEPLOY, owner runbook in `docs/DEPLOY.md`)
 - `lumen.nishantbuilds.me` → Vercel (`frontend/`, production branch `main`); `api.lumen.nishantbuilds.me` → Render
@@ -224,7 +224,8 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   `asgi.py` loads them in a background thread at startup, so the first question doesn't pay for either.
 - `.github/workflows/ci.yml`: backend tests on Postgres 16 + pgvector, offline eval replay, frontend lint.
   `keep-warm.yml` pings `/health` every 10 minutes so the free API doesn't sleep.
-- `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a banner says it's waking up.
+- `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a small pill says it's waking up (not on
+  the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
 ## 7c. Ask Lumen screen (frontend, UI phase)
 - `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
@@ -257,8 +258,17 @@ backs the live **Try the demo** button: the sign-in page signs the visitor in an
   Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
 - Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
   headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
-- Every **Get started** / **Log in** goes to `/signin`. Only `components/landing/Aurora.tsx` remains of the old
-  template landing (the sign-in background).
+- **Get started** / **Log in** go to `/signin`; the demo links (**See it in the demo**, **Try the demo**) go to `/demo`.
+
+## 7e. Sign-in pages (frontend, UI phase)
+- `/signin`, `/reset-password` and `/demo` share `components/auth/auth-shell.tsx`, so leaving the landing page feels like
+  one site: the hero's sky (`Sky`) on the left with a serif headline and the landing's cycling notifications, the
+  near-black form panel on the right (a sky band above the form on phones). The shell also exports the form styles
+  (`authInput`, `authPrimary`, ...), `AuthAlert`, `AuthWaiting` and `rise(step)` (stagger for `.auth-rise` in `home.css`).
+- `/signin` (`app/signin/signin-content.tsx`): log in, sign up and reset in one form (Google first, then email and
+  password, "Forgot password?" under the password, the switch link at the bottom). Changing mode replays the headline
+  and the rows' rise. The auth calls are Supabase's (`signInWithPassword`, `signUp`, `resetPasswordForEmail`,
+  `signInWithOAuth`); `AuthProvider` sees the session and the page redirects to `next`.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
