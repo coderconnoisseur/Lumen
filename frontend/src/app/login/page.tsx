@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AuthShell, AuthWaiting } from "@/components/auth/auth-shell";
-import SignInContent from "./signin-content";
+import LoginContent from "./login-content";
 
 export const metadata: Metadata = { title: "Log in" };
 
-export default function SignInPage() {
+export default function LoginPage() {
 	return (
 		<Suspense
 			fallback={
@@ -14,7 +14,7 @@ export default function SignInPage() {
 				</AuthShell>
 			}
 		>
-			<SignInContent />
+			<LoginContent />
 		</Suspense>
 	);
 }

@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 // by the time the app opens, but show nothing.
 export function ServerWake() {
 	const [waking, setWaking] = useState(false);
-	const quiet = ["/", "/signin", "/reset-password"].includes(usePathname());
+	const quiet = ["/", "/login", "/reset-password"].includes(usePathname());
 
 	useEffect(() => {
 		let done = false;

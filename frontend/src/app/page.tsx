@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 
 const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracking-[0.06em]";
 
-function Cta({ children, variant = "light", href = "/signin" }: { children: ReactNode; variant?: "light" | "dark"; href?: string }) {
+function Cta({ children, variant = "light", href = "/login" }: { children: ReactNode; variant?: "light" | "dark"; href?: string }) {
 	return (
 		<Link
 			href={href}
@@ -159,7 +159,7 @@ export default function HomePage() {
 						))}
 					</div>
 					<div className="ml-auto flex items-center gap-5">
-						<Link href="/signin" className={`${mono} hidden text-[11.5px] font-medium text-white sm:inline`}>
+						<Link href="/login" className={`${mono} hidden text-[11.5px] font-medium text-white sm:inline`}>
 							Log in
 						</Link>
 						<Cta>Get started</Cta>
@@ -429,7 +429,7 @@ export default function HomePage() {
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Get started</p>
 						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
 							<li><Link href="/demo" className="hover:text-white">Try the demo</Link></li>
-							<li><Link href="/signin" className="hover:text-white">Log in</Link></li>
+							<li><Link href="/login" className="hover:text-white">Log in</Link></li>
 						</ul>
 					</div>
 				</div>

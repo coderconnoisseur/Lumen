@@ -258,14 +258,14 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
 - Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
   headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
-- **Get started** / **Log in** go to `/signin`; the demo links (**See it in the demo**, **Try the demo**) go to `/demo`.
+- **Get started** / **Log in** go to `/login`; the demo links (**See it in the demo**, **Try the demo**) go to `/demo`.
 
 ## 7e. Sign-in pages (frontend, UI phase)
-- `/signin`, `/reset-password` and `/demo` share `components/auth/auth-shell.tsx`, so leaving the landing page feels like
+- `/login`, `/reset-password` and `/demo` share `components/auth/auth-shell.tsx`, so leaving the landing page feels like
   one site: the hero's sky (`Sky`) on the left with a serif headline and the landing's cycling notifications, the
   near-black form panel on the right (a sky band above the form on phones). The shell also exports the form styles
   (`authInput`, `authPrimary`, ...), `AuthAlert`, `AuthWaiting` and `rise(step)` (stagger for `.auth-rise` in `home.css`).
-- `/signin` (`app/signin/signin-content.tsx`): log in, sign up and reset in one form (Google first, then email and
+- `/login` (`app/login/login-content.tsx`; the old `/signin` redirects here, see `next.config.js`): log in, sign up and reset in one form (Google first, then email and
   password, "Forgot password?" under the password, the switch link at the bottom). Changing mode replays the headline
   and the rows' rise. The auth calls are Supabase's (`signInWithPassword`, `signUp`, `resetPasswordForEmail`,
   `signInWithOAuth`); `AuthProvider` sees the session and the page redirects to `next`. A demo (anonymous) session
