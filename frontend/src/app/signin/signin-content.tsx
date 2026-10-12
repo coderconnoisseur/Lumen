@@ -50,7 +50,20 @@ function friendlyAuthError(message: string): string {
 	if (/invalid login credentials/i.test(message)) {
 		return "That email and password don't match. Try again or reset your password.";
 	}
+	if (/rate limit/i.test(message)) {
+		return "Too many emails went out just now. Wait a few minutes and try again.";
+	}
+	if (/link is invalid or has expired/i.test(message)) {
+		return "That email link has expired or was already used. Log in, or request a new link.";
+	}
 	return message;
+}
+
+// Supabase reports a failed email or Google link in the URL fragment (#error=...&error_description=...).
+function errorFromUrlFragment(): string | null {
+	const params = new URLSearchParams(window.location.hash.slice(1));
+	const description = params.get("error_description");
+	return description ? friendlyAuthError(description.replace(/\+/g, " ")) : null;
 }
 
 function GoogleMark() {
@@ -67,7 +80,9 @@ function GoogleMark() {
 export default function SignInContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const { loading, user } = useAuth();
+	const { loading, user: sessionUser } = useAuth();
+	// A demo visitor (anonymous session) can still log in or sign up here, so only a real account counts.
+	const user = sessionUser?.is_anonymous ? null : sessionUser;
 
 	const next = safeNextPath(searchParams.get("next"));
 	const [mode, setMode] = useState<Mode>(
@@ -87,6 +102,14 @@ export default function SignInContent() {
 			router.replace(next);
 		}
 	}, [loading, next, router, user]);
+
+	useEffect(() => {
+		const fragmentError = errorFromUrlFragment();
+		if (fragmentError) {
+			setAuthError(fragmentError);
+			window.history.replaceState(null, "", window.location.pathname + window.location.search);
+		}
+	}, []);
 
 	const reasonCopy = useMemo(() => {
 		const reason = searchParams.get("reason");
