@@ -87,7 +87,7 @@ In Supabase → Authentication → Providers → Google:
 In Supabase → URL Configuration:
 
 - Site URL: `http://localhost:3000`
-- Redirect URLs: `http://localhost:3000/signin`
+- Redirect URLs: `http://localhost:3000/login`
 
 ---
 
@@ -108,7 +108,7 @@ python scripts/migrate_demo_user_id.py
 
 ## 5. Sign in and test
 
-1. Open http://localhost:3000/signin
+1. Open http://localhost:3000/login
 2. Sign in with Google
 3. Upload an invoice on the dashboard
 4. Try Chat, Analytics, and AI Analytics

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Newsreader, Roboto_Mono } from "next/font/google";
+import { Hanken_Grotesk, Inter, JetBrains_Mono, Newsreader, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ServerWake } from "@/components/server-wake";
@@ -29,6 +29,13 @@ const robotoMono = Roboto_Mono({
 	subsets: ["latin"],
 	weight: ["400", "500"],
 	variable: "--font-roboto-mono",
+});
+
+// Text face of the landing and sign-in pages (and their showcase screens).
+const hankenGrotesk = Hanken_Grotesk({
+	subsets: ["latin"],
+	weight: ["300", "400", "500"],
+	variable: "--font-ui",
 });
 
 export const metadata: Metadata = {
@@ -126,7 +133,7 @@ export default function RootLayout({
 	return (
 		<html
 			lang="en"
-			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${robotoMono.variable} dark`}
+			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${robotoMono.variable} ${hankenGrotesk.variable} dark`}
 		>
 			<body className="min-h-screen bg-background font-sans text-foreground antialiased">
 				<ServerWake />

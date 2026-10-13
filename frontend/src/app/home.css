@@ -68,12 +68,19 @@
 	mask-image: radial-gradient(ellipse at center, black 30%, transparent 72%);
 }
 
+/* sign-in pages: form rows rise in, one after another (stagger via animation-delay) */
+@keyframes auth-rise {
+	from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+	to { opacity: 1; transform: none; filter: none; }
+}
+.auth-rise { animation: auth-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 .home-noscroll { scrollbar-width: none; }
 .home-noscroll::-webkit-scrollbar { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
 	.home-reveal, .home-lines .ln { opacity: 1; transform: none; filter: none; transition: none; }
-	.home-intro, .home-intro-lines .ln { animation: none; }
+	.home-intro, .home-intro-lines .ln, .auth-rise { animation: none; }
 	.home-marquee-x, .home-marquee-x-rev, .home-marquee-y, .home-pulse, .home-caret { animation: none; }
 	.home-cycle > * { animation: none; opacity: 0; }
 	.home-cycle > :first-child { opacity: 1; }

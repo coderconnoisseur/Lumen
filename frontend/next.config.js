@@ -19,6 +19,11 @@ if (missing.length > 0) {
 
 const nextConfig = {
 	reactStrictMode: true,
+	// The login page used to live at /signin; old bookmarks and already-sent email links still work
+	// (query strings carry over, and browsers keep the #fragment Supabase puts on email links).
+	async redirects() {
+		return [{ source: "/signin", destination: "/login", permanent: true }];
+	},
 };
 
 module.exports = nextConfig;

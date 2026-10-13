@@ -21,6 +21,23 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
 4. **Project Settings → API**: copy the **Project URL** (`SUPABASE_URL`, also `NEXT_PUBLIC_SUPABASE_URL`) and the
    **anon public** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`), and the **service_role** key (`SUPABASE_SERVICE_ROLE_KEY`, for
    Render only: the API keeps original uploads in a private Storage bucket, `lumen-files`, created on first upload).
+5. **Google sign-in** (off until this is done; the button then lands on Supabase's "provider is not enabled" page):
+   - Google Cloud Console → **APIs & Services → OAuth consent screen**: External, app name Lumen, your support email,
+     authorized domain `nishantbuilds.me`; scopes are only email and profile. **Publish app** (In production), or only
+     listed test users can sign in.
+   - **Credentials → Create credentials → OAuth client ID** → Web application. Authorized JavaScript origin
+     `https://lumen.nishantbuilds.me`; authorized redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`.
+   - Supabase **Authentication → Sign In / Providers → Google**: enable, paste the client ID and secret, Save.
+6. **Email sending** (sign-up confirmation and password reset links). Supabase's built-in mailer only delivers to the
+   project team's own addresses, a few an hour, so real visitors never get the link. Use your own SMTP, e.g. Resend
+   (free tier):
+   - resend.com → **Domains → Add** `nishantbuilds.me` → add the DNS records it lists in Namecheap (**Advanced DNS**)
+     → Verify. Then **API Keys → Create**.
+   - Supabase **Authentication → Emails → SMTP Settings** → enable custom SMTP: host `smtp.resend.com`, port `465`,
+     username `resend`, password = the API key, sender `no-reply@nishantbuilds.me`, sender name `Lumen`. Save.
+   - **Authentication → Rate Limits**: raise "emails sent per hour" (custom SMTP starts at 30).
+   - Stopgap without SMTP: **Sign In / Providers → Email** → turn off **Confirm email**. Sign-ups then log in at once
+     (nobody proves they own the address) and password reset emails still won't reach visitors.
 
 ## 2. Render (the API)
 The API runs as **`lumen-api-sg`** in Render's **Singapore** region, next to the database (created 2026-10-09 with the
@@ -68,7 +85,7 @@ Within ~30 minutes both dashboards show the domain as verified and issue HTTPS c
 
 ## 5. Check it (tell me when you're here)
 - `https://api.lumen.nishantbuilds.me/health` answers.
-- `https://lumen.nishantbuilds.me/signin` → **Try the demo (no sign-up)** → lands on the agent page; ask
+- `https://lumen.nishantbuilds.me/demo` → lands on the agent page; ask
   "What is my average electricity bill?".
 - The keep-warm job (GitHub → Actions → keep-warm) runs every 10 minutes and turns green.
 

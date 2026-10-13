@@ -24,7 +24,7 @@ export function middleware(request: NextRequest) {
 		return NextResponse.next();
 	}
 
-	const signInUrl = new URL("/signin", request.url);
+	const signInUrl = new URL("/login", request.url);
 	signInUrl.searchParams.set("reason", "unauthorized");
 	signInUrl.searchParams.set("next", `${pathname}${search}`);
 	return NextResponse.redirect(signInUrl);

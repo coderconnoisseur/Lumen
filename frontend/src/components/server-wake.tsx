@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 // The free API host sleeps when idle (SPEC-DEPLOY). If /health hasn't answered in 3 s, say so until it does.
-// The landing page doesn't need the API: it still pings (so the server is warm by "Get started") but shows nothing.
+// The landing and sign-in pages don't need the API (sign-in talks to Supabase): they still ping, so the server is warm
+// by the time the app opens, but show nothing.
 export function ServerWake() {
 	const [waking, setWaking] = useState(false);
-	const onLanding = usePathname() === "/";
+	const quiet = ["/", "/login", "/reset-password"].includes(usePathname());
 
 	useEffect(() => {
 		let done = false;
@@ -33,10 +34,14 @@ export function ServerWake() {
 		};
 	}, []);
 
-	if (!waking || onLanding) return null;
+	if (!waking || quiet) return null;
 	return (
-		<div role="status" className="fixed inset-x-0 top-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm text-black">
-			Waking up the server (free hosting sleeps when idle). This takes about a minute…
+		<div
+			role="status"
+			className="fixed bottom-5 left-1/2 z-50 flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/10 bg-[#1c1c1e]/90 px-4 py-2 text-[13px] text-white/85 shadow-lg backdrop-blur"
+		>
+			<span className="size-2 shrink-0 animate-pulse rounded-full bg-amber-400" />
+			Waking up the server (free hosting sleeps when idle). About a minute…
 		</div>
 	);
 }

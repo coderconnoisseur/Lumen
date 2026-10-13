@@ -90,7 +90,7 @@ const createApiClient = (): AxiosInstance => {
 			if (error.response?.status === 401 && !redirectingToSignIn) {
 				redirectingToSignIn = true;
 				tokenManager.removeToken();
-				// End the Supabase session too. Otherwise /signin still sees a
+				// End the Supabase session too. Otherwise /login still sees a
 				// signed-in user, bounces straight back here, gets another 401,
 				// and loops forever whenever the backend rejects a live session.
 				try {
@@ -101,7 +101,7 @@ const createApiClient = (): AxiosInstance => {
 				if (typeof window !== "undefined") {
 					const next =
 						window.location.pathname + window.location.search;
-					window.location.href = `/signin?reason=expired&next=${encodeURIComponent(
+					window.location.href = `/login?reason=expired&next=${encodeURIComponent(
 						next
 					)}`;
 				}

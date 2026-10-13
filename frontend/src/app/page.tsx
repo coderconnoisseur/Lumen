@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -29,8 +28,6 @@ import { Sky } from "@/components/home/sky";
 // word, a grotesk for text and showcase screens, mono uppercase labels, near-black canvas, product screens in motion.
 // It describes the product Lumen is growing into; what isn't built yet is tracked in PROGRESS's Deferred list.
 
-const sans = Hanken_Grotesk({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-ui" });
-
 const description =
 	"Lumen keeps track of everything you earn, spend and owe, reads your bills and receipts, and keeps finding new ways for you to save.";
 
@@ -44,10 +41,10 @@ export const metadata: Metadata = {
 
 const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracking-[0.06em]";
 
-function Cta({ children, variant = "light" }: { children: ReactNode; variant?: "light" | "dark" }) {
+function Cta({ children, variant = "light", href = "/login" }: { children: ReactNode; variant?: "light" | "dark"; href?: string }) {
 	return (
 		<Link
-			href="/signin"
+			href={href}
 			className={`${mono} inline-flex items-center gap-2 rounded-lg px-[18px] py-3 text-[12px] font-medium transition-opacity duration-200 hover:opacity-85 ${
 				variant === "light" ? "bg-white text-black" : "bg-[#1c1c1e] text-white ring-1 ring-white/10"
 			}`}
@@ -138,7 +135,7 @@ function Pair({ scene, title, body, children, flip = false }: {
 
 export default function HomePage() {
 	return (
-		<div className={`${sans.variable} min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased`}>
+		<div className={`min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased`}>
 			{/* nav: frosted glass */}
 			<header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.04] bg-[#0f1011]/[0.08] backdrop-blur-[24px]">
 				<nav className="mx-auto flex h-[68px] max-w-[1440px] items-center px-5 sm:px-8">
@@ -162,7 +159,7 @@ export default function HomePage() {
 						))}
 					</div>
 					<div className="ml-auto flex items-center gap-5">
-						<Link href="/signin" className={`${mono} hidden text-[11.5px] font-medium text-white sm:inline`}>
+						<Link href="/login" className={`${mono} hidden text-[11.5px] font-medium text-white sm:inline`}>
 							Log in
 						</Link>
 						<Cta>Get started</Cta>
@@ -245,7 +242,7 @@ export default function HomePage() {
 						<Headline lines={[<><em>Track</em> every rupee,</>, "all in one place."]} />
 						<Reveal delay={150}>
 							<div className="mt-8">
-								<Cta variant="dark">See it in the demo</Cta>
+								<Cta variant="dark" href="/demo">See it in the demo</Cta>
 							</div>
 						</Reveal>
 					</div>
@@ -402,7 +399,7 @@ export default function HomePage() {
 								Explore a full year of sample spending, bills and documents, ready in one click.
 							</p>
 							<div className="mt-8">
-								<Cta>Get started</Cta>
+								<Cta href="/demo">Try the demo</Cta>
 							</div>
 						</Reveal>
 					</div>
@@ -431,8 +428,8 @@ export default function HomePage() {
 					<div>
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Get started</p>
 						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
-							<li><Link href="/signin" className="hover:text-white">Try the demo</Link></li>
-							<li><Link href="/signin" className="hover:text-white">Log in</Link></li>
+							<li><Link href="/demo" className="hover:text-white">Try the demo</Link></li>
+							<li><Link href="/login" className="hover:text-white">Log in</Link></li>
 						</ul>
 					</div>
 				</div>

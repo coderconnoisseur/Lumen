@@ -3,20 +3,18 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyRound, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import Aurora from "@/components/landing/Aurora";
-import { Button } from "@/components/ui/button";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+	AuthAlert,
+	AuthShell,
+	AuthWaiting,
+	authInput,
+	authLabel,
+	authPrimary,
+	rise,
+} from "@/components/auth/auth-shell";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -59,114 +57,78 @@ export default function ResetPasswordPage() {
 		}
 	};
 
-	const inputClass =
-		"h-11 rounded-xl border-white/20 bg-white/5 text-white placeholder:text-white/40 focus-visible:border-white/40 focus-visible:ring-white/20";
-
 	return (
-		<div className="min-h-screen bg-black text-white relative overflow-hidden">
-			<div className="fixed inset-0">
-				<Aurora
-					colorStops={["#475569", "#64748b", "#475569"]}
-					amplitude={1.2}
-					blend={0.6}
-					speed={0.8}
-				/>
-			</div>
+		<AuthShell headline={["A fresh", <>start, <em>secured</em>.</>]}>
+			{loading ? (
+				<AuthWaiting>Checking your reset link…</AuthWaiting>
+			) : (
+				<>
+					<h1 style={rise(0)} className="auth-rise font-display text-[34px] leading-[1.1] font-light tracking-[-0.01em] sm:text-[40px]">
+						Set a new <em>password</em>
+					</h1>
+					<p style={rise(1)} className="auth-rise mt-3 text-[15.5px] leading-[1.5] text-[#9f9fa0]">
+						{user
+							? `Choose a new password for ${user.email ?? "your account"}.`
+							: "This reset link is invalid or has expired."}
+					</p>
 
-			<div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-				<Card className="w-full max-w-lg border-white/15 bg-white/10 text-white shadow-2xl backdrop-blur-xl">
-					<CardHeader className="space-y-4">
-						<div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
-							<KeyRound className="h-6 w-6" />
-						</div>
-						<div className="space-y-2">
-							<CardTitle className="text-3xl font-semibold text-white">
-								Set a new password
-							</CardTitle>
-							<CardDescription className="text-base text-white/75">
-								{loading
-									? "Checking your reset link..."
-									: user
-									  ? `Choose a new password for ${user.email ?? "your account"}.`
-									  : "This reset link is invalid or has expired."}
-							</CardDescription>
-						</div>
-					</CardHeader>
-
-					<CardContent className="space-y-6">
-						{loading ? (
-							<div className="flex justify-center py-4">
-								<Loader2 className="h-6 w-6 animate-spin" />
+					{user ? (
+						<form onSubmit={handleSubmit} style={rise(2)} className="auth-rise mt-8 space-y-5">
+							<div className="space-y-2">
+								<label htmlFor="new-password" className={authLabel}>
+									New password
+								</label>
+								<input
+									id="new-password"
+									type="password"
+									required
+									minLength={MIN_PASSWORD_LENGTH}
+									autoComplete="new-password"
+									value={password}
+									onChange={(e) => setPassword(e.target.value)}
+									className={authInput}
+								/>
+								<p className="text-[13.5px] text-[#6a6b6b]">At least {MIN_PASSWORD_LENGTH} characters.</p>
 							</div>
-						) : user ? (
-							<form onSubmit={handleSubmit} className="space-y-4">
-								<div className="space-y-2">
-									<Label htmlFor="new-password" className="text-white/85">
-										New password
-									</Label>
-									<Input
-										id="new-password"
-										type="password"
-										required
-										minLength={MIN_PASSWORD_LENGTH}
-										autoComplete="new-password"
-										placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-										value={password}
-										onChange={(e) => setPassword(e.target.value)}
-										className={inputClass}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="confirm-password" className="text-white/85">
-										Confirm new password
-									</Label>
-									<Input
-										id="confirm-password"
-										type="password"
-										required
-										autoComplete="new-password"
-										value={confirm}
-										onChange={(e) => setConfirm(e.target.value)}
-										className={inputClass}
-									/>
-								</div>
-								<Button
-									type="submit"
-									disabled={submitting}
-									size="lg"
-									className="w-full rounded-xl bg-white text-black hover:bg-gray-100"
-								>
-									{submitting ? (
-										<>
-											<Loader2 className="h-4 w-4 animate-spin" />
-											Saving...
-										</>
-									) : (
-										"Update password"
-									)}
-								</Button>
-							</form>
-						) : (
-							<Button
-								asChild
-								size="lg"
-								className="w-full rounded-xl bg-white text-black hover:bg-gray-100"
-							>
-								<Link href="/signin?mode=reset">Request a new reset link</Link>
-							</Button>
-						)}
-
-						{error ? (
-							<div
-								role="alert"
-								className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100"
-							>
-								{error}
+							<div className="space-y-2">
+								<label htmlFor="confirm-password" className={authLabel}>
+									Confirm new password
+								</label>
+								<input
+									id="confirm-password"
+									type="password"
+									required
+									autoComplete="new-password"
+									value={confirm}
+									onChange={(e) => setConfirm(e.target.value)}
+									className={authInput}
+								/>
 							</div>
-						) : null}
-					</CardContent>
-				</Card>
-			</div>
-		</div>
+							<button type="submit" disabled={submitting} className={authPrimary}>
+								{submitting ? (
+									<>
+										<Loader2 className="size-4 animate-spin" /> Saving…
+									</>
+								) : (
+									<>
+										Update password <ArrowRight className="size-3.5" />
+									</>
+								)}
+							</button>
+						</form>
+					) : (
+						<Link href="/login?mode=reset" style={rise(2)} className={`auth-rise mt-8 ${authPrimary}`}>
+							Request a new link <ArrowRight className="size-3.5" />
+						</Link>
+					)}
+
+					{error ? (
+						<div className="mt-5">
+							<AuthAlert tone="error">{error}</AuthAlert>
+						</div>
+					) : null}
+				</>
+			)}
+		</AuthShell>
 	);
 }
