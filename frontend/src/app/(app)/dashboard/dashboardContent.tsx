@@ -14,16 +14,22 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
+import { useProfile } from "@/components/profile/profile-provider";
+
+const partOfDay = (h: number) => (h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 
 export default function DashboardContent() {
 	const searchParams = useSearchParams();
 	const openUpload = searchParams.get("upload") === "1";
+	const { profile } = useProfile();
+	const firstName = profile?.display_name?.split(" ")[0];
+	const greeting = firstName ? `Good ${partOfDay(new Date().getHours())}, ${firstName}` : "Operations";
 
 	return (
 		<DashboardShell
 			title="Financial Overview"
 			description="Track invoice intake, review queue health, and recent transaction activity from one workspace designed for fast decision-making."
-			eyebrow="Operations"
+			eyebrow={greeting}
 			actions={
 				<>
 					<ExportDialog />
