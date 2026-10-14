@@ -12,6 +12,15 @@ class User(db.Model):
     id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = db.Column(db.String, unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # SPEC-ONBOARD profile; all nullable (added to existing databases by _ADDED_COLUMNS)
+    display_name = db.Column(db.String)
+    avatar_key = db.Column(db.String)
+    currency = db.Column(db.String(3))
+    monthly_income = db.Column(db.Float)
+    monthly_budget = db.Column(db.Float)
+    use_case = db.Column(db.String)
+    goals = db.Column(db.Text)  # JSON list of goal ids
+    onboarded_at = db.Column(db.DateTime)
 
 
 class Receipt(db.Model):
