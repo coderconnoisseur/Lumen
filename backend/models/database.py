@@ -35,7 +35,8 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
 # Columns added after their table first shipped (create_all doesn't alter existing tables). All nullable.
 _ADDED_COLUMNS = {
     "review_items": [("extracted", "TEXT")],  # SPEC-FEEDBACK
-    "transactions": [("currency", "VARCHAR(3)"), ("po_number", "VARCHAR"), ("file_key", "VARCHAR")],  # EXT-01
+    "transactions": [("currency", "VARCHAR(3)"), ("po_number", "VARCHAR"), ("file_key", "VARCHAR"),
+                     ("source", "VARCHAR"), ("import_key", "VARCHAR")],  # EXT-01, SPEC-STATEMENTS
     "users": [("display_name", "VARCHAR"), ("avatar_key", "VARCHAR"), ("currency", "VARCHAR(3)"),
               ("monthly_income", "FLOAT"), ("monthly_budget", "FLOAT"), ("use_case", "VARCHAR"),
               ("goals", "TEXT"), ("onboarded_at", "TIMESTAMP")],  # SPEC-ONBOARD
