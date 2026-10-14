@@ -7,14 +7,15 @@ hardening plan (PLAN.md, phases 0-7) is finished or superseded and was removed o
 
 ## 1. Landing-page claims not built yet
 What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
-- [ ] **Bank and card statements in, every transaction in one place** ("We connect everything", "Watch your
+- [ ] **Bank and card statements in, every transaction in one place** (SPEC-STATEMENTS, CSV first) ("We connect everything", "Watch your
   spending"): import CSV/PDF statements, sorted and searchable.
 - [ ] **Budgets, "left to spend"** ("Stay on budget"): a monthly budget per category or overall; onboarding already
   stores `users.monthly_budget`.
 - [ ] **Subscriptions** ("Tame your subscriptions"): find recurring charges, flag unused ones, nudge to cancel
-  (`ai/pattern_detection.py` has a start).
+  (`ai/pattern_detection.py` has a start). **Owner: start from email** (the Gmail poller already ingests Netflix-style
+  receipts); statements are a second source.
 - [ ] **Forecast of spending and cash flow** ("See what's coming"): from your own history (`ai/forecasting_agent.py`
-  has a start).
+  has a start). **Owner: a proper time-series model** (seasonality, trend, intervals), not moving averages.
 - [ ] **Ways to save / idle cash** ("Grow your savings", "We find ways to save", the hero's "9 ways to save").
 - [ ] **Money health score with an action list** (the insight marquee; `ai/risk_assessment.py` has a start).
 - [ ] **Proactive notifications** ("Advice that comes to you": statement dates, renewals, unusual bills, double
