@@ -288,8 +288,8 @@ Deploy targets already exist: frontend on Vercel (`lumen-eta-ebon.vercel.app`, p
 
 Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs feels instant and nothing flashes.
 
-- [ ] **White flash between pages.** `frontend/src/app/loading.tsx` renders on `bg-gray-50` (near-white). Next.js shows it during every route change, so the dark app flashes white. Use the app background (`bg-background`) and a skeleton that matches the destination layout.
-- [ ] **Persistent app shell.** Every page mounts its own `DashboardShell` / `SidebarProvider` (`dashboardContent`, `analyticsContent`, `aiAnalyticsContent`, `chatbotContent`), so navigating rebuilds the whole sidebar and shell. Move the shell into a shared route-group layout (`app/(app)/layout.tsx`) so only the content area swaps and sidebar state survives.
+- [x] **White flash between pages.** (root `loading.tsx` removed) `frontend/src/app/loading.tsx` renders on `bg-gray-50` (near-white). Next.js shows it during every route change, so the dark app flashes white. Use the app background (`bg-background`) and a skeleton that matches the destination layout.
+- [x] **Persistent app shell.** (done: `app/(app)/layout.tsx`) Every page mounts its own `DashboardShell` / `SidebarProvider` (`dashboardContent`, `analyticsContent`, `aiAnalyticsContent`, `chatbotContent`), so navigating rebuilds the whole sidebar and shell. Move the shell into a shared route-group layout (`app/(app)/layout.tsx`) so only the content area swaps and sidebar state survives.
 - [ ] **Instant route changes, X.com-style:**
   - Keep `<Link>` prefetch on for sidebar links, and prefetch on hover or when links come into view.
   - Cache fetched data client-side (SWR or TanStack Query) so revisiting a tab renders immediately and revalidates in the background.
