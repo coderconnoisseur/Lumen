@@ -282,6 +282,15 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   back as `#error_description=...`; the page shows it in plain words and drops it from the URL. Google sign-in and
   email delivery are Supabase dashboard settings (`docs/DEPLOY.md` section 1, steps 5 and 6).
 
+## 7f. Onboarding and profile (frontend, SPEC-ONBOARD)
+- `/onboarding` (`app/onboarding/onboarding-content.tsx`): three steps in the sign-in pages' shell (you: name and
+  photo; money: currency, income, budget, who it's for; goals). The step is in the URL (`?step=2`) and each step saves
+  on Continue (`profileApi` in `lib/api/client.ts`), so refresh and Back resume. Photos are centre-cropped to a 256 px
+  JPEG in the browser before upload. The currency is guessed from the browser language (`lib/currency.ts`).
+- `components/profile/profile-provider.tsx` (inside `app/(app)/layout.tsx`) loads the profile once, exposes
+  `useProfile()` (profile + photo URL), and sends real accounts that haven't finished onboarding to `/onboarding`.
+  Demo accounts skip it. The sidebar and the dashboard greeting read it.
+
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
   JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO

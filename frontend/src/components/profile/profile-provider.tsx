@@ -33,13 +33,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 		if (avatarSrc?.startsWith("blob:")) URL.revokeObjectURL(avatarSrc);
 	}, [avatarSrc]);
 
+	const needsOnboarding = !!profile && !profile.onboarded && !profile.demo;
 	useEffect(() => {
-		if (profile && !profile.onboarded && !profile.demo) {
+		if (needsOnboarding) {
 			router.replace(`/onboarding?next=${encodeURIComponent(pathname)}`);
 		}
-	}, [profile, pathname, router]);
+	}, [needsOnboarding, pathname, router]);
 
-	return <ProfileContext.Provider value={{ profile, avatarSrc, refresh }}>{children}</ProfileContext.Provider>;
+	return (
+		<ProfileContext.Provider value={{ profile, avatarSrc, refresh }}>
+			{needsOnboarding ? null : children /* don't flash the app while redirecting */}
+		</ProfileContext.Provider>
+	);
 }
 
 export const useProfile = () => useContext(ProfileContext);
