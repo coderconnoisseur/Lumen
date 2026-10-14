@@ -296,6 +296,12 @@ Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs
   - Use per-route `loading.tsx` skeletons instead of full-screen spinners.
   - Use optimistic UI for chat and uploads.
 - [ ] **First click on a tab is slow in local dev.** That's Next.js compiling the route on demand in `next dev`. Production builds precompile every route, so check smoothness on a production build (`npm run build && npm start`) or a Vercel preview, not in dev.
+- [ ] **Vercel Web Interface Guidelines, inner app pages** (audit 2026-10-14; landing, login and app frame already fixed):
+  three-dot "..." loading text instead of "…" (ai-analytics cards, `animatedListItemUse`, `emailConfigDialog`);
+  `transition-all` in the ai-analytics cards and `home/chat-demo.tsx`; native `<select>` in `documentsContent` and
+  `exportDialog` needs explicit background/colour (Windows dark-mode contrast); ₹ hard-coded in the charts and cards
+  (fixed by the onboarding currency work); amounts in tables/cards should use `tabular-nums`; full-screen
+  spinners instead of skeletons that match the final layout.
 - [ ] **General UI/UX pass.** Layout and styling are broken in places; do a full design pass once features are stable.
 
 ---

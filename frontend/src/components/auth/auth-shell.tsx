@@ -16,7 +16,7 @@ export const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracki
 
 export const authLabel = `${mono} block text-[10.5px] font-medium text-[#9f9fa0]`;
 export const authInput =
-	"h-11 w-full rounded-lg border border-white/[0.08] bg-[#111113] px-3.5 text-[15px] text-white placeholder:text-[#4a4a4c] transition-colors outline-none hover:border-white/15 focus:border-white/30 focus:ring-2 focus:ring-white/10";
+	"h-11 w-full rounded-lg border border-white/[0.08] bg-[#111113] px-3.5 text-base text-white placeholder:text-[#4a4a4c] transition-colors outline-none hover:border-white/15 focus:border-white/30 focus:ring-2 focus:ring-white/10";
 export const authPrimary = `${mono} inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[12px] font-medium text-black transition-opacity hover:opacity-85 disabled:opacity-60`;
 export const authSecondary =
 	"inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-lg bg-[#1c1c1e] text-[14.5px] text-white ring-1 ring-white/10 transition-colors hover:bg-[#252527] disabled:opacity-60";
@@ -59,7 +59,7 @@ export function AuthShell({ headline, headlineKey, children }: {
 		<div className="min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased lg:grid lg:grid-cols-[1.1fr_1fr]">
 			<aside className="p-3 lg:sticky lg:top-0 lg:h-screen">
 				<div className="relative flex h-[240px] flex-col justify-between overflow-hidden rounded-[20px] p-6 sm:h-[280px] lg:h-full lg:rounded-[24px] lg:p-10">
-					<Sky />
+					<Sky controlsClassName="top-6 right-6 lg:top-10 lg:right-10" />
 					<Link href="/" aria-label="Lumen home" className="relative flex w-fit items-center gap-2.5">
 						<Image src="/lumen_logo.svg" alt="" width={28} height={28} priority />
 						<span className="text-[18px] tracking-tight">Lumen</span>
@@ -107,7 +107,7 @@ export function AuthShell({ headline, headlineKey, children }: {
 				</div>
 			</aside>
 
-			<main className="flex items-center justify-center px-5 pt-10 pb-16 lg:py-16">
+			<main id="main" className="flex items-center justify-center px-5 pt-10 pb-16 lg:py-16">
 				<div className="w-full max-w-[380px]">{children}</div>
 			</main>
 		</div>

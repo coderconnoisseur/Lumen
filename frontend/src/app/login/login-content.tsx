@@ -85,9 +85,9 @@ export default function LoginContent() {
 	const user = sessionUser?.is_anonymous ? null : sessionUser;
 
 	const next = safeNextPath(searchParams.get("next"));
-	const [mode, setMode] = useState<Mode>(
-		searchParams.get("mode") === "reset" ? "reset" : "signin"
-	);
+	// The mode lives in the URL (?mode=signup|reset), so refresh, Back and shared links keep it.
+	const modeParam = searchParams.get("mode");
+	const mode: Mode = modeParam === "signup" || modeParam === "reset" ? modeParam : "signin";
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -130,7 +130,11 @@ export default function LoginContent() {
 			  : reasonCopy;
 
 	const switchMode = (nextMode: Mode) => {
-		setMode(nextMode);
+		const params = new URLSearchParams(searchParams.toString());
+		if (nextMode === "signin") params.delete("mode");
+		else params.set("mode", nextMode);
+		const query = params.toString();
+		router.push(query ? `/login?${query}` : "/login", { scroll: false });
 		setAuthError(null);
 		setNotice(null);
 	};
@@ -247,7 +251,7 @@ export default function LoginContent() {
 								className={authSecondary}
 							>
 								{isStartingGoogle ? <Loader2 className="size-4 animate-spin" /> : <GoogleMark />}
-								{isStartingGoogle ? "Opening Google…" : "Continue with Google"}
+								Continue with Google
 							</button>
 						</div>
 						<div
@@ -272,6 +276,8 @@ export default function LoginContent() {
 						</label>
 						<input
 							id="email"
+							name="email"
+							spellCheck={false}
 							type="email"
 							required
 							autoComplete="email"
@@ -290,6 +296,7 @@ export default function LoginContent() {
 							<div className="relative">
 								<input
 									id="password"
+									name="password"
 									type={showPassword ? "text" : "password"}
 									required
 									minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : undefined}
@@ -328,7 +335,7 @@ export default function LoginContent() {
 							</>
 						) : submitting ? (
 							<>
-								<Loader2 className="size-4 animate-spin" /> Please wait…
+								<Loader2 className="size-4 animate-spin" /> {submitLabel}
 							</>
 						) : (
 							<>
