@@ -107,7 +107,7 @@ export default function ResetPasswordPage() {
 							<button type="submit" disabled={submitting} className={authPrimary}>
 								{submitting ? (
 									<>
-										<Loader2 className="size-4 animate-spin" /> Saving…
+										<Loader2 className="size-4 animate-spin" /> Update password
 									</>
 								) : (
 									<>

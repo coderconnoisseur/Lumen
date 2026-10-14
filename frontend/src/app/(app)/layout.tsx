@@ -14,7 +14,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 			<AuthGuard>
 				<SidebarProvider>
 					<AppSidebar />
-					<SidebarInset className="min-h-screen bg-transparent">
+					<SidebarInset id="main" className="min-h-screen bg-transparent">
 						<header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
 							<div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
 								<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />

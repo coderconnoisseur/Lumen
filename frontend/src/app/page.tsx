@@ -159,7 +159,7 @@ export default function HomePage() {
 						))}
 					</div>
 					<div className="ml-auto flex items-center gap-5">
-						<Link href="/login" className={`${mono} hidden text-[11.5px] font-medium text-white sm:inline`}>
+						<Link href="/login" className={`${mono} hidden py-2 text-[11.5px] font-medium text-white sm:inline-block`}>
 							Log in
 						</Link>
 						<Cta>Get started</Cta>
@@ -167,7 +167,7 @@ export default function HomePage() {
 				</nav>
 			</header>
 
-			<main>
+			<main id="main">
 				{/* hero: sky, headline, phone rising from the bottom */}
 				<section className="relative overflow-hidden pt-[150px]">
 					<Sky />
@@ -419,17 +419,17 @@ export default function HomePage() {
 					</div>
 					<div>
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Product</p>
-						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
-							<li><a href="#features" className="hover:text-white">Features</a></li>
-							<li><a href="#how" className="hover:text-white">How it works</a></li>
-							<li><a href="#ask" className="hover:text-white">Ask Lumen</a></li>
+						<ul className="mt-3 space-y-0.5 text-[15px] text-[#9f9fa0]">
+							<li><a href="#features" className="inline-block py-1 hover:text-white">Features</a></li>
+							<li><a href="#how" className="inline-block py-1 hover:text-white">How it works</a></li>
+							<li><a href="#ask" className="inline-block py-1 hover:text-white">Ask Lumen</a></li>
 						</ul>
 					</div>
 					<div>
 						<p className={`${mono} text-[11px] font-medium text-[#6a6b6b]`}>Get started</p>
-						<ul className="mt-4 space-y-2.5 text-[15px] text-[#9f9fa0]">
-							<li><Link href="/demo" className="hover:text-white">Try the demo</Link></li>
-							<li><Link href="/login" className="hover:text-white">Log in</Link></li>
+						<ul className="mt-3 space-y-0.5 text-[15px] text-[#9f9fa0]">
+							<li><Link href="/demo" className="inline-block py-1 hover:text-white">Try the demo</Link></li>
+							<li><Link href="/login" className="inline-block py-1 hover:text-white">Log in</Link></li>
 						</ul>
 					</div>
 				</div>
