@@ -737,3 +737,39 @@ export const profileApi = {
 	avatarUrl: async (key: string): Promise<string> =>
 		URL.createObjectURL((await apiClient.get(`/api/files/${key}`, { responseType: "blob" })).data),
 };
+
+export type StatementMapping = Record<"date" | "description" | "debit" | "credit" | "amount" | "drcr", number | null>;
+export type StatementPreview = {
+	columns: string[];
+	mapping: StatementMapping;
+	header_line: number;
+	sample: { line: number; date: string | null; description: string; amount: number | null; kind: string | null }[];
+	counts: { rows: number; debits: number; credits: number; unreadable: number };
+};
+export type StatementResult = {
+	imported: number;
+	duplicates: number;
+	matched: number;
+	credits: number;
+	unreadable: number[];
+};
+
+const upload = (file: File, extra: Record<string, string> = {}) => {
+	const form = new FormData();
+	form.append("file", file);
+	for (const [k, v] of Object.entries(extra)) form.append(k, v);
+	return form;
+};
+
+export const statementApi = {
+	preview: async (file: File): Promise<StatementPreview> =>
+		(await apiClient.post("/api/statements/preview", upload(file), { headers: { "Content-Type": undefined } })).data,
+	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number): Promise<StatementResult> =>
+		(
+			await apiClient.post(
+				"/api/statements/import",
+				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine) }),
+				{ headers: { "Content-Type": undefined } },
+			)
+		).data,
+};

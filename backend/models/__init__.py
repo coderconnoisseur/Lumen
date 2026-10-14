@@ -57,6 +57,8 @@ class Transaction(db.Model):
     currency = db.Column(db.String(3), nullable=True)  # as printed (ISO code), never converted; NULL = old rows
     po_number = db.Column(db.String, nullable=True)
     file_key = db.Column(db.String, nullable=True)  # the original upload (utils/files.py), served by /api/files
+    source = db.Column(db.String, nullable=True)  # SPEC-STATEMENTS: "statement" for imported rows
+    import_key = db.Column(db.String, nullable=True)  # SPEC-STATEMENTS: dedupe hash of an imported line
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

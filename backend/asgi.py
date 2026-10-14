@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app as flask_module
-from api import agent, demo, documents, errors, files, profile, review
+from api import agent, demo, documents, errors, files, profile, review, statements
 from api.deps import llm_deadline
 from config import Config
 
@@ -81,4 +81,4 @@ def create_app(*routers: APIRouter) -> FastAPI:
     return app
 
 
-app = create_app(documents.router, agent.router, demo.router, review.router, files.router, profile.router)
+app = create_app(documents.router, agent.router, demo.router, review.router, files.router, profile.router, statements.router)
