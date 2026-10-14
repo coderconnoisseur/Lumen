@@ -699,3 +699,41 @@ export const filesApi = {
 		window.open(URL.createObjectURL(response.data as Blob), "_blank", "noopener");
 	},
 };
+
+// SPEC-ONBOARD profile (backend/api/profile.py).
+export type Goal =
+	| "save_more"
+	| "cut_subscriptions"
+	| "stay_on_budget"
+	| "pay_off_debt"
+	| "emergency_fund"
+	| "big_purchase"
+	| "business_expenses";
+export type Profile = {
+	display_name: string | null;
+	avatar_key: string | null;
+	currency: string | null;
+	monthly_income: number | null;
+	monthly_budget: number | null;
+	use_case: "personal" | "household" | "business" | null;
+	goals: Goal[];
+	onboarded: boolean;
+	demo: boolean;
+};
+export type ProfileInput = Omit<Profile, "avatar_key" | "onboarded" | "demo">;
+
+export const profileApi = {
+	get: async (): Promise<Profile> => (await apiClient.get("/api/profile")).data.profile,
+	update: async (p: Partial<ProfileInput> & { complete?: boolean }): Promise<Profile> =>
+		(await apiClient.put("/api/profile", p)).data.profile,
+	uploadAvatar: async (file: Blob): Promise<Profile> => {
+		const form = new FormData();
+		form.append("file", file, "avatar.jpg");
+		// Let the browser set multipart/form-data with its boundary (the client defaults to JSON).
+		return (await apiClient.put("/api/profile/avatar", form, { headers: { "Content-Type": undefined } })).data
+			.profile;
+	},
+	// The bucket is private: fetch with the token and show it as an object URL.
+	avatarUrl: async (key: string): Promise<string> =>
+		URL.createObjectURL((await apiClient.get(`/api/files/${key}`, { responseType: "blob" })).data),
+};

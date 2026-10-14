@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMoney } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -21,6 +22,7 @@ interface Invoice {
 	invoice_number: string | null;
 	date: string | null;
 	total_amount: number | null;
+	currency?: string | null; // as printed on the invoice
 	tax_amount: number | null;
 	payment_method: string | null;
 	address: string | null;
@@ -48,6 +50,7 @@ export function InvoiceEditDialog({
 	onOpenChange,
 	onSuccess,
 }: InvoiceEditDialogProps) {
+	const money = useMoney();
 	const [saving, setSaving] = useState(false);
 
 	// Editable fields
@@ -267,9 +270,7 @@ export function InvoiceEditDialog({
 											Total Amount:
 										</span>
 										<p className="text-gray-900 font-medium mt-1">
-											$
-											{invoice.total_amount?.toFixed(2) ||
-												"0.00"}
+											{money(invoice.total_amount ?? 0, invoice.currency, { decimals: 2 })}
 										</p>
 									</div>
 									<div>
@@ -277,9 +278,7 @@ export function InvoiceEditDialog({
 											Tax Amount:
 										</span>
 										<p className="text-gray-900 font-medium mt-1">
-											$
-											{invoice.tax_amount?.toFixed(2) ||
-												"0.00"}
+											{money(invoice.tax_amount ?? 0, invoice.currency, { decimals: 2 })}
 										</p>
 									</div>
 									<div>

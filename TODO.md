@@ -300,7 +300,7 @@ Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs
   three-dot "..." loading text instead of "…" (ai-analytics cards, `animatedListItemUse`, `emailConfigDialog`);
   `transition-all` in the ai-analytics cards and `home/chat-demo.tsx`; native `<select>` in `documentsContent` and
   `exportDialog` needs explicit background/colour (Windows dark-mode contrast); ₹ hard-coded in the charts and cards
-  (fixed by the onboarding currency work); amounts in tables/cards should use `tabular-nums`; full-screen
+  (done: `formatMoney`/`useMoney`, SPEC-ONBOARD); amounts in tables/cards should use `tabular-nums`; full-screen
   spinners instead of skeletons that match the final layout.
 - [ ] **Inner app design ideas (owner: later, 2026-10-14).** One visual language with the landing (near-black canvas,
   serif titles and big numbers, mono labels, hairline cards) instead of the "Finance Workspace" badges and bubbly
@@ -308,6 +308,9 @@ Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs
   visit; ask Lumen from anywhere (⌘K); cached data (SWR) with skeletons that match the layout; empty states with a next
   step; one chart palette with tabular numbers and hover details; a bottom tab bar on phones; a Settings page (edit
   the onboarding answers, currency, delete your data).
+- [ ] **Fake insight cards.** `components/ai-analytics/spendingTrendGraph.tsx` shows three hard-coded "insights" with
+  made-up figures ("Your November spending of 8,316 is 454% above…") to every user. Replace them with the real
+  insights from `/api/ai-analytics/insights` or remove them.
 - [ ] **General UI/UX pass.** Layout and styling are broken in places; do a full design pass once features are stable.
 
 ---

@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useMoney } from "@/lib/format";
 import { analyticsApi } from "@/lib/api/client";
 
 interface SelectedPeriod {
@@ -80,6 +81,7 @@ const getPeriodLabels = (timeRange: string, selectedPeriod: SelectedPeriod) => {
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
+	const money = useMoney();
 	if (active && payload && payload.length) {
 		return (
 			<div className="rounded-xl border border-border/70 bg-card/95 p-4 shadow-xl shadow-black/20 backdrop-blur">
@@ -95,11 +97,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 						{entry.name === "currentSpending"
 							? "Current Period"
 							: "Previous Period"}
-						: ₹
-						{entry.value.toLocaleString("en-IN", {
-							minimumFractionDigits: 2,
-							maximumFractionDigits: 2,
-						})}
+						: {money(entry.value, null, { decimals: 2 })}
 					</p>
 				))}
 			</div>
@@ -112,6 +110,7 @@ export default function SpendingTrendChart({
 	timeRange,
 	selectedPeriod,
 }: SpendingTrendChartProps) {
+	const money = useMoney();
 	const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 	const [loading, setLoading] = useState(true);
 
@@ -226,7 +225,7 @@ export default function SpendingTrendChart({
 						<YAxis
 							tick={{ fontSize: 12, fill: "#94a3b8" }}
 							tickLine={false}
-							tickFormatter={(value) => `₹${value}`}
+							tickFormatter={(value) => money(value)}
 						/>
 						<Tooltip content={<CustomTooltip />} />
 						<Legend

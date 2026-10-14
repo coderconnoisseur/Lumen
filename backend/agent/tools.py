@@ -34,6 +34,7 @@ class ToolContext:
     sql_agent: Any  # ai.sql_agent.SQLAgent bound to the same database
     rag: Any = None  # rag.service.RagService, or None when document search is unavailable
     today: date = field(default_factory=date.today)
+    profile: dict | None = None  # the onboarding answers (api.profile.load_profile), None before onboarding
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,7 @@ def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
         "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem)},
         "notes": [
             "transactions.date is TEXT 'YYYY-MM-DD'; compare as strings, e.g. date >= '2026-01-01'.",
-            "Amounts are in INR. category values are Title Case (Groceries, Utilities, Transport, ...).",
+            f"Amounts are in {(ctx.profile or {}).get('currency') or 'INR'}. category values are Title Case (Groceries, Utilities, Transport, ...).",
             "Vendor names are exact strings: use lookup_vendors to find the real name before filtering.",
             f"Today is {ctx.today.isoformat()}.",
         ],

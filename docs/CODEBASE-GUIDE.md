@@ -45,6 +45,7 @@ search. The agent's job (next) is to pick the right one.
 | `api/errors.py` | Maps errors to the app-wide body `{success: false, error, code}`; `LLMError` → 429/502/503. |
 | `api/documents.py` | `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST /api/documents/search`, `POST /api/documents/ask`. Gets the RAG service via `Depends(get_service)`, which tests override with fakes. |
 | `api/demo.py` | `POST /api/demo/start`: for anonymous (demo) accounts only, seeds the caller's own copy of the demo data once (`scripts/seed_demo_data.seed`). `api/agent.py` caps demo accounts at `DEMO_QUESTIONS_PER_DAY` (20) agent questions a day. |
+| `api/profile.py` | SPEC-ONBOARD profile: `GET`/`PUT /api/profile` (name, currency, income, budget, use case, goals; `complete` sets `users.onboarded_at`) and `PUT /api/profile/avatar` (PNG/JPEG/WebP by content, ≤ 2 MB, stored at `{user_id}/avatar-{time}.{ext}`, the old one deleted; served by `GET /api/files`). Demo accounts get a fixed demo profile and can't write. `load_profile(session, user_id)` is the profile for personalisation, or None before onboarding. Profile columns live on `users` (`_ADDED_COLUMNS`). |
 | `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen = the agent since 2026-10-09, + history; demo accounts share the 20/day cap), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
 
 ### Auth and tenancy (the rule everything follows)
@@ -284,6 +285,20 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   doesn't count as signed in here, so demo visitors can still log in or sign up. A failed email or Google link comes
   back as `#error_description=...`; the page shows it in plain words and drops it from the URL. Google sign-in and
   email delivery are Supabase dashboard settings (`docs/DEPLOY.md` section 1, steps 5 and 6).
+
+## 7f. Onboarding and profile (frontend, SPEC-ONBOARD)
+- `/onboarding` (`app/onboarding/onboarding-content.tsx`): three steps in the sign-in pages' shell (you: name and
+  photo; money: currency, income, budget, who it's for; goals). The step is in the URL (`?step=2`) and each step saves
+  on Continue (`profileApi` in `lib/api/client.ts`), so refresh and Back resume. Photos are centre-cropped to a 256 px
+  JPEG in the browser before upload. The currency is guessed from the browser language (`lib/currency.ts`).
+- `components/profile/profile-provider.tsx` (inside `app/(app)/layout.tsx`) loads the profile once, exposes
+  `useProfile()` (profile + photo URL), and sends real accounts that haven't finished onboarding to `/onboarding`.
+  Demo accounts skip it. The sidebar and the dashboard greeting read it.
+
+- Personalisation (ONB-03/04): `lib/format.ts` (`formatMoney`, `useMoney`: profile currency unless a row has its
+  own), `backend/utils/money.py` (`fmt`, `user_currency`, `user_budget`, `user_income` for insight text and the risk
+  score), `system_prompt(today, profile)` in `agent/prompts.py` (unchanged text without a profile), and goal-based
+  `/chat/suggestions` in `routes/chat.py`.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact

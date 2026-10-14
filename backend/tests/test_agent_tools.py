@@ -154,3 +154,24 @@ def test_anomalies_name_the_transaction_and_use_the_app_currency(db, world):
     for a in found:
         assert a["vendor"] and a["date"] and a["amount"] is not None
         assert "€" not in " ".join(a["reasons"])
+
+
+def test_system_prompt_without_a_profile_is_unchanged():
+    """The recorded agent evals run without a profile, so their prompt must stay byte-for-byte the same."""
+    from datetime import date
+
+    from agent.prompts import SYSTEM_PROMPT, _schema, system_prompt
+
+    assert system_prompt(date(2026, 10, 14)) == SYSTEM_PROMPT.format(today="2026-10-14", schema=_schema())
+
+
+def test_system_prompt_with_a_profile_uses_its_currency_and_context():
+    from datetime import date
+
+    from agent.prompts import system_prompt
+
+    text = system_prompt(date(2026, 10, 14), {"display_name": "Asha", "currency": "CHF", "use_case": "household",
+                                              "goals": ["stay_on_budget"], "monthly_budget": 4000,
+                                              "monthly_income": None})
+    assert "Amounts are in CHF." in text and "INR" not in text
+    assert "Asha" in text and "household" in text and "stay on budget" in text and "4000" in text

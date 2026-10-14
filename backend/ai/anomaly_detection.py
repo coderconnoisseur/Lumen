@@ -1,4 +1,5 @@
 
+from utils.money import fmt
 import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
@@ -249,7 +250,7 @@ class FraudDetectionAgent:
         prompt = f"""You are a fraud detection expert analyzing a flagged transaction.
 
 Transaction Details:
-- Amount: ₹{txn['total_amount']}
+- Amount: {fmt(txn['total_amount'], txn.get('currency'))}
 - Vendor: {txn.get('vendor_name', 'Unknown')}
 - Category: {txn.get('category', 'Unknown')}
 - Date: {txn['date']}
