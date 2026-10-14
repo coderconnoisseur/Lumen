@@ -11,6 +11,7 @@ api/errors.py; parity tests in tests/test_asgi.py).
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 
@@ -44,6 +45,12 @@ async def _lifespan(_app: FastAPI):
     flask_module.startup_checks()
     if Config.FLASK_ENV == "production":
         threading.Thread(target=_warm_retrieval, daemon=True).start()
+    if os.getenv("EMAIL_POLLING") == "1":
+        from utils.scheduler import scheduler
+
+        scheduler.app = flask_app
+        scheduler.interval_seconds = 600
+        scheduler.start()
     yield
 
 
