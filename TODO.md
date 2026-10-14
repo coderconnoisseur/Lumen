@@ -302,6 +302,12 @@ Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs
   `exportDialog` needs explicit background/colour (Windows dark-mode contrast); ₹ hard-coded in the charts and cards
   (fixed by the onboarding currency work); amounts in tables/cards should use `tabular-nums`; full-screen
   spinners instead of skeletons that match the final layout.
+- [ ] **Inner app design ideas (owner: later, 2026-10-14).** One visual language with the landing (near-black canvas,
+  serif titles and big numbers, mono labels, hairline cards) instead of the "Finance Workspace" badges and bubbly
+  cards; merge Analytics and AI Insights into one Insights page; Overview as a feed of what changed since the last
+  visit; ask Lumen from anywhere (⌘K); cached data (SWR) with skeletons that match the layout; empty states with a next
+  step; one chart palette with tabular numbers and hover details; a bottom tab bar on phones; a Settings page (edit
+  the onboarding answers, currency, delete your data).
 - [ ] **General UI/UX pass.** Layout and styling are broken in places; do a full design pass once features are stable.
 
 ---

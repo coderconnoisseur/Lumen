@@ -264,8 +264,12 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   Lumen itself, testimonials or customer logos.
 - Media: Pexels photos and a 1080p sky video (first frame trimmed; `sky-poster.jpg` paints first) in `public/home/` (sources listed in `components/home/scenes.tsx`;
   Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
-- Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
-  headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
+- Motion (2026-10-14 pass): static by default. The hero still rises in once (CSS); everything else that moves says
+  something, in `components/home/motion.tsx`: the hero word rotates (`RotatingWord`), the savings figure rolls
+  (`RollingNumber`), the promise paragraph lights up word by word with scroll (`ScrollLitText`, CSS scroll-driven
+  animation), its labels decode once (`DecodeText`), photo panels wipe open (`Wipe`) and the closing photo settles with
+  scroll. `smooth-scroll.tsx` adds Lenis inertial scrolling to the landing page only. All of it is off for reduced
+  motion (`app/home.css`).
 - **Get started** / **Log in** go to `/login`; the demo links (**See it in the demo**, **Try the demo**) go to `/demo`.
 
 ## 7e. Sign-in pages (frontend, UI phase)

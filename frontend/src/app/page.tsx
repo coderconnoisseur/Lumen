@@ -20,7 +20,8 @@ import {
 	SubscriptionsMock,
 } from "@/components/home/mocks";
 import { ProposalDemo } from "@/components/home/proposal-demo";
-import { Reveal } from "@/components/home/reveal";
+import { DecodeText, RotatingWord, ScrollLitText, Wipe } from "@/components/home/motion";
+import { SmoothScroll } from "@/components/home/smooth-scroll";
 import { Photo, type PhotoName } from "@/components/home/scenes";
 import { Sky } from "@/components/home/sky";
 
@@ -55,20 +56,16 @@ function Cta({ children, variant = "light", href = "/login" }: { children: React
 	);
 }
 
-/** Serif headline whose lines rise into place as it scrolls in. */
+/** Serif headline, one line per entry. Static: the type carries it. */
 function Headline({ lines, size = "text-[44px] sm:text-[64px] lg:text-[80px]" }: { lines: ReactNode[]; size?: string }) {
 	return (
-		<Reveal className="home-lines">
-			<h2 className={`font-display leading-[1.02] font-light tracking-[-0.01em] text-white ${size}`}>
-				{lines.map((line, i) => (
-					<span key={i} className="block overflow-hidden pb-[0.06em]">
-						<span className="ln" style={{ transitionDelay: `${i * 120}ms` }}>
-							{line}
-						</span>
-					</span>
-				))}
-			</h2>
-		</Reveal>
+		<h2 className={`font-display leading-[1.02] font-light tracking-[-0.01em] text-white ${size}`}>
+			{lines.map((line, i) => (
+				<span key={i} className="block">
+					{line}
+				</span>
+			))}
+		</h2>
 	);
 }
 
@@ -108,7 +105,7 @@ function Pair({ scene, title, body, children, flip = false }: {
 	flip?: boolean;
 }) {
 	const photo = (
-		<Reveal>
+		<Wipe>
 			<div className="relative flex min-h-[560px] flex-col justify-between overflow-hidden rounded-[24px] p-10 text-center">
 				<Photo name={scene} />
 				<div className="relative mt-10">
@@ -116,14 +113,14 @@ function Pair({ scene, title, body, children, flip = false }: {
 				</div>
 				<p className="relative mx-auto max-w-sm text-[18px] leading-[1.5] text-white">{body}</p>
 			</div>
-		</Reveal>
+		</Wipe>
 	);
 	const screen = (
-		<Reveal delay={150}>
+		<div>
 			<div className="flex min-h-[560px] items-center justify-center overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0e0e0f] p-8">
 				{children}
 			</div>
-		</Reveal>
+		</div>
 	);
 	return (
 		<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -136,6 +133,7 @@ function Pair({ scene, title, body, children, flip = false }: {
 export default function HomePage() {
 	return (
 		<div className={`min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased`}>
+			<SmoothScroll />
 			{/* nav: frosted glass */}
 			<header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.04] bg-[#0f1011]/[0.08] backdrop-blur-[24px]">
 				<nav className="mx-auto flex h-[68px] max-w-[1440px] items-center px-5 sm:px-8">
@@ -186,7 +184,7 @@ export default function HomePage() {
 									</span>
 									<span className="block overflow-hidden pb-[0.06em]">
 										<span className="ln" style={{ animationDelay: "120ms" }}>
-											<em>minds</em> your money.
+											<RotatingWord words={["minds", "reads", "tracks", "saves"]} /> your money.
 										</span>
 									</span>
 								</h1>
@@ -217,21 +215,21 @@ export default function HomePage() {
 						/>
 						<div className="relative">
 							<Headline lines={[<>Money shouldn&apos;t keep you</>, <>up <em>at night</em>.</>]} size="text-[40px] sm:text-[56px]" />
-							<Reveal delay={150}>
-								<p className="mx-auto mt-5 max-w-md text-[17px] leading-[1.5] text-[#9f9fa0]">
+							<div>
+								<ScrollLitText className="mx-auto mt-5 max-w-lg text-[19px] leading-[1.5] text-white">
 									Lumen points out your next best move, explains why it matters, and nudges you at the right moment.
-								</p>
-							</Reveal>
-							<Reveal delay={250}>
+								</ScrollLitText>
+							</div>
+							<div>
 								<ul className="mx-auto mt-12 flex max-w-5xl flex-wrap justify-center gap-x-12 gap-y-6">
-									{PROMISES.map(([Icon, text]) => (
+									{PROMISES.map(([Icon, text], i) => (
 										<li key={text} className="flex flex-col items-center gap-2.5">
 											<Icon className="size-5 text-white" strokeWidth={1.5} />
-											<span className={`${mono} text-[10.5px] font-medium tracking-[0.12em] text-white/85`}>{text}</span>
+											<span className={`${mono} text-[10.5px] font-medium tracking-[0.12em] text-white/85`}><DecodeText text={text} delay={i * 150} /></span>
 										</li>
 									))}
 								</ul>
-							</Reveal>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -240,16 +238,16 @@ export default function HomePage() {
 				<section id="features" className="scroll-mt-20 pt-36 pb-28">
 					<div className="flex flex-col items-center px-5 text-center">
 						<Headline lines={[<><em>Track</em> every rupee,</>, "all in one place."]} />
-						<Reveal delay={150}>
+						<div>
 							<div className="mt-8">
 								<Cta variant="dark" href="/demo">See it in the demo</Cta>
 							</div>
-						</Reveal>
+						</div>
 					</div>
 					<div className="mt-16">
-						<Reveal>
+						<div>
 							<FeatureCarousel cards={FEATURES} />
-						</Reveal>
+						</div>
 					</div>
 				</section>
 
@@ -261,11 +259,11 @@ export default function HomePage() {
 						<div className="mt-12">
 							<Headline lines={[<><em>Advice</em> that comes</>, "to you."]} />
 						</div>
-						<Reveal delay={200}>
+						<div>
 							<div className="mt-14 w-[min(640px,calc(100vw-40px))]">
 								<Notifications />
 							</div>
-						</Reveal>
+						</div>
 					</div>
 				</section>
 
@@ -300,27 +298,27 @@ export default function HomePage() {
 					<div className="relative mx-auto flex min-h-[760px] max-w-[1400px] flex-col items-center justify-center overflow-hidden rounded-[24px] px-6 py-24 text-center">
 						<Photo name="daisies" sizes="100vw" soft />
 						<div className="relative flex flex-col items-center">
-							<Reveal>
+							<div>
 								<span className="flex items-center gap-3 rounded-full border border-white/25 bg-black/25 px-4 py-2 text-[12px] text-white backdrop-blur">
 									<span className={mono}>Lumen</span>
 									<ShieldCheck className="size-4" strokeWidth={1.5} />
 									<span className={mono}>You</span>
 								</span>
-							</Reveal>
+							</div>
 							<div className="mt-8">
 								<Headline lines={["Nothing changes", <em key="e">without you.</em>]} />
 							</div>
-							<Reveal delay={150}>
+							<div>
 								<p className="mx-auto mt-6 max-w-md text-[17px] leading-[1.5] text-white/90">
 									Lumen suggests: flag a charge, recategorise, mark a bill paid. You decide, and every decision is logged.
 								</p>
-							</Reveal>
+							</div>
 							<div className="mt-10 w-full">
-								<Reveal delay={250}>
+								<div>
 									<div className="flex justify-center">
 										<ProposalDemo />
 									</div>
-								</Reveal>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -344,11 +342,11 @@ export default function HomePage() {
 							<div className="mt-6">
 								<Headline lines={["Your money,", <em key="e">explained.</em>]} />
 							</div>
-							<Reveal delay={150}>
+							<div>
 								<p className="mx-auto mt-6 max-w-md text-[17px] leading-[1.5] text-[#9f9fa0]">
 									Ask Lumen anything and get answers grounded in your own numbers, documents and goals.
 								</p>
-							</Reveal>
+							</div>
 							<div className="mt-14 w-full pb-20">
 								<ChatDemo />
 							</div>
@@ -363,28 +361,28 @@ export default function HomePage() {
 					</div>
 					<div className="mt-16 grid gap-x-12 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
 						{QUESTIONS.map(([topic, question], i) => (
-							<Reveal key={question} delay={(i % 3) * 120}>
+							<div key={question}>
 								<span className={`${mono} text-[10.5px] font-medium tracking-[0.14em] text-[#6a6b6b]`}>{topic}</span>
 								<p className="mt-3 font-display text-[24px] leading-[1.25] font-light text-[#f5f5f7]">
 									&ldquo;{question}&rdquo;
 								</p>
-							</Reveal>
+							</div>
 						))}
 					</div>
 				</section>
 
 				{/* closing call to action over hills */}
 				<section className="relative flex min-h-[640px] items-center justify-center overflow-hidden px-5 text-center">
-					<Photo name="fields" sizes="100vw" />
+					<div className="home-zoom absolute inset-0 overflow-hidden"><Photo name="fields" sizes="100vw" /></div>
 					<div className="relative flex flex-col items-center">
-						<Reveal>
+						<div>
 							<span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 py-1.5 pr-1.5 pl-4 text-[13px] text-white backdrop-blur">
 								Your own private demo
 								<span className={`${mono} rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-medium`}>One click</span>
 							</span>
-						</Reveal>
+						</div>
 						<div className="mt-6">
-							<Reveal className="home-lines">
+							<div>
 								<h2 className="font-display text-[56px] leading-[1] font-light sm:text-[96px]">
 									<span className="block overflow-hidden pb-[0.06em]">
 										<span className="ln">
@@ -392,16 +390,16 @@ export default function HomePage() {
 										</span>
 									</span>
 								</h2>
-							</Reveal>
+							</div>
 						</div>
-						<Reveal delay={150}>
+						<div>
 							<p className="mx-auto mt-5 max-w-md text-[18px] leading-[1.5] text-white/90">
 								Explore a full year of sample spending, bills and documents, ready in one click.
 							</p>
 							<div className="mt-8">
 								<Cta href="/demo">Try the demo</Cta>
 							</div>
-						</Reveal>
+						</div>
 					</div>
 				</section>
 			</main>
