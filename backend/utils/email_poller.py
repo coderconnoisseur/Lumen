@@ -6,10 +6,12 @@ from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from config import Config
 from inbox.filter import is_candidate
+from inbox.gmail import GmailClient
 from inbox.parse import parse_money_email
 from inbox.save import already_processed, mark_processed, save_email_transaction
 from models import EmailConfig, Receipt, Transaction, User
 from models.database import db
+from utils.crypto import decrypt_secret
 from utils.files import invoice_key, keep
 from utils.email_service import EmailService
 from utils.image_processing import image_to_base64, render_pdf_first_page, pil_image_to_bytes
@@ -46,7 +48,8 @@ def process_user_emails(config: EmailConfig) -> dict:
 
     try:
         logger.info(f"Starting email polling for {config.email_address}")
-        service = EmailService(config)
+        service = (GmailClient(decrypt_secret(config.oauth_refresh_token)) if config.oauth_refresh_token
+                   else EmailService(config))
         service.connect()
 
         user = db.session.get(User, config.user_id)

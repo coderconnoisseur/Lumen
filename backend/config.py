@@ -142,6 +142,11 @@ class Config:
     # environment (logged as a warning at startup).
     SHADOWED_ENV_KEYS = _SHADOWED_ENV_KEYS
 
+    # === Gmail sign-in (email ingestion) ===
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
     # === OpenRouter / LLM ===
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
