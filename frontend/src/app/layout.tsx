@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Inter, JetBrains_Mono, Newsreader, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
@@ -37,6 +37,9 @@ const hankenGrotesk = Hanken_Grotesk({
 	weight: ["300", "400", "500"],
 	variable: "--font-ui",
 });
+
+// Browser chrome (mobile address bar, scrollbars, form controls) matches the near-black pages.
+export const viewport: Viewport = { themeColor: "#050505", colorScheme: "dark" };
 
 export const metadata: Metadata = {
 	metadataBase,
@@ -133,9 +136,21 @@ export default function RootLayout({
 	return (
 		<html
 			lang="en"
+			style={{ colorScheme: "dark" }}
 			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${robotoMono.variable} ${hankenGrotesk.variable} dark`}
 		>
+			<head>
+				{/* every signed-in page talks to these two right away */}
+				<link rel="preconnect" href={process.env.NEXT_PUBLIC_BACKEND_URL} crossOrigin="anonymous" />
+				<link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+			</head>
 			<body className="min-h-screen bg-background font-sans text-foreground antialiased">
+				<a
+					href="#main"
+					className="sr-only z-[100] rounded-lg bg-white px-4 py-2 text-sm font-medium text-black focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+				>
+					Skip to content
+				</a>
 				<ServerWake />
 				<AuthProvider>{children}</AuthProvider>
 			</body>

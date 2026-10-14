@@ -892,3 +892,7 @@
 @media (prefers-reduced-motion: reduce) {
 	.app-page-in { animation: none; }
 }
+
+/* Taps on controls act at once (no double-tap-zoom wait) and skip the grey WebKit flash; hover/active states show it */
+a, button, input, label, select, textarea, summary, [role="button"] { touch-action: manipulation; }
+html { -webkit-tap-highlight-color: transparent; }
