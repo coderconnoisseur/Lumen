@@ -19,7 +19,7 @@ _SYNONYMS = {
                     "beschreibung", "transactiondetails"],
 }
 _ORDER = ["drcr", "date", "debit", "credit", "amount", "description"]
-_MARKER = re.compile(r"\b(dr|cr|debit|credit)\b\.?", re.I)
+_MARKER = re.compile(r"(?<![a-z])(dr|cr|debit|credit)(?![a-z])\.?", re.I)
 _DECIMAL_COMMA = re.compile(r"^[\d.' ]*,\d{2}$")
 
 
@@ -41,11 +41,17 @@ def decode(data):
 
 def rows(text):
     # ponytail: blank rows are kept as [] so Line.line stays the real file line; parse skips them
-    try:
-        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
-    except csv.Error:
-        dialect = csv.excel
-    return [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), dialect)]
+    best, best_score = None, -1
+    for delimiter in (",", ";", "	"):
+        parsed = [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), delimiter=delimiter)]
+        h = find_header(parsed)
+        if h is None:
+            continue
+        counts = [len(r) for r in parsed[h + 1:] if any(r)]
+        score = counts.count(len(parsed[h])) / len(counts) if counts else 1
+        if score > best_score:
+            best, best_score = parsed, score
+    return best if best is not None else [[c.strip() for c in r] for r in csv.reader(io.StringIO(text))]
 
 
 def _norm(cell):

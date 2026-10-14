@@ -57,6 +57,7 @@ def test_semicolon_with_dr_cr_marker_and_decimal_comma():
 
 @pytest.mark.parametrize("raw, value, kind", [
     ("1,234.50 Dr", 1234.5, "debit"), ("1,234.50 Cr", 1234.5, "credit"), ("(499.00)", 499.0, "debit"), ("-499", 499.0, "debit"),
+    ("1,234.50Dr", 1234.5, "debit"), ("1,234.50Cr", 1234.5, "credit"),
 ])
 def test_amount_signs_in_a_single_amount_column(raw, value, kind):
     rows = [["Date", "Description", "Amount"], ["01/10/2026", "X", raw]]
@@ -90,3 +91,17 @@ def test_decode_bom_and_latin1():
 def test_vendor_cleaning_and_category(raw, clean, cat):
     assert vendor.clean(raw) == clean
     assert vendor.category(raw) == cat
+
+
+def test_semicolon_statement_with_preamble_and_decimal_comma():
+    text = ("Konto;DE123;\nZeitraum;Oktober 2026;\n\nDatum;Beschreibung;Betrag\n"
+            "07.10.2026;SPOTIFY AB;-12,99\n08.10.2026;Gehalt;1.500,00\n")
+    assert [(l.date, l.amount, l.kind) for l in _parse(text)] == [
+        ("2026-10-07", 12.99, "debit"), ("2026-10-08", 1500.0, "credit")]
+
+
+def test_tab_statement_with_preamble_and_debit_credit_columns():
+    text = ("Bank X\tStatement\nAccount\t123\nDate\tDescription\tDebit\tCredit\n"
+            "01/10/2026\tRent\t500.00\t\n02/10/2026\tPay\t\t900.00\n")
+    assert [(l.date, l.amount, l.kind) for l in _parse(text)] == [
+        ("2026-10-01", 500.0, "debit"), ("2026-10-02", 900.0, "credit")]
