@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
 from api.profile import ensure_user
-from statements import read, vendor
+from statements import match, read, vendor
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 MAX_BYTES = 5 * 1024 * 1024
@@ -51,19 +51,6 @@ def _load(file: UploadFile):
     if header is None:
         raise NoHeader(parsed[:10])
     return parsed, header
-
-
-def _words(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 3}
-
-
-def _is_match(amount: float, day: date, name: str, t) -> bool:
-    try:
-        when = date.fromisoformat(t.date[:10])
-    except (TypeError, ValueError):
-        return False  # an old row with an unreadable date is never a candidate
-    return (t.total_amount is not None and abs(amount - t.total_amount) < 0.01 and abs((day - when).days) <= 3
-            and bool(_words(name) & _words(t.vendor_name or "")))
 
 
 @router.post("/preview", dependencies=[Depends(rate_limit("10 per minute"))])
@@ -122,9 +109,7 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
         if debits:
             days = [date.fromisoformat(ln.date) for ln in debits]
             lo, hi = (min(days) - timedelta(days=3)).isoformat(), (max(days) + timedelta(days=4)).isoformat()  # exclusive, so 'T10:00' suffixes stay in
-            candidates = list(session.execute(select(Transaction.vendor_name, Transaction.total_amount, Transaction.date)
-                                              .where(Transaction.user_id == user_id, Transaction.source.is_(None),
-                                                     Transaction.date >= lo, Transaction.date < hi)).all())
+            candidates = match.candidates(session, user_id, lo, hi, any_source=False)
         imported = duplicates = matched = 0
         for ln in debits:
             key = hashlib.sha1(f"{user_id}|{ln.date}|{ln.amount:.2f}|{ln.description}".encode()).hexdigest()
@@ -133,7 +118,7 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
                 continue
             name = vendor.clean(ln.description)
             day = date.fromisoformat(ln.date)
-            hit = next((t for t in candidates if _is_match(ln.amount, day, name, t)), None)
+            hit = next((t for t in candidates if match.is_match(ln.amount, day, name, t)), None)
             if hit:
                 candidates.remove(hit)  # one invoice explains one line
                 matched += 1  # ponytail: not stored, so a re-import matches (and counts) again
