@@ -227,6 +227,14 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a small pill says it's waking up (not on
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
+## 7b2. App frame and navigation (frontend)
+- The signed-in pages live in the route group `app/(app)/` (URLs unchanged: `/dashboard`, `/analytics`, ...).
+  `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
+  pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
+  `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
+- There is no root `loading.tsx`: the pages are static and prefetched, and a full-screen spinner made every click
+  look like a reload.
+
 ## 7c. Ask Lumen screen (frontend, UI phase)
 - `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
   It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
