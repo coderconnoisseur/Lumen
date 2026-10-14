@@ -1,8 +1,9 @@
 // Product mockups for the landing page: polished showcase versions of Lumen's screens, with sample data.
 import type { ReactNode } from "react";
 import { CalendarClock, Check, CreditCard, Home, Receipt, Sparkles, TrendingDown } from "lucide-react";
+import { RollingNumber } from "@/components/home/motion";
 
-export const label = "font-[family-name:var(--font-roboto-mono)] text-[10.5px] font-medium tracking-[0.16em] uppercase";
+export const label = "text-[10.5px] font-medium tracking-[0.16em] uppercase";
 
 /** Dark inner panel with a mono header and a sparkle button, the frame most showcase screens sit in. */
 function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
@@ -48,7 +49,7 @@ export function HeroPhone() {
 					<Sparkles className="size-5" strokeWidth={1.5} />
 				</span>
 				<p className="mt-5 font-display text-[30px] leading-[1.1] font-light text-white">
-					We found 9 ways to save you ₹42,300 this year
+					We found 9 ways to save you <RollingNumber value="₹42,300" delay={900} /> this year
 				</p>
 				<div className="home-cycle relative mt-8 h-[200px] w-full">
 					{HERO_CARDS.map(([tag, title, body]) => (

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { LOGIN_HEADLINE } from "./headline";
 import {
 	AuthAlert,
 	AuthShell,
@@ -23,11 +24,6 @@ type Mode = "signin" | "signup" | "reset";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-const HEADLINES: Record<Mode, ReactNode[]> = {
-	signin: ["Welcome", <><em>back</em>.</>],
-	signup: ["Start minding", <>your <em>money</em>.</>],
-	reset: ["It happens", <>to <em>everyone</em>.</>],
-};
 
 const TITLES: Record<Mode, ReactNode> = {
 	signin: <>Log in to <em>Lumen</em></>,
@@ -134,7 +130,8 @@ export default function LoginContent() {
 		if (nextMode === "signin") params.delete("mode");
 		else params.set("mode", nextMode);
 		const query = params.toString();
-		router.push(query ? `/login?${query}` : "/login", { scroll: false });
+		// pushState (not router.push): the URL and form update in place; the page and its sky are left alone
+		window.history.pushState(null, "", query ? `/login?${query}` : "/login");
 		setAuthError(null);
 		setNotice(null);
 	};
@@ -221,7 +218,7 @@ export default function LoginContent() {
 
 	if (loading || (user && !signedIn)) {
 		return (
-			<AuthShell headline={HEADLINES.signin}>
+			<AuthShell headline={LOGIN_HEADLINE}>
 				<AuthWaiting>{loading ? "Checking your session…" : "Taking you in…"}</AuthWaiting>
 			</AuthShell>
 		);
@@ -231,7 +228,7 @@ export default function LoginContent() {
 		mode === "signup" ? "Create account" : mode === "reset" ? "Send reset link" : "Log in";
 
 	return (
-		<AuthShell headline={HEADLINES[mode]} headlineKey={mode}>
+		<AuthShell headline={LOGIN_HEADLINE}>
 			{/* keyed by mode so the rows rise in again when switching */}
 			<div key={mode}>
 				<h1 style={rise(0)} className="auth-rise font-display text-[34px] leading-[1.1] font-light tracking-[-0.01em] sm:text-[40px]">

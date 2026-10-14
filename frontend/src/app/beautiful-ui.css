@@ -69,7 +69,7 @@
 	--shadow-raised: var(--shadow-raised);
 
 	--font-display: var(--font-newsreader), Georgia, serif;
-	--font-label: var(--font-roboto-mono), ui-monospace, monospace;
+	--font-label: var(--font-ui), system-ui, sans-serif;
 
 	--radius-chip: 6px;
 	--radius-control: 8px;
