@@ -7,7 +7,7 @@ hardening plan (PLAN.md, phases 0-7) is finished or superseded and was removed o
 
 ## 1. Landing-page claims not built yet
 What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
-- [ ] **Bank and card statements in, every transaction in one place** (SPEC-STATEMENTS, CSV first) ("We connect everything", "Watch your
+- [x] **Bank and card statements in, every transaction in one place** (SPEC-STATEMENTS, CSV done; PDF not yet) ("We connect everything", "Watch your
   spending"): import CSV/PDF statements, sorted and searchable.
 - [ ] **Budgets, "left to spend"** ("Stay on budget"): a monthly budget per category or overall; onboarding already
   stores `users.monthly_budget`.

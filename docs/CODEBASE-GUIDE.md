@@ -347,3 +347,15 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   3, as `{field, read, correct}`). `read_with_feedback` (used by upload, batch and email) reads once and, only if
   that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
   as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.
+
+## Statement import (SPEC-STATEMENTS)
+- `backend/statements/read.py`: decodes the CSV, finds the header row, guesses the column mapping (date,
+  description, debit, credit, amount, Dr/Cr marker), parses lines with signs. `vendor.py` cleans bank descriptions
+  into a vendor name and a category.
+- `api/statements.py`: `POST /api/statements/preview` (columns, guessed mapping, 5 sample lines, counts; a file with
+  no header is a 400 with `code: "no_header"` and the first raw rows) and `POST /api/statements/import` (file +
+  mapping JSON + currency + header_line). Only debits become transactions (`source="statement"`).
+- Dedupe: each line has an `import_key` (sha1 of user, date, amount, description), so re-importing is safe. Invoice
+  matching: a debit with the same amount within 3 days and a shared word in the vendor name is "already recorded",
+  not added. Credits are counted and skipped; unreadable lines are returned by line number.
+- `/import` (frontend, minimal): choose a CSV, adjust the mapping and currency, preview, import, see the result line.

@@ -7,6 +7,7 @@ import {
 	FileText,
 	PieChart,
 	LayoutDashboard,
+	Upload,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -71,6 +72,11 @@ const data = {
 			name: "Documents",
 			url: "/documents",
 			icon: FileText,
+		},
+		{
+			name: "Import statement",
+			url: "/import",
+			icon: Upload,
 		},
 		{
 			name: "Review (test)",

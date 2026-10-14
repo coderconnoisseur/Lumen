@@ -286,6 +286,10 @@ Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
 - With no profile the agent's prompt is byte-for-byte the recorded one, so the eval cassettes stay valid (no
   re-recording, no quota).
 
+- **Statement import** (2026-10-14, SPEC-STATEMENTS): CSV bank/card statements. `backend/statements/` reads and maps
+  columns, `api/statements.py` previews and imports (duplicates skipped by `import_key`, lines matching an existing
+  invoice not re-added), `/import` is the bare-bones screen. PDF statements and credits are not handled yet.
+
 ## Deferred (owner: later)
 - **Harder invoice test set** (2026-10-09): the synthetic set is read perfectly (56/56), so it can't show gains or
   measure loop A. Later: tougher generated invoices (low resolution, heavy blur, photo shadows/perspective, other
