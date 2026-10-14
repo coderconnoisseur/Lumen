@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import datetime
 from functools import lru_cache
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 Goal = Literal["save_more", "cut_subscriptions", "stay_on_budget", "pay_off_debt", "emergency_fund",
@@ -70,6 +72,16 @@ def load_profile(session: Session, user_id: str) -> dict | None:
 
     user = session.get(User, user_id)
     return _as_dict(user) if user is not None and user.onboarded_at is not None else None
+
+
+def profile_for(engine: Engine, user_id: str) -> dict | None:
+    """load_profile with its own session; a missing table or database error means no personalisation, not a failure."""
+    try:
+        with Session(engine) as session:
+            return load_profile(session, user_id)
+    except Exception as e:
+        logger.warning("Profile unavailable for personalisation: %s", e)
+        return None
 
 
 @router.get("", dependencies=[Depends(rate_limit())])

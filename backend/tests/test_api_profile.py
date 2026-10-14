@@ -166,3 +166,29 @@ def test_webp_avatar_is_served_as_webp(client):
     webp = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"\x00" * 32
     key = upload(c, webp, name="me.webp").json()["profile"]["avatar_key"]
     assert key.endswith(".webp") and utils.files.get_store().get(key)[1] == "image/webp"
+
+
+def test_ask_lumen_gets_the_profile_once_onboarded(client):
+    """Both Ask Lumen entry points pass the onboarding answers to the model (SPEC-ONBOARD)."""
+    from ai.sql_agent import SQLAgent
+    from api import agent as agent_api
+    from llm.client import LLMResult
+
+    c, engine = client
+    seen = []
+
+    def complete(messages, **kwargs):
+        seen.append(messages[0]["content"])
+        return LLMResult(text="Done.", tool_calls=None, provider="f", model="f")
+
+    from api import profile
+    from asgi import create_app
+
+    deps = agent_api.AgentDeps(engine=engine, sql_agent=SQLAgent(db_path=str(engine.url.database)), complete=complete)
+    app = create_app(profile.router, agent_api.router)
+    app.dependency_overrides[profile.get_engine] = lambda: engine
+    app.dependency_overrides[agent_api.get_agent_deps] = lambda: deps
+    c = TestClient(app)
+    c.put("/api/profile", headers=bearer(USER), json={"display_name": "Asha", "currency": "CHF", "complete": True})
+    assert c.post("/api/agent/ask", headers=bearer(USER), json={"question": "hi"}).status_code == 200
+    assert "Amounts are in CHF." in seen[-1] and "Asha" in seen[-1]

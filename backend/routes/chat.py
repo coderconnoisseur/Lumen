@@ -23,11 +23,12 @@ def _ask(question: str, user_id: str) -> dict:
     from agent.graph import run_agent
     from agent.tools import ToolContext
     from api.agent import get_agent_deps
+    from api.profile import profile_for
     from utils.files import document_key
 
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
-                      today=deps.today or date.today())
+                      today=deps.today or date.today(), profile=profile_for(deps.engine, user_id))
     out = run_agent(question, ctx, complete=deps.complete)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.

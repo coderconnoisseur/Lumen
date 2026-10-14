@@ -79,9 +79,10 @@ def demo_quota(request: Request, claims: dict = Depends(current_user)) -> None:
 def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = Depends(get_agent_deps)):
     from agent.graph import run_agent
     from agent.tools import ToolContext
+    from api.profile import profile_for
 
     ctx = ToolContext(user_id=claims["sub"], engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
-                      today=deps.today or date.today())
+                      today=deps.today or date.today(), profile=profile_for(deps.engine, claims["sub"]))
     out = run_agent(body.question, ctx, complete=deps.complete)
     return {"success": True, **out}
 

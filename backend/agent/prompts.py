@@ -45,5 +45,24 @@ def _schema() -> str:
                      for m in (Transaction, TransactionItem))
 
 
-def system_prompt(today: date) -> str:
-    return SYSTEM_PROMPT.format(today=today.isoformat(), schema=_schema())
+_USE = {"personal": "their personal finances", "household": "their household's finances",
+        "business": "their business or freelance work"}
+
+
+def _about(profile: dict) -> str:
+    """The onboarding answers (SPEC-ONBOARD) as context for framing answers."""
+    lines = [f"- Name: {profile['display_name']}" if profile.get("display_name") else None,
+             f"- Uses Lumen for {_USE[profile['use_case']]}" if profile.get("use_case") in _USE else None,
+             f"- Goals: {', '.join(g.replace('_', ' ') for g in profile['goals'])}" if profile.get("goals") else None,
+             f"- Monthly budget: {profile['monthly_budget']:.0f}" if profile.get("monthly_budget") else None,
+             f"- Monthly take-home income (approximate): {profile['monthly_income']:.0f}"
+             if profile.get("monthly_income") else None]
+    body = "\n".join(line for line in lines if line)
+    return f"\n\nAbout the user (use it to frame answers; it is not data to query):\n{body}" if body else ""
+
+
+def system_prompt(today: date, profile: dict | None = None) -> str:
+    text = SYSTEM_PROMPT.format(today=today.isoformat(), schema=_schema())
+    if not profile:
+        return text  # identical to the prompt in the recorded evals
+    return text.replace("Amounts are in INR.", f"Amounts are in {profile.get('currency') or 'INR'}.") + _about(profile)
