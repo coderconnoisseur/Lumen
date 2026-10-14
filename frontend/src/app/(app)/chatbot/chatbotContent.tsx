@@ -9,6 +9,7 @@ import { PromptBar } from "@/components/ask/prompt-bar";
 import { ProposalCard } from "@/components/ask/proposal-card";
 import { Thinking, WorkTrace } from "@/components/ask/work-trace";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { useProfile } from "@/components/profile/profile-provider";
 import { agentApi, chatApi, type ChatAnswer, type Proposal } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 
@@ -41,6 +42,7 @@ function errorMessage(error: unknown): string {
 }
 
 export default function ChatbotContent() {
+	const firstName = useProfile().profile?.display_name?.split(" ")[0];
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -137,7 +139,7 @@ export default function ChatbotContent() {
 						<div className="flex w-full max-w-2xl flex-col items-center" style={{ animation: "fade-up 600ms both" }}>
 							<span className="bui-label text-ink-3">Ask Lumen</span>
 							<h1 className="mt-5 text-center font-display text-[40px] leading-[1.05] font-light text-ink sm:text-[52px]">
-								{greeting()}.
+								{greeting()}{firstName ? `, ${firstName}` : ""}.
 								<br />
 								What shall we <em>look into</em>?
 							</h1>
