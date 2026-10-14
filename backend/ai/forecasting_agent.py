@@ -2,6 +2,7 @@
 Forecasting Agent - Predicts future spending using time-series analysis
 """
 
+from utils.money import fmt, user_currency
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -190,7 +191,8 @@ class ForecastingAgent:
             trend=trend,
             days_ahead=days_ahead,
             category_forecast=category_forecast,
-            use_llm=use_llm
+            use_llm=use_llm,
+            currency=user_currency(user_id),
         )
         
         return {
@@ -261,27 +263,27 @@ class ForecastingAgent:
                                    trend: str,
                                    days_ahead: int,
                                    category_forecast: List[Dict],
-                                   use_llm: bool = True) -> List[str]:
+                                   use_llm: bool = True, currency: str | None = None) -> List[str]:
         """Generate human-readable insights using LLM (or the stats-only
         fallback when use_llm is False, to avoid spending a call on every
         page view of the ~50/day free-tier budget)."""
 
         if not use_llm:
-            return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast)
+            return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast, currency)
 
         # Prepare context for LLM
         top_categories = category_forecast[:3]
-        category_text = ", ".join([f"{c['category']} (₹{c['predicted_total']:.0f})"
+        category_text = ", ".join([f"{c['category']} ({fmt(c['predicted_total'], currency)})"
                                   for c in top_categories])
 
         prompt = f"""You are a financial advisor analyzing spending forecasts.
 
 Historical Data:
-- Daily average spending: ₹{mean_daily:.0f}
+- Daily average spending: {fmt(mean_daily, currency)}
 - Spending trend: {trend}
 
 Forecast (next {days_ahead} days):
-- Predicted total: ₹{total_forecast:.0f}
+- Predicted total: {fmt(total_forecast, currency)}
 - Top categories: {category_text}
 
 Generate 3-4 concise, actionable insights (1 sentence each):
@@ -312,14 +314,14 @@ Return as JSON array of strings:
         except Exception as e:
             logger.warning("LLM insight generation failed: %s", type(e).__name__)
 
-        return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast)
+        return self._fallback_insights(total_forecast, trend, days_ahead, category_forecast, currency)
 
     def _fallback_insights(self, total_forecast: float, trend: str, days_ahead: int,
-                           category_forecast: List[Dict]) -> List[str]:
+                           category_forecast: List[Dict], currency: str | None = None) -> List[str]:
         """Stats-only insights, used when the LLM is skipped or fails."""
         top_categories = category_forecast[:3]
         return [
-            f"Based on your spending pattern, expect around ₹{total_forecast:.0f} in the next {days_ahead} days.",
+            f"Based on your spending pattern, expect around {fmt(total_forecast, currency)} in the next {days_ahead} days.",
             f"Your spending trend is {trend}.",
             f"Top spending category: {top_categories[0]['category']}" if top_categories else "Monitor your expenses."
         ]

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMoney } from "@/lib/format";
 import { InvoiceEditDialog } from "@/components/invoiceEditDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ interface Invoice {
 	payment_method: string | null;
 	address: string | null;
 	category: string | null;
+	currency?: string | null; // as printed on the invoice; null on old rows
 	created_at: string;
 	items?: Array<{
 		item_name: string;
@@ -29,6 +31,7 @@ interface Invoice {
 }
 
 export default function AnimatedListItemUse() {
+	const money = useMoney();
 	const [items, setItems] = useState<Invoice[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -131,18 +134,12 @@ export default function AnimatedListItemUse() {
 		setDialogOpen(true);
 	};
 
-	const formatCurrency = (amount: number | null) =>
-		amount == null
-			? "N/A"
-			: new Intl.NumberFormat("en-IN", {
-					style: "currency",
-					currency: "INR",
-					maximumFractionDigits: 0,
-			  }).format(amount);
+	const formatCurrency = (amount: number | null, currency?: string | null) =>
+		amount == null ? "N/A" : money(amount, currency);
 
 	const formatDate = (value: string | null) =>
 		value
-			? new Date(value).toLocaleDateString("en-IN", {
+			? new Date(value).toLocaleDateString(undefined, {
 					day: "2-digit",
 					month: "short",
 					year: "numeric",
@@ -305,7 +302,7 @@ export default function AnimatedListItemUse() {
 										Amount
 									</p>
 									<p className="font-medium text-foreground">
-										{formatCurrency(item.total_amount)}
+										{formatCurrency(item.total_amount, item.currency)}
 									</p>
 								</div>
 

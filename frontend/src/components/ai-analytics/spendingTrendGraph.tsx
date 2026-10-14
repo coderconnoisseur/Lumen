@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Activity } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useMoney } from "@/lib/format";
+import { useProfile } from "@/components/profile/profile-provider";
 import { analyticsApi } from "@/lib/api/client";
 import {
 	LineChart,
@@ -30,6 +32,7 @@ const cardVariants = {
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
+	const money = useMoney();
 	if (active && payload && payload.length) {
 		return (
 			<div className="rounded-xl border border-border/70 bg-card/95 p-3 shadow-xl shadow-black/20">
@@ -40,7 +43,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 						className="text-sm font-medium"
 						style={{ color: entry.color }}
 					>
-						{entry.name}: ₹{entry.value?.toLocaleString()}
+						{entry.name}: {money(entry.value ?? 0)}
 					</p>
 				))}
 			</div>
@@ -50,6 +53,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function SpendingTrendGraph() {
+	const money = useMoney();
+	const { profile } = useProfile();
+	// Axis ticks: short amounts in the profile currency, e.g. "₹8K" / "CHF 8K".
+	const compact = (v: number) =>
+		new Intl.NumberFormat(undefined, { style: "currency", currency: profile?.currency || "INR", notation: "compact", maximumFractionDigits: 1 }).format(v);
 	const [spendingData, setSpendingData] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -153,9 +161,7 @@ export default function SpendingTrendGraph() {
 								<YAxis
 									stroke="#94a3b8"
 									style={{ fontSize: "12px" }}
-									tickFormatter={(value) =>
-										`₹${value / 1000}k`
-									}
+									tickFormatter={(value) => compact(value)}
 								/>
 								<Tooltip content={<CustomTooltip />} />
 								<Line
@@ -200,8 +206,8 @@ export default function SpendingTrendGraph() {
 										November Spending Anomaly Detected
 									</p>
 									<p className="mt-1 text-xs text-muted-foreground">
-										Your November spending of ₹8,316 is 454%
-										above your monthly average of ₹1,500.
+										Your November spending of {money(8316)} is 454%
+										above your monthly average of {money(1500)}.
 										This represents an unusual spike with 37
 										transactions (48% more than usual).
 									</p>
@@ -218,7 +224,7 @@ export default function SpendingTrendGraph() {
 									<p className="mt-1 text-xs text-muted-foreground">
 										Historical data shows spending increases
 										in Q3 (Aug-Oct). Your 2024 Q3 averaged
-										₹1,973/month. Plan for similar patterns
+										{money(1973)}/month. Plan for similar patterns
 										in 2026.
 									</p>
 								</div>
@@ -234,7 +240,7 @@ export default function SpendingTrendGraph() {
 									<p className="mt-1 text-xs text-muted-foreground">
 										April-July 2025 maintained excellent
 										spending control, averaging just
-										₹645/month. This shows strong budget
+										{money(645)}/month. This shows strong budget
 										adherence during low-activity periods.
 									</p>
 								</div>

@@ -22,7 +22,6 @@ const REPLIES = {
 
 export function ProposalDemo() {
 	const [decision, setDecision] = useState<Decision>(null);
-	const reply = decision ? REPLIES[decision] : null;
 
 	return (
 		<div
@@ -48,44 +47,63 @@ export function ProposalDemo() {
 				))}
 			</div>
 
-			<div className="mt-5 border-t border-white/15 pt-4">
-				{reply ? (
-					<div className="flex items-start gap-3" style={{ animation: "fade-up 450ms cubic-bezier(0.22,1,0.36,1) both" }}>
-						<span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${reply.tone}`}>
-							<reply.icon className="size-4" strokeWidth={2} />
-						</span>
-						<div className="flex-1">
-							<p className="text-[14.5px] leading-relaxed text-white">{reply.text}</p>
-							<button
-								type="button"
-								onClick={() => setDecision(null)}
-								className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-white/60 transition-colors hover:text-white"
-							>
-								<RotateCcw className="size-3" /> Undo
-							</button>
+			{/* All three states share one grid cell sized to the tallest, so choosing never resizes the card or shifts
+			    the page; the states crossfade in place. */}
+			<div className="mt-5 grid border-t border-white/15 pt-4">
+				{(Object.keys(REPLIES) as (keyof typeof REPLIES)[]).map((key) => {
+					const r = REPLIES[key];
+					const on = decision === key;
+					return (
+						<div
+							key={key}
+							aria-hidden={!on}
+							className={`col-start-1 row-start-1 flex items-start gap-3 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+								on ? "opacity-100" : "pointer-events-none translate-y-2 opacity-0"
+							}`}
+						>
+							<span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${r.tone}`}>
+								<r.icon className="size-4" strokeWidth={2} />
+							</span>
+							<div className="flex-1">
+								<p className="text-[14.5px] leading-relaxed text-white">{r.text}</p>
+								<button
+									type="button"
+									tabIndex={on ? 0 : -1}
+									onClick={() => setDecision(null)}
+									className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-white/60 transition-colors hover:text-white"
+								>
+									<RotateCcw className="size-3" /> Undo
+								</button>
+							</div>
 						</div>
-					</div>
-				) : (
-					<div className="flex items-center justify-between">
-						<span className={`${label} text-white/60`}>Low risk</span>
-						<span className="flex gap-2">
-							<button
-								type="button"
-								onClick={() => setDecision("reject")}
-								className="rounded-lg bg-white/10 px-4 py-2 text-[14px] text-white transition-colors duration-200 hover:bg-white/20"
-							>
-								Reject
-							</button>
-							<button
-								type="button"
-								onClick={() => setDecision("approve")}
-								className="rounded-lg bg-white px-4 py-2 text-[14px] text-black transition-opacity duration-200 hover:opacity-85"
-							>
-								Approve
-							</button>
-						</span>
-					</div>
-				)}
+					);
+				})}
+				<div
+					aria-hidden={!!decision}
+					className={`col-start-1 row-start-1 flex items-center justify-between self-start transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+						decision ? "pointer-events-none -translate-y-2 opacity-0" : "opacity-100"
+					}`}
+				>
+					<span className={`${label} text-white/60`}>Low risk</span>
+					<span className="flex gap-2">
+						<button
+							type="button"
+							tabIndex={decision ? -1 : 0}
+							onClick={() => setDecision("reject")}
+							className="rounded-full bg-white/10 px-4 py-2 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-white/20"
+						>
+							Reject
+						</button>
+						<button
+							type="button"
+							tabIndex={decision ? -1 : 0}
+							onClick={() => setDecision("approve")}
+							className="rounded-full bg-white px-4 py-2 text-[14px] font-medium text-black transition-colors duration-200 hover:bg-white/90"
+						>
+							Approve
+						</button>
+					</span>
+				</div>
 			</div>
 		</div>
 	);

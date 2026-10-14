@@ -7,6 +7,7 @@ from ai.anomaly_detection import FraudDetectionAgent
 from ai.forecasting_agent import ForecastingAgent
 from ai.risk_assessment import RiskAssessmentEngine
 from typing import Dict, Any, List
+from utils.money import fmt, user_budget, user_currency, user_income
 import json
 from datetime import datetime, timedelta
 from models.database import db
@@ -104,7 +105,7 @@ class AnalyticsOrchestrator:
                 results['forecast'] = forecast_results
                 if forecast_results.get('success'):
                     total = forecast_results['forecast']['total_predicted']
-                    logger.info(f"      ✅ 30-day forecast: ₹{total:.0f}")
+                    logger.info(f"      ✅ 30-day forecast: {total:.0f}")
                     logger.info(f"      ✅ Trend: {forecast_results['trend'].upper()}")
             except Exception as e:
                 logger.info(f"      ❌ Error: {str(e)}")
@@ -114,7 +115,7 @@ class AnalyticsOrchestrator:
         if include_risk_assessment:
             logger.info("\n[4/4] Risk Assessment...")
             try:
-                risk_results = self.risk_engine.calculate_overall_risk(user_id)
+                risk_results = self._risk(user_id)
                 results['risk_assessment'] = risk_results
                 logger.info(f"      ✅ Financial Health Score: {risk_results['overall_score']}/100")
                 logger.info(f"      ✅ Status: {risk_results['health_status']}")
@@ -140,7 +141,7 @@ class AnalyticsOrchestrator:
         pattern_results = self.pattern_agent.analyze_user(user_id)
         
         # Quick risk score (no deep analysis)
-        risk_results = self.risk_engine.calculate_overall_risk(user_id)
+        risk_results = self._risk(user_id)
         
         # Get active reminders
         reminders = pattern_results['reminders'][:5]  # Top 5
@@ -212,9 +213,14 @@ class AnalyticsOrchestrator:
         """Get spending forecast"""
         return self.forecast_agent.forecast_spending(user_id, days_ahead)
     
+    def _risk(self, user_id) -> Dict:
+        """The risk score with the user's own budget and income from onboarding, when given (SPEC-ONBOARD)."""
+        return self.risk_engine.calculate_overall_risk(user_id, monthly_budget=user_budget(user_id),
+                                                       monthly_income=user_income(user_id))
+
     def get_risk_score(self, user_id: int) -> Dict:
         """Get financial health risk score"""
-        return self.risk_engine.calculate_overall_risk(user_id)
+        return self._risk(user_id)
     
     def save_insight(self, user_id, insight: Dict):
         """Save an insight to the database for display. Skips creating a
@@ -261,6 +267,7 @@ class AnalyticsOrchestrator:
         """
         insights = []
         user_id = analysis_results['user_id']
+        currency = user_currency(user_id)
         
         # 1. Reminders as insights
         if 'patterns' in analysis_results and 'reminders' in analysis_results['patterns']:
@@ -286,7 +293,7 @@ class AnalyticsOrchestrator:
                         insights.append({
                             'type': 'anomaly',
                             'title': f"⚠️ Suspicious Transaction Detected",
-                            'description': f"₹{amount} at {txn.get('vendor_name', 'Unknown')} - {anomaly.get('llm_explanation', anomaly['explanation'])}",
+                            'description': f"{fmt(amount, txn.get('currency') or currency)} at {txn.get('vendor_name', 'Unknown')} - {anomaly.get('llm_explanation', anomaly['explanation'])}",
                             'severity': 'high',
                             'confidence': anomaly['risk_score'],
                             'is_actionable': True,
@@ -313,7 +320,7 @@ class AnalyticsOrchestrator:
             insights.append({
                 'type': 'forecast',
                 'title': "30-Day Spending Forecast",
-                'description': f"Predicted spending: ₹{forecast_data['forecast']['total_predicted']:.0f}. Trend: {forecast_data['trend']}",
+                'description': f"Predicted spending: {fmt(forecast_data['forecast']['total_predicted'], currency)}. Trend: {forecast_data['trend']}",
                 'severity': 'info',
                 'confidence': 0.8,
                 'is_actionable': False,

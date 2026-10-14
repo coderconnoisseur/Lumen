@@ -45,6 +45,7 @@ search. The agent's job (next) is to pick the right one.
 | `api/errors.py` | Maps errors to the app-wide body `{success: false, error, code}`; `LLMError` → 429/502/503. |
 | `api/documents.py` | `POST/GET /api/documents`, `DELETE /api/documents/{id}`, `POST /api/documents/search`, `POST /api/documents/ask`. Gets the RAG service via `Depends(get_service)`, which tests override with fakes. |
 | `api/demo.py` | `POST /api/demo/start`: for anonymous (demo) accounts only, seeds the caller's own copy of the demo data once (`scripts/seed_demo_data.seed`). `api/agent.py` caps demo accounts at `DEMO_QUESTIONS_PER_DAY` (20) agent questions a day. |
+| `api/profile.py` | SPEC-ONBOARD profile: `GET`/`PUT /api/profile` (name, currency, income, budget, use case, goals; `complete` sets `users.onboarded_at`) and `PUT /api/profile/avatar` (PNG/JPEG/WebP by content, ≤ 2 MB, stored at `{user_id}/avatar-{time}.{ext}`, the old one deleted; served by `GET /api/files`). Demo accounts get a fixed demo profile and can't write. `load_profile(session, user_id)` is the profile for personalisation, or None before onboarding. Profile columns live on `users` (`_ADDED_COLUMNS`). |
 | `routes/*.py` (Flask) | `ocr.py` `/extract` (invoice upload), `batch.py` (multi-page PDFs), `chat.py` `/chat` (Ask Lumen = the agent since 2026-10-09, + history; demo accounts share the 20/day cap), `database_query.py` (transactions CRUD), `analytics.py` + `utils/analytics_service.py` (spend summaries), `ai_analytics.py` (anomalies, forecasts, insights, risk), `auth.py` (`/api/v1/auth/me`), `email_config.py` (IMAP polling setup), `health.py`. |
 
 ### Auth and tenancy (the rule everything follows)
@@ -227,6 +228,14 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
 - `frontend/src/components/server-wake.tsx`: if the API hasn't answered in 3 s, a small pill says it's waking up (not on
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
+## 7b2. App frame and navigation (frontend)
+- The signed-in pages live in the route group `app/(app)/` (URLs unchanged: `/dashboard`, `/analytics`, ...).
+  `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
+  pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
+  `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
+- There is no root `loading.tsx`: the pages are static and prefetched, and a full-screen spinner made every click
+  look like a reload.
+
 ## 7c. Ask Lumen screen (frontend, UI phase)
 - `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
   It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
@@ -256,8 +265,12 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   Lumen itself, testimonials or customer logos.
 - Media: Pexels photos and a 1080p sky video (first frame trimmed; `sky-poster.jpg` paints first) in `public/home/` (sources listed in `components/home/scenes.tsx`;
   Pexels license, no attribution required). `sky.tsx` starts the muted video; reduced motion shows a still blue.
-- Motion: `reveal.tsx` sets `[data-shown]` when an element scrolls in; `app/home.css` animates (line-by-line
-  headline rise, fades, cycling cards, marquees) and turns it off for reduced motion.
+- Motion (2026-10-14 pass): static by default. The hero still rises in once (CSS); everything else that moves says
+  something, in `components/home/motion.tsx`: the hero word rotates (`RotatingWord`), the savings figure rolls
+  (`RollingNumber`), the promise paragraph lights up word by word with scroll (`ScrollLitText`, CSS scroll-driven
+  animation), its labels decode once (`DecodeText`), photo panels wipe open (`Wipe`) and the closing photo settles with
+  scroll. `smooth-scroll.tsx` adds Lenis inertial scrolling to the landing page only. All of it is off for reduced
+  motion (`app/home.css`).
 - **Get started** / **Log in** go to `/login`; the demo links (**See it in the demo**, **Try the demo**) go to `/demo`.
 
 ## 7e. Sign-in pages (frontend, UI phase)
@@ -272,6 +285,20 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   doesn't count as signed in here, so demo visitors can still log in or sign up. A failed email or Google link comes
   back as `#error_description=...`; the page shows it in plain words and drops it from the URL. Google sign-in and
   email delivery are Supabase dashboard settings (`docs/DEPLOY.md` section 1, steps 5 and 6).
+
+## 7f. Onboarding and profile (frontend, SPEC-ONBOARD)
+- `/onboarding` (`app/onboarding/onboarding-content.tsx`): three steps in the sign-in pages' shell (you: name and
+  photo; money: currency, income, budget, who it's for; goals). The step is in the URL (`?step=2`) and each step saves
+  on Continue (`profileApi` in `lib/api/client.ts`), so refresh and Back resume. Photos are centre-cropped to a 256 px
+  JPEG in the browser before upload. The currency is guessed from the browser language (`lib/currency.ts`).
+- `components/profile/profile-provider.tsx` (inside `app/(app)/layout.tsx`) loads the profile once, exposes
+  `useProfile()` (profile + photo URL), and sends real accounts that haven't finished onboarding to `/onboarding`.
+  Demo accounts skip it. The sidebar and the dashboard greeting read it.
+
+- Personalisation (ONB-03/04): `lib/format.ts` (`formatMoney`, `useMoney`: profile currency unless a row has its
+  own), `backend/utils/money.py` (`fmt`, `user_currency`, `user_budget`, `user_income` for insight text and the risk
+  score), `system_prompt(today, profile)` in `agent/prompts.py` (unchanged text without a profile), and goal-based
+  `/chat/suggestions` in `routes/chat.py`.
 
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact

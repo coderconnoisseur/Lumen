@@ -2,6 +2,7 @@
 Pattern Detection Agent - Identifies recurring patterns and spending habits
 """
 
+from utils.money import fmt, user_currency
 import calendar
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -227,6 +228,7 @@ class PatternDetectionAgent:
         Returns:
             List of reminders
         """
+        currency = user_currency(user_id)
         rows = db.session.execute(db.text("""
             SELECT * FROM spending_patterns
             WHERE user_id = :user_id
@@ -258,7 +260,7 @@ class PatternDetectionAgent:
 
                     # Add amount info
                     if pattern['average_amount']:
-                        reminder_text += f" (approximately ₹{pattern['average_amount']:.0f})"
+                        reminder_text += f" (approximately {fmt(pattern['average_amount'], currency)})"
 
                 elif pattern['pattern_type'] == 'day_of_month':
                     day = pattern.get('day_of_month', next_date.day)
@@ -357,7 +359,7 @@ if __name__ == "__main__":
             if pattern['pattern_type'] == 'recurring':
                 logger.info(f"\n✓ {pattern['vendor_name']}")
                 logger.info(f"  Frequency: Every {pattern['frequency_days']} days")
-                logger.info(f"  Average Amount: ₹{pattern['average_amount']}")
+                logger.info(f"  Average Amount: {pattern['average_amount']:.0f}")
                 logger.info(f"  Confidence: {pattern['confidence_score']:.1%}")
                 logger.info(f"  Next Predicted: {pattern['next_predicted_date']}")
 

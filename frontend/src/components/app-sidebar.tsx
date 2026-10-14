@@ -22,6 +22,7 @@ import {
 	SidebarRail,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useProfile } from "@/components/profile/profile-provider";
 
 const data = {
 	navMain: [
@@ -81,39 +82,18 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 	const { user: authUser } = useAuth();
-	const [user, setUser] = React.useState<{
-		name: string;
-		email: string;
-		avatar: string;
-	}>({
-		name: "User",
-		email: "user@example.com",
-		avatar: "https://ui-avatars.com/api/?name=User&background=random",
-	});
-
-	React.useEffect(() => {
-		if (!authUser) {
-			return;
-		}
-
-		const name =
-			authUser.user_metadata?.full_name ??
-			authUser.user_metadata?.name ??
-			authUser.email ??
-			"User";
-		const avatar =
-			authUser.user_metadata?.avatar_url ??
-			authUser.user_metadata?.picture ??
-			`https://ui-avatars.com/api/?name=${encodeURIComponent(
-				name
-			)}&background=random`;
-
-		setUser({
-			name,
-			email: authUser.email || "user@example.com",
-			avatar,
-		});
-	}, [authUser]);
+	const { profile, avatarSrc } = useProfile();
+	const name =
+		profile?.display_name ??
+		authUser?.user_metadata?.full_name ??
+		authUser?.user_metadata?.name ??
+		authUser?.email ??
+		"User";
+	const user = {
+		name,
+		email: authUser?.email ?? "",
+		avatar: avatarSrc ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+	};
 
 	return (
 		<Sidebar

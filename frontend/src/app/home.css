@@ -1,30 +1,5 @@
-/* Landing page motion: scroll reveals, cycling cards, marquees. Pure CSS; reveal.tsx only adds
- * [data-shown] when an element scrolls into view. */
-
-.home-reveal {
-	opacity: 0;
-	transform: translateY(28px);
-	filter: blur(6px);
-	transition:
-		opacity 1.1s cubic-bezier(0.22, 1, 0.36, 1),
-		transform 1.1s cubic-bezier(0.22, 1, 0.36, 1),
-		filter 1.1s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.home-reveal[data-shown] {
-	opacity: 1;
-	transform: none;
-	filter: none;
-}
-
-/* headlines rise line by line behind a mask */
-.home-lines .ln {
-	display: block;
-	transform: translateY(105%);
-	transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.home-lines[data-shown] .ln {
-	transform: none;
-}
+/* Landing page motion: the hero intro, cycling cards, marquees and the text effects in components/home/motion.tsx.
+ * Static by default: only things that say something move. */
 
 /* four items take turns: each is shown for a quarter of the loop */
 /* hero: animates on first paint, without waiting for JavaScript */
@@ -79,9 +54,59 @@
 .home-noscroll::-webkit-scrollbar { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-	.home-reveal, .home-lines .ln { opacity: 1; transform: none; filter: none; transition: none; }
 	.home-intro, .home-intro-lines .ln, .auth-rise { animation: none; }
 	.home-marquee-x, .home-marquee-x-rev, .home-marquee-y, .home-pulse, .home-caret { animation: none; }
 	.home-cycle > * { animation: none; opacity: 0; }
 	.home-cycle > :first-child { opacity: 1; }
+}
+
+/* --- 2026-10-14 motion pass: purposeful effects only (components/home/motion.tsx) --- */
+
+/* hero: the italic word cycles (minds -> reads -> tracks -> saves) */
+.home-rotate {
+	display: inline-grid; overflow: hidden; vertical-align: bottom; padding-bottom: 0.08em; justify-items: start;
+	transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-rotate > em { white-space: nowrap; }
+.home-rotate > em {
+	grid-area: 1 / 1;
+	transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-rotate > em[data-state="in"] { transform: none; opacity: 1; }
+.home-rotate > em[data-state="out"] { transform: translateY(-100%); opacity: 0; }
+.home-rotate > em[data-state="wait"] { transform: translateY(100%); opacity: 0; transition: none; }
+
+/* money that rolls into place like a counter */
+.home-roll { display: inline-block; height: 1.1em; overflow: hidden; vertical-align: bottom; line-height: 1.1em; }
+.home-roll-col { display: flex; flex-direction: column; transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.home-roll-col > span { height: 1.1em; }
+
+/* a paragraph that lights up word by word as it scrolls through the view */
+@keyframes home-lit { from { opacity: 0.18; } to { opacity: 1; } }
+@supports (animation-timeline: view()) {
+	.home-lit { view-timeline-name: --home-lit; }
+	.home-lit > span {
+		animation: home-lit linear both;
+		animation-timeline: --home-lit;
+		animation-range: cover calc(20% + var(--i) / var(--n) * 30%) cover calc(26% + var(--i) / var(--n) * 30%);
+	}
+}
+
+/* photo panels wipe open from their centre once */
+.home-wipe { clip-path: inset(8% 8% 8% 8% round 24px); transition: clip-path 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.home-wipe[data-open] { clip-path: inset(0 round 24px); }
+.home-wipe img { transform: scale(1.12); transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.home-wipe[data-open] img { transform: none; }
+
+/* the closing photo settles (zooms out) as you scroll to it */
+@keyframes home-zoom { from { transform: scale(1.15); } to { transform: none; } }
+@supports (animation-timeline: view()) {
+	.home-zoom img { animation: home-zoom linear both; animation-timeline: view(); animation-range: entry 0% cover 60%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.home-rotate, .home-rotate > em { transition: none; }
+	.home-roll-col { transition: none; }
+	.home-lit > span, .home-zoom img { animation: none; }
+	.home-wipe, .home-wipe img { clip-path: none; transform: none; transition: none; }
 }

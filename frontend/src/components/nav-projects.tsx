@@ -22,12 +22,13 @@ export function NavProjects({
 	const pathname = usePathname();
 
 	return (
-		<SidebarGroup className="group-data-[collapsible=icon]:hidden">
+		<SidebarGroup>
 			<SidebarMenu>
 				{projects.map((item) => (
 					<SidebarMenuItem key={item.name}>
 						<SidebarMenuButton
 							asChild
+							tooltip={item.name}
 							isActive={
 								item.url === "/analytics"
 									? pathname === "/analytics"
