@@ -10,11 +10,13 @@ from config import Config
 _SYMBOL = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥"}
 
 
-def fmt(amount: float, currency: str | None) -> str:
-    """₹1,234 / $5 / CHF 1,234 (whole units: insight text, not accounting)."""
+def fmt(amount: float | None, currency: str | None) -> str:
+    """₹1,234 / $5 / CHF 1,234 / -₹500 (whole units: insight text, not accounting). A missing amount is 0."""
     code = (currency or Config.DEFAULT_CURRENCY).upper()
+    value = float(amount or 0)
+    sign, number = ("-" if value < 0 else ""), f"{abs(value):,.0f}"
     sym = _SYMBOL.get(code)
-    return f"{sym}{amount:,.0f}" if sym else f"{code} {amount:,.0f}"
+    return f"{sign}{sym}{number}" if sym else f"{sign}{code} {number}"
 
 
 def _user(user_id: str):

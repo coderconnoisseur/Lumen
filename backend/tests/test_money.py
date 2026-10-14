@@ -53,3 +53,8 @@ def test_forecast_fallback_text_uses_the_given_currency():
 
     text = ForecastingAgent()._fallback_insights(1200.0, "stable", 30, [], currency="CHF")
     assert any("CHF 1,200" in line for line in text) and not any("₹" in line for line in text)
+
+
+def test_fmt_handles_missing_and_negative_amounts():
+    """total_amount is nullable; insight text must not crash on it (it printed "₹None" before utils.money)."""
+    assert fmt(None, "INR") == "₹0" and fmt(-500, "INR") == "-₹500" and fmt(-5, "CHF") == "-CHF 5"

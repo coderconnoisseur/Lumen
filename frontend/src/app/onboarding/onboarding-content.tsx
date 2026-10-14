@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Camera, Check, Loader2 } from "lucide-react";
 
@@ -112,8 +112,12 @@ export default function OnboardingContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+	// Load the form once per account: auth events (token refresh, tab refocus) hand out a new user object, and
+	// reloading then would overwrite answers the user is still typing.
+	const loadedFor = useRef<string | null>(null);
 	useEffect(() => {
 		if (loading) return;
+		if (user && loadedFor.current === user.id) return;
 		if (!user) {
 			router.replace("/login?next=%2Fonboarding");
 			return;
@@ -122,6 +126,7 @@ export default function OnboardingContent() {
 			router.replace("/dashboard"); // demo visitors never onboard
 			return;
 		}
+		loadedFor.current = user.id;
 		const meta = user.user_metadata ?? {};
 		profileApi
 			.get()
