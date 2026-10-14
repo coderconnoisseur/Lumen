@@ -18,7 +18,7 @@ _SYNONYMS = {
     "description": ["description", "narration", "details", "particulars", "remarks", "memo", "payee",
                     "beschreibung", "transactiondetails"],
 }
-_ORDER = ["drcr", "date", "debit", "credit", "amount", "description"]
+FIELDS = ["drcr", "date", "debit", "credit", "amount", "description"]
 _MARKER = re.compile(r"(?<![a-z])(dr|cr|debit|credit)(?![a-z])\.?", re.I)
 _DECIMAL_COMMA = re.compile(r"^[\d.' ]*,\d{2}$")
 
@@ -60,9 +60,9 @@ def _norm(cell):
 
 def guess_mapping(header):
     names = [_norm(c) for c in header]
-    mapping = dict.fromkeys(_ORDER)
+    mapping = dict.fromkeys(FIELDS)
     claimed = set()
-    for key in _ORDER:
+    for key in FIELDS:
         for i, name in enumerate(names):
             if i in claimed or not name:
                 continue

@@ -57,6 +57,15 @@ def _words(text: str) -> set[str]:
     return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 3}
 
 
+def _is_match(amount: float, day: date, name: str, t) -> bool:
+    try:
+        when = date.fromisoformat(t.date[:10])
+    except (TypeError, ValueError):
+        return False  # an old row with an unreadable date is never a candidate
+    return (t.total_amount is not None and abs(amount - t.total_amount) < 0.01 and abs((day - when).days) <= 3
+            and bool(_words(name) & _words(t.vendor_name or "")))
+
+
 @router.post("/preview", dependencies=[Depends(rate_limit("10 per minute"))])
 def preview(file: UploadFile = File(...), claims: dict = Depends(current_user)):
     try:
@@ -85,16 +94,21 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
         return _no_header(e)
     if header_line is not None and 1 <= header_line <= len(parsed):
         header = header_line - 1
+    width = len(parsed[header])
     try:
-        chosen = {**dict.fromkeys(read._ORDER), **json.loads(mapping)}
-        assert all(k in read._ORDER and (v is None or isinstance(v, int)) for k, v in chosen.items())
-    except (ValueError, AssertionError):
+        given = json.loads(mapping)
+    except ValueError:
+        given = None
+    if not isinstance(given, dict) or not all(
+            k in read.FIELDS and (v is None or (type(v) is int and 0 <= v < width)) for k, v in given.items()):
         raise HTTPException(400, "The column mapping is not valid.")
+    chosen = {**dict.fromkeys(read.FIELDS), **given}
     lines = read.parse(parsed, header, chosen)
     user_id = claims["sub"]
-    unreadable = [ln.line for ln in lines if ln.date is None or ln.amount is None]
-    debits = [ln for ln in lines if ln.date and ln.amount and ln.kind == "debit"]
-    credits = sum(1 for ln in lines if ln.date and ln.amount and ln.kind == "credit")
+    ok = [ln for ln in lines if ln.date is not None and ln.amount]  # a zero amount can't be a spend
+    unreadable = [ln.line for ln in lines if ln not in ok]
+    debits = [ln for ln in ok if ln.kind == "debit"]
+    credits = sum(1 for ln in ok if ln.kind == "credit")
 
     with Session(engine) as session:
         user = ensure_user(session, user_id, claims.get("email"))
@@ -103,10 +117,10 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
         candidates = []
         if debits:
             days = [date.fromisoformat(ln.date) for ln in debits]
-            lo, hi = (min(days) - timedelta(days=3)).isoformat(), (max(days) + timedelta(days=3)).isoformat()
-            candidates = session.execute(select(Transaction.vendor_name, Transaction.total_amount, Transaction.date)
-                                         .where(Transaction.user_id == user_id, Transaction.source.is_(None),
-                                                Transaction.date >= lo, Transaction.date <= hi)).all()
+            lo, hi = (min(days) - timedelta(days=3)).isoformat(), (max(days) + timedelta(days=4)).isoformat()  # exclusive, so 'T10:00' suffixes stay in
+            candidates = list(session.execute(select(Transaction.vendor_name, Transaction.total_amount, Transaction.date)
+                                              .where(Transaction.user_id == user_id, Transaction.source.is_(None),
+                                                     Transaction.date >= lo, Transaction.date < hi)).all())
         imported = duplicates = matched = 0
         for ln in debits:
             key = hashlib.sha1(f"{user_id}|{ln.date}|{ln.amount:.2f}|{ln.description}".encode()).hexdigest()
@@ -115,9 +129,9 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
                 continue
             name = vendor.clean(ln.description)
             day = date.fromisoformat(ln.date)
-            if any(t.total_amount is not None and abs(ln.amount - t.total_amount) < 0.01 and t.date
-                   and abs((day - date.fromisoformat(t.date[:10])).days) <= 3
-                   and _words(name) & _words(t.vendor_name or "") for t in candidates):
+            hit = next((t for t in candidates if _is_match(ln.amount, day, name, t)), None)
+            if hit:
+                candidates.remove(hit)  # one invoice explains one line
                 matched += 1  # ponytail: not stored, so a re-import matches (and counts) again
                 continue
             session.add(Transaction(user_id=user_id, vendor_name=name, date=ln.date, total_amount=ln.amount,

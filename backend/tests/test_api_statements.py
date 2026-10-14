@@ -140,3 +140,47 @@ def test_unreadable_lines_are_reported(client):
     m = json.dumps(post(c, "preview", data).json()["mapping"])
     b = post(c, "import", data, mapping=m).json()
     assert b["imported"] == 1 and b["unreadable"] == [2]
+
+
+@pytest.mark.parametrize("bad", ["[]", "null", "5", "not json", '{"date": 99}', '{"date": true}', '{"date": -1}',
+                                 '{"bogus": 0}', '{"date": "0"}'])
+def test_invalid_mapping_is_400(client, bad):
+    c, _ = client
+    assert post(c, "import", mapping=bad).status_code == 400
+
+
+def test_zero_amount_line_is_unreadable(client):
+    c, engine = client
+    data = b"Date,Description,Amount\n2026-10-03,FREE THING,0.00\n2026-10-04,Y,-5\n"
+    m = json.dumps(post(c, "preview", data).json()["mapping"])
+    b = post(c, "import", data, mapping=m).json()
+    assert (b["imported"], b["credits"], b["unreadable"]) == (1, 0, [2])
+
+
+def test_one_invoice_matches_only_one_line(client):
+    c, engine = client
+    add_invoice(engine, USER)
+    data = (b"Date,Description,Amount\n2026-10-03,AMAZON.IN MARKETPLACE,-2499.00\n"
+            b"2026-10-04,AMAZON.IN MARKETPLACE,-2499.00\n")
+    m = json.dumps(post(c, "preview", data).json()["mapping"])
+    b = post(c, "import", data, mapping=m).json()
+    assert (b["matched"], b["imported"]) == (1, 1)
+
+
+def test_non_iso_invoice_date_does_not_crash_and_time_suffix_matches(client):
+    c, engine = client
+    add_invoice(engine, USER, date="13/10/2026")
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO transactions (id, user_id, vendor_name, total_amount, date) "
+                          "VALUES ('t2', :u, 'Uber', 312.4, '2026-10-09T10:00:00')"), {"u": USER})
+    m = json.dumps(post(c, "preview").json()["mapping"])
+    b = post(c, "import", mapping=m).json()
+    assert (b["imported"], b["matched"]) == (1, 1)  # Amazon imported, Uber matched on the boundary day
+
+
+def test_header_line_override(client):
+    c, engine = client
+    data = b"junk,row\nDate,Description,Amount\n2026-10-03,Y,-5\n"
+    m = json.dumps({"date": 0, "description": 1, "amount": 2})
+    b = post(c, "import", data, mapping=m, header_line="2").json()
+    assert b["imported"] == 1
