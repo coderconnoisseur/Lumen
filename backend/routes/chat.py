@@ -140,13 +140,40 @@ def clear_chat_history():
     return jsonify({"success": True, "message": "Chat history cleared"}), 200
 
 
+DEFAULT_SUGGESTIONS = [
+    "Which vendor did I spend the most with?",
+    "What is my average electricity bill?",
+    "What's the notice period in the TechHub contract?",
+    "Invoice FM-202606-U10223 looks miscategorised; propose Shopping.",
+]
+
+# One question per onboarding goal (SPEC-ONBOARD); the user's goals' questions come first.
+GOAL_QUESTIONS = {
+    "save_more": "Where could I save money this month?",
+    "cut_subscriptions": "Which subscriptions haven't I used lately?",
+    "stay_on_budget": "Will I stay within budget this month?",
+    "pay_off_debt": "How much did I spend on loan or card payments this year?",
+    "emergency_fund": "How much do I spend in a typical month?",
+    "big_purchase": "What could I cut to save for a big purchase?",
+    "business_expenses": "Which vendors did my business spend the most with?",
+}
+
+
+def _profile_for(user_id: str) -> dict | None:
+    from api.profile import load_profile
+
+    try:
+        return load_profile(db.session, user_id)
+    except Exception:  # no profile table yet: the default questions
+        return None
+
+
 @chat_bp.route("/chat/suggestions", methods=["GET"])
 @require_auth
 def get_suggestions():
-    suggestions = [
-        "Which vendor did I spend the most with?",
-        "What is my average electricity bill?",
-        "What's the notice period in the TechHub contract?",
-        "Invoice FM-202606-U10223 looks miscategorised; propose Shopping.",
-    ]
+    profile = _profile_for(str(g.user_id))
+    if not profile:
+        return jsonify({"suggestions": DEFAULT_SUGGESTIONS}), 200
+    ours = [GOAL_QUESTIONS[goal] for goal in profile.get("goals") or [] if goal in GOAL_QUESTIONS]
+    suggestions = list(dict.fromkeys(ours + DEFAULT_SUGGESTIONS))[:4]
     return jsonify({"suggestions": suggestions}), 200

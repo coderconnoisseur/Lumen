@@ -276,6 +276,16 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
 
 Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
 
+## 2026-10-14: onboarding and personalisation (SPEC-ONBOARD, ONB-01 to ONB-04)
+- New accounts answer three steps once (`/onboarding`): name and photo; currency, income, budget, who it's for;
+  goals. Stored as nullable columns on `users`; `api/profile.py` serves them; demo accounts skip it.
+- The app uses the answers: name and photo in the sidebar, a greeting on the dashboard, every amount in the user's
+  currency (`formatMoney`/`useMoney`; a transaction's own currency wins), Ask Lumen's prompt (currency, who it's for,
+  goals, budget, income), the insight texts (`utils/money.py`), the risk score (budget and income), and suggested
+  questions picked from the goals.
+- With no profile the agent's prompt is byte-for-byte the recorded one, so the eval cassettes stay valid (no
+  re-recording, no quota).
+
 ## Deferred (owner: later)
 - **Harder invoice test set** (2026-10-09): the synthetic set is read perfectly (56/56), so it can't show gains or
   measure loop A. Later: tougher generated invoices (low resolution, heavy blur, photo shadows/perspective, other

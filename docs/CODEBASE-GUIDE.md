@@ -291,6 +291,11 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   `useProfile()` (profile + photo URL), and sends real accounts that haven't finished onboarding to `/onboarding`.
   Demo accounts skip it. The sidebar and the dashboard greeting read it.
 
+- Personalisation (ONB-03/04): `lib/format.ts` (`formatMoney`, `useMoney`: profile currency unless a row has its
+  own), `backend/utils/money.py` (`fmt`, `user_currency`, `user_budget`, `user_income` for insight text and the risk
+  score), `system_prompt(today, profile)` in `agent/prompts.py` (unchanged text without a profile), and goal-based
+  `/chat/suggestions` in `routes/chat.py`.
+
 ## 8. Extraction checks (`extract/`, SPEC-EXTRACT, being built)
 - `extract/read.py` (EXT-01): `read_invoice(image_b64, media_type)`: one vision call (role `vision`) with the exact
   JSON shape in the prompt; the reply is validated by a Pydantic `Invoice` (vendor, number, date, **currency, PO
