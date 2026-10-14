@@ -12,14 +12,14 @@ import { Sky } from "@/components/home/sky";
 // the hero's sky on the left with a serif headline and cycling notifications, the near-black form panel on the right.
 // On phones the sky shrinks to a band above the form.
 
-export const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracking-[0.06em]";
+export const mono = "uppercase tracking-[0.12em]";
 
 export const authLabel = `${mono} block text-[10.5px] font-medium text-[#9f9fa0]`;
 export const authInput =
 	"h-11 w-full rounded-lg border border-white/[0.08] bg-[#111113] px-3.5 text-base text-white placeholder:text-[#4a4a4c] transition-colors outline-none hover:border-white/15 focus:border-white/30 focus:ring-2 focus:ring-white/10";
-export const authPrimary = `${mono} inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-white text-[12px] font-medium text-black transition-opacity hover:opacity-85 disabled:opacity-60`;
+export const authPrimary = `inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[15px] font-medium text-black transition-opacity hover:opacity-85 disabled:opacity-60`;
 export const authSecondary =
-	"inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-lg bg-[#1c1c1e] text-[14.5px] text-white ring-1 ring-white/10 transition-colors hover:bg-[#252527] disabled:opacity-60";
+	"inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-full bg-[#1c1c1e] text-[15px] font-medium text-white ring-1 ring-white/10 transition-colors hover:bg-[#252527] disabled:opacity-60";
 export const authLink = "text-white underline-offset-4 hover:underline";
 
 /** Style for an `.auth-rise` row that rises in after `step` earlier rows. */
@@ -49,15 +49,15 @@ const PROMISES: [LucideIcon, string][] = [
 	[FileCheck2, "Reads your bills"],
 ];
 
-/** `headline` lines rise into place again whenever `headlineKey` changes (e.g. log in -> sign up). */
-export function AuthShell({ headline, headlineKey, children }: {
+/** The sky side runs on its own: it animates in once and never reacts to the form, which scrolls by itself on wide
+ *  screens (the sky stays put). Phones scroll the whole page, sky band first. */
+export function AuthShell({ headline, children }: {
 	headline: ReactNode[];
-	headlineKey?: string;
 	children: ReactNode;
 }) {
 	return (
-		<div className="min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased lg:grid lg:grid-cols-[1.1fr_1fr]">
-			<aside className="p-3 lg:sticky lg:top-0 lg:h-screen">
+		<div className="min-h-screen bg-[#050505] font-[family-name:var(--font-ui)] text-white antialiased lg:grid lg:h-screen lg:grid-cols-[1.1fr_1fr] lg:overflow-hidden">
+			<aside className="p-3 lg:h-screen">
 				<div className="relative flex h-[240px] flex-col justify-between overflow-hidden rounded-[20px] p-6 sm:h-[280px] lg:h-full lg:rounded-[24px] lg:p-10">
 					<Sky controlsClassName="top-6 right-6 lg:top-10 lg:right-10" />
 					<Link href="/" aria-label="Lumen home" className="relative flex w-fit items-center gap-2.5">
@@ -67,7 +67,6 @@ export function AuthShell({ headline, headlineKey, children }: {
 
 					<div className="relative">
 						<p
-							key={headlineKey}
 							className="home-intro-lines font-display text-[40px] leading-[1.04] font-light tracking-[-0.01em] sm:text-[52px] lg:text-[68px]"
 						>
 							{headline.map((line, i) => (
@@ -107,8 +106,9 @@ export function AuthShell({ headline, headlineKey, children }: {
 				</div>
 			</aside>
 
-			<main id="main" className="flex items-center justify-center px-5 pt-10 pb-16 lg:py-16">
-				<div className="w-full max-w-[380px]">{children}</div>
+			{/* my-auto: centred when the form is short, scrolls from the top (never clipped) when it's tall */}
+			<main id="main" className="flex flex-col items-center px-5 pt-10 pb-16 lg:h-screen lg:overflow-y-auto lg:overscroll-contain lg:py-16">
+				<div className="my-auto w-full max-w-[380px]">{children}</div>
 			</main>
 		</div>
 	);

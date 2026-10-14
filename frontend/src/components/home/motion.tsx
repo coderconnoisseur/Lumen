@@ -38,18 +38,31 @@ export function RotatingWord({ words, interval = 2200 }: { words: string[]; inte
 		const id = setInterval(() => setI((n) => (n + 1) % words.length), interval);
 		return () => clearInterval(id);
 	}, [words.length, interval]);
-	const widest = words.reduce((a, b) => (b.length > a.length ? b : a));
+	// The slot glides to each word's own width, so there's never a gap after a short word.
+	const refs = useRef<(HTMLElement | null)[]>([]);
+	const [widths, setWidths] = useState<number[]>([]);
+	useEffect(() => {
+		const measure = () => setWidths(refs.current.map((el) => el?.offsetWidth ?? 0));
+		measure();
+		document.fonts?.ready.then(measure); // the serif's real widths, once it has loaded
+		window.addEventListener("resize", measure);
+		return () => window.removeEventListener("resize", measure);
+	}, []);
 	return (
 		<>
 			<span className="sr-only">{words[0]}</span>
-			<span aria-hidden className="home-rotate">
+			<span aria-hidden className="home-rotate" style={widths[i] ? { width: widths[i] } : undefined}>
 				{words.map((w, n) => (
-					<em key={w} data-state={n === i ? "in" : n === (i - 1 + words.length) % words.length ? "out" : "wait"}>
+					<em
+						key={w}
+						ref={(el) => {
+							refs.current[n] = el;
+						}}
+						data-state={n === i ? "in" : n === (i - 1 + words.length) % words.length ? "out" : "wait"}
+					>
 						{w}
 					</em>
 				))}
-				{/* the widest word holds the width so the line never jumps */}
-				<em className="invisible">{widest}</em>
 			</span>
 		</>
 	);

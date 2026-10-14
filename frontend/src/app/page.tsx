@@ -40,18 +40,26 @@ export const metadata: Metadata = {
 	twitter: { title: "Lumen | Your AI money advisor", description },
 };
 
-const mono = "font-[family-name:var(--font-roboto-mono)] uppercase tracking-[0.06em]";
+// Small uppercase labels (eyebrows, section tags), in the page font.
+const mono = "uppercase tracking-[0.12em]";
 
+/** The page's buttons: a pill in the page font. Light = the main action, with an arrow that nudges on hover. */
 function Cta({ children, variant = "light", href = "/login" }: { children: ReactNode; variant?: "light" | "dark"; href?: string }) {
 	return (
 		<Link
 			href={href}
-			className={`${mono} inline-flex items-center gap-2 rounded-lg px-[18px] py-3 text-[12px] font-medium transition-opacity duration-200 hover:opacity-85 ${
-				variant === "light" ? "bg-white text-black" : "bg-[#1c1c1e] text-white ring-1 ring-white/10"
+			className={`group inline-flex items-center gap-2.5 rounded-full text-[15px] font-medium transition-colors duration-200 ${
+				variant === "light"
+					? "bg-white py-1.5 pr-1.5 pl-5 text-black hover:bg-white/90"
+					: "bg-white/[0.08] px-5 py-2.5 text-white ring-1 ring-white/10 hover:bg-white/[0.14]"
 			}`}
 		>
 			{children}
-			{variant === "light" && <ArrowRight className="size-3.5" />}
+			{variant === "light" && (
+				<span className="flex size-8 items-center justify-center rounded-full bg-black text-white">
+					<ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+				</span>
+			)}
 		</Link>
 	);
 }
@@ -141,7 +149,7 @@ export default function HomePage() {
 						<Image src="/lumen_logo.svg" alt="" width={28} height={28} priority />
 						<span className="text-[18px] tracking-tight text-white">Lumen</span>
 					</Link>
-					<div className="absolute left-1/2 hidden -translate-x-1/2 gap-1.5 md:flex">
+					<div className="absolute left-1/2 hidden -translate-x-1/2 gap-0.5 rounded-full bg-white/[0.06] p-1 ring-1 ring-white/10 backdrop-blur md:flex">
 						{[
 							["Features", "#features"],
 							["How it works", "#how"],
@@ -150,17 +158,20 @@ export default function HomePage() {
 							<a
 								key={href}
 								href={href}
-								className={`${mono} rounded-lg bg-white/[0.07] px-3 py-2 text-[11.5px] font-medium text-white transition-colors duration-200 hover:bg-white/15`}
+								className="rounded-full px-4 py-1.5 text-[14px] font-medium text-white/75 transition-colors duration-200 hover:bg-white/10 hover:text-white"
 							>
 								{text}
 							</a>
 						))}
 					</div>
 					<div className="ml-auto flex items-center gap-5">
-						<Link href="/login" className={`${mono} hidden py-2 text-[11.5px] font-medium text-white sm:inline-block`}>
+						<Link
+							href="/login"
+							className="hidden py-2 text-[14px] font-medium text-white/80 transition-colors duration-200 hover:text-white sm:inline-block"
+						>
 							Log in
 						</Link>
-						<Cta>Get started</Cta>
+						<Cta href="/login?mode=signup">Get started</Cta>
 					</div>
 				</nav>
 			</header>
@@ -170,13 +181,7 @@ export default function HomePage() {
 				<section className="relative overflow-hidden pt-[150px]">
 					<Sky />
 					<div className="relative mx-auto flex max-w-[1200px] flex-col items-center px-4 text-center sm:px-5">
-						<div className="home-intro">
-							<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1.5 pr-1.5 pl-4 text-[13px] text-white backdrop-blur">
-								Try it free
-								<span className={`${mono} rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-medium`}>No sign-up</span>
-							</span>
-						</div>
-						<div className="mt-7">
+						<div>
 							<div className="home-intro-lines">
 								<h1 className="font-display text-[52px] leading-[1.05] font-light tracking-[-0.01em] sm:text-[80px] lg:text-[96px]">
 									<span className="block overflow-hidden pb-[0.06em]">
@@ -193,7 +198,7 @@ export default function HomePage() {
 						<div className="home-intro" style={{ animationDelay: "250ms" }}>
 							<p className="mx-auto mt-6 max-w-[540px] text-[18px] leading-[1.5] text-white/85">{description}</p>
 							<div className="mt-8">
-								<Cta>Get started</Cta>
+								<Cta href="/login?mode=signup">Get started</Cta>
 							</div>
 						</div>
 						<div className="home-intro mt-16 -mb-[220px] w-full" style={{ animationDelay: "400ms" }}>

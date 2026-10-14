@@ -24,11 +24,8 @@ import { CURRENCIES, currencyLabel, guessCurrency } from "@/lib/currency";
 
 type Step = 1 | 2 | 3;
 
-const HEADLINES: Record<Step, ReactNode[]> = {
-	1: ["Let's get to", <>know <em>you</em>.</>],
-	2: ["Your money,", <>your <em>way</em>.</>],
-	3: ["What matters", <><em>most</em>?</>],
-};
+// The sky side never changes with the step.
+const HEADLINE: ReactNode[] = ["Let's get to", <>know <em>you</em>.</>];
 
 const TITLES: Record<Step, [ReactNode, string]> = {
 	1: [<>Tell us about <em>you</em></>, "This is how Lumen will greet you."],
@@ -150,7 +147,8 @@ export default function OnboardingContent() {
 	const go = (to: Step) => {
 		setError(null);
 		setFieldErrors({});
-		router.push(`/onboarding?step=${to}&next=${encodeURIComponent(next)}`, { scroll: false });
+		// pushState (not router.push): only the form changes; the sky side keeps playing undisturbed
+		window.history.pushState(null, "", `/onboarding?step=${to}&next=${encodeURIComponent(next)}`);
 	};
 
 	const choosePhoto = async (file: File | undefined) => {
@@ -205,7 +203,7 @@ export default function OnboardingContent() {
 
 	if (!ready) {
 		return (
-			<AuthShell headline={HEADLINES[1]}>
+			<AuthShell headline={HEADLINE}>
 				<AuthWaiting>Loading…</AuthWaiting>
 			</AuthShell>
 		);
@@ -215,7 +213,7 @@ export default function OnboardingContent() {
 	const submitLabel = step === 3 ? "Finish" : "Continue";
 
 	return (
-		<AuthShell headline={HEADLINES[step]} headlineKey={String(step)}>
+		<AuthShell headline={HEADLINE}>
 			<div key={step}>
 				<p style={rise(0)} className={`auth-rise ${mono} text-[10.5px] font-medium text-[#6a6b6b]`}>
 					{step} of 3

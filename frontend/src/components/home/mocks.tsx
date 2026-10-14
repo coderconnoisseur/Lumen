@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { CalendarClock, Check, CreditCard, Home, Receipt, Sparkles, TrendingDown } from "lucide-react";
 import { RollingNumber } from "@/components/home/motion";
 
-export const label = "font-[family-name:var(--font-roboto-mono)] text-[10.5px] font-medium tracking-[0.16em] uppercase";
+export const label = "text-[10.5px] font-medium tracking-[0.16em] uppercase";
 
 /** Dark inner panel with a mono header and a sparkle button, the frame most showcase screens sit in. */
 function Panel({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {

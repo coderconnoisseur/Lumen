@@ -69,7 +69,8 @@ export function ProposalCard({ proposal }: { proposal: Proposal }) {
 					<span className="text-[12.5px] font-medium text-ink-2 capitalize">{proposal.risk} risk</span>
 				</span>
 				{decided ? (
-					<span className={`text-[12.5px] font-medium ${decided === "approve" ? "text-green" : "text-ink-3"}`}>
+					// same height as the buttons it replaces, so deciding doesn't resize the card or shift the chat
+					<span className={`flex h-[27px] items-center text-[12.5px] font-medium ${decided === "approve" ? "text-green" : "text-ink-3"}`}>
 						{decided === "approve" ? "Approved" : "Rejected"}
 					</span>
 				) : (

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, Inter, JetBrains_Mono, Newsreader, Roboto_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ServerWake } from "@/components/server-wake";
@@ -25,17 +26,13 @@ const newsreader = Newsreader({
 	variable: "--font-newsreader",
 });
 
-const robotoMono = Roboto_Mono({
-	subsets: ["latin"],
-	weight: ["400", "500"],
-	variable: "--font-roboto-mono",
-});
-
-// Text face of the landing and sign-in pages (and their showcase screens).
-const hankenGrotesk = Hanken_Grotesk({
-	subsets: ["latin"],
-	weight: ["300", "400", "500"],
+// Funnel Sans (OFL, self-hosted from @fontsource-variable/funnel-sans): text, buttons and labels on the landing,
+// sign-in and onboarding pages, and the label style everywhere (it replaced Hanken Grotesk and Roboto Mono).
+const funnelSans = localFont({
+	src: "../../node_modules/@fontsource-variable/funnel-sans/files/funnel-sans-latin-wght-normal.woff2",
+	weight: "300 800",
 	variable: "--font-ui",
+	display: "swap",
 });
 
 // Browser chrome (mobile address bar, scrollbars, form controls) matches the near-black pages.
@@ -137,7 +134,7 @@ export default function RootLayout({
 		<html
 			lang="en"
 			style={{ colorScheme: "dark" }}
-			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${robotoMono.variable} ${hankenGrotesk.variable} dark`}
+			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${funnelSans.variable} dark`}
 		>
 			<head>
 				{/* every signed-in page talks to these two right away */}
