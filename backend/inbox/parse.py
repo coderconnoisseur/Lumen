@@ -71,6 +71,6 @@ def parse_money_email(subject: str, sender: str, text: str, *, complete: Callabl
             logger.info("Email parse attempt %d unusable: %s", attempt, e.detail)
     else:
         return None
-    if not (parsed.amount > 0):
+    if parsed.amount is None or not (parsed.amount > 0):
         parsed.is_transaction = False
     return parsed

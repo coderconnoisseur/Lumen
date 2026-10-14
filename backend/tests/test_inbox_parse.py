@@ -97,3 +97,8 @@ def test_nan_amount_not_transaction():
 def test_currency_normalised(raw, expected):
     c = fake(json.dumps({**GOOD, "currency": raw}))
     assert parse_money_email("s", "a@b.c", "t", complete=c).currency == expected
+
+
+def test_null_amount_not_transaction():
+    c = fake('{"is_transaction": true, "amount": null, "currency": "INR"}')
+    assert parse_money_email("s", "a@b.c", "t", complete=c).is_transaction is False
