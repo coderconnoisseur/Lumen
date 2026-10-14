@@ -385,7 +385,7 @@ def test_forecast_insights_falls_back_when_llm_fails(monkeypatch):
     )
 
     assert insights == [
-        "Based on your spending pattern, expect around ₹3000 in the next 30 days.",
+        "Based on your spending pattern, expect around ₹3,000 in the next 30 days.",  # utils.money.fmt
         "Your spending trend is stable.",
         "Monitor your expenses.",
     ]
