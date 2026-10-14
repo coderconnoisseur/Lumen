@@ -5,6 +5,7 @@ import { Bell, TrendingUp, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
+import { useMoney } from "@/lib/format";
 import { analyticsApi } from "@/lib/api/client";
 
 const cardVariants = {
@@ -21,6 +22,7 @@ const cardVariants = {
 };
 
 export default function ReminderDetailsCard() {
+	const money = useMoney();
 	const [reminders, setReminders] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -130,14 +132,7 @@ export default function ReminderDetailsCard() {
 										</div>
 										<div className="text-right">
 											<p className="font-bold text-foreground">
-												₹
-												{reminder.amount?.toLocaleString(
-													"en-IN",
-													{
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													}
-												) || "0.00"}
+												{money(reminder.amount ?? 0, null, { decimals: 2 })}
 											</p>
 											<p className="text-xs text-muted-foreground">
 												{reminder.date}

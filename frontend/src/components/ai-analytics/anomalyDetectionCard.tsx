@@ -5,6 +5,7 @@ import { AlertTriangle, Shield, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
+import { useMoney } from "@/lib/format";
 import { aiAnalyticsApi } from "@/lib/api/client";
 
 const cardVariants = {
@@ -47,6 +48,7 @@ const getSeverityIcon = (severity: string) => {
 };
 
 export default function AnomalyDetectionCard() {
+	const money = useMoney();
 	const [anomalies, setAnomalies] = useState<any[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export default function AnomalyDetectionCard() {
 										</div>
 										<div className="text-right">
 											<p className="font-bold text-foreground">
-												₹{anomaly.amount.toFixed(2)}
+												{money(anomaly.amount, null, { decimals: 2 })}
 											</p>
 										</div>
 									</div>

@@ -36,6 +36,9 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
 _ADDED_COLUMNS = {
     "review_items": [("extracted", "TEXT")],  # SPEC-FEEDBACK
     "transactions": [("currency", "VARCHAR(3)"), ("po_number", "VARCHAR"), ("file_key", "VARCHAR")],  # EXT-01
+    "users": [("display_name", "VARCHAR"), ("avatar_key", "VARCHAR"), ("currency", "VARCHAR(3)"),
+              ("monthly_income", "FLOAT"), ("monthly_budget", "FLOAT"), ("use_case", "VARCHAR"),
+              ("goals", "TEXT"), ("onboarded_at", "TIMESTAMP")],  # SPEC-ONBOARD
 }
 
 

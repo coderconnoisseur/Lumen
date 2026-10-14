@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useMoney } from "@/lib/format";
 import { transactionApi, tokenManager } from "@/lib/api/client";
 import {
 	PieChart,
@@ -37,12 +38,13 @@ const cardVariants = {
 };
 
 const CustomTooltip = ({ active, payload }: any) => {
+	const money = useMoney();
 	if (active && payload && payload.length) {
 		return (
 			<div className="rounded-xl border border-border/70 bg-card/95 p-3 shadow-xl shadow-black/20">
 				<p className="font-semibold text-foreground">{payload[0].name}</p>
 				<p className="text-sm text-muted-foreground">
-					₹{payload[0].value.toLocaleString("en-IN")}
+					{money(payload[0].value)}
 				</p>
 				<p className="text-sm text-muted-foreground">
 					{payload[0].payload.percentage}%
@@ -58,6 +60,7 @@ const renderCustomLabel = (entry: any) => {
 };
 
 export default function CategoryPieChart() {
+	const money = useMoney();
 	const [categoryData, setCategoryData] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -213,8 +216,7 @@ export default function CategoryPieChart() {
 								</div>
 								<div className="text-right">
 									<p className="text-sm font-semibold text-foreground">
-										₹
-										{category.value.toLocaleString("en-IN")}
+										{money(category.value)}
 									</p>
 									<p className="text-xs text-muted-foreground">
 										{category.percentage}%
@@ -231,10 +233,7 @@ export default function CategoryPieChart() {
 								Total Spending
 							</span>
 							<span className="text-lg font-bold text-foreground">
-								₹
-								{categoryData
-									.reduce((sum, cat) => sum + cat.value, 0)
-									.toLocaleString()}
+								{money(categoryData.reduce((sum, cat) => sum + cat.value, 0))}
 							</span>
 						</div>
 					</div>

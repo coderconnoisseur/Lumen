@@ -10,6 +10,7 @@ import {
 	Activity,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useMoney } from "@/lib/format";
 import { analyticsApi } from "@/lib/api/client";
 
 import { logger } from "@/lib/logger";
@@ -79,6 +80,7 @@ export default function AnalyticsCards({
 	timeRange,
 	selectedPeriod,
 }: AnalyticsCardsProps) {
+	const money = useMoney();
 	const [data, setData] = useState<AnalyticsData>({
 		avgSpending: 0,
 		maxSpending: 0,
@@ -255,11 +257,7 @@ export default function AnalyticsCards({
 										{isPositive ? "+" : "-"}
 									</span>
 								)}
-								₹
-								{card.value.toLocaleString("en-IN", {
-									minimumFractionDigits: 2,
-									maximumFractionDigits: 2,
-								})}
+								{money(card.value, null, { decimals: 2 })}
 							</div>
 							<div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
 								{isPositive ? (

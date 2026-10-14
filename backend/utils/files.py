@@ -25,6 +25,9 @@ def document_key(user_id: str, doc_id: str) -> str:
     return f"{user_id}/docs/{doc_id}.pdf"
 
 
+mimetypes.add_type("image/webp", ".webp")  # not in every OS mime table (avatars, SPEC-ONBOARD)
+
+
 def _type(key: str) -> str:
     return mimetypes.guess_type(key)[0] or "application/octet-stream"
 

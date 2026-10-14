@@ -3,6 +3,7 @@
 import { Suspense, type ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthGuard } from "@/components/auth/auth-guard";
+import { ProfileProvider } from "@/components/profile/profile-provider";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	return (
 		<Suspense>
 			<AuthGuard>
+				<ProfileProvider>
 				<SidebarProvider>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
@@ -25,6 +27,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 						{children}
 					</SidebarInset>
 				</SidebarProvider>
+				</ProfileProvider>
 			</AuthGuard>
 		</Suspense>
 	);

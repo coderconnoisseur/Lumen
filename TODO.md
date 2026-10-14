@@ -300,8 +300,11 @@ Goal: fully smooth navigation, in the spirit of X.com, where moving between tabs
   three-dot "..." loading text instead of "…" (ai-analytics cards, `animatedListItemUse`, `emailConfigDialog`);
   `transition-all` in the ai-analytics cards and `home/chat-demo.tsx`; native `<select>` in `documentsContent` and
   `exportDialog` needs explicit background/colour (Windows dark-mode contrast); ₹ hard-coded in the charts and cards
-  (fixed by the onboarding currency work); amounts in tables/cards should use `tabular-nums`; full-screen
+  (done: `formatMoney`/`useMoney`, SPEC-ONBOARD); amounts in tables/cards should use `tabular-nums`; full-screen
   spinners instead of skeletons that match the final layout.
+- [ ] **Fake insight cards.** `components/ai-analytics/spendingTrendGraph.tsx` shows three hard-coded "insights" with
+  made-up figures ("Your November spending of 8,316 is 454% above…") to every user. Replace them with the real
+  insights from `/api/ai-analytics/insights` or remove them.
 - [ ] **General UI/UX pass.** Layout and styling are broken in places; do a full design pass once features are stable.
 
 ---

@@ -117,7 +117,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
     state: AgentState = {
-        "messages": [{"role": "system", "content": system_prompt(ctx.today)},
+        "messages": [{"role": "system", "content": system_prompt(ctx.today, ctx.profile)},
                      {"role": "user", "content": question}],
         "steps": [], "tool_calls": 0, "answer": None, "stopped": None, "llm_calls": 0,
     }
