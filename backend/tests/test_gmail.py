@@ -42,7 +42,7 @@ def gmail(client, monkeypatch):  # noqa: F811
 
 def state_for(user_id="user-1"):
     from config import Config
-    return URLSafeTimedSerializer(Config.SECRET_KEY).dumps(user_id)
+    return URLSafeTimedSerializer(Config.SECRET_KEY, salt="gmail-oauth").dumps(user_id)
 
 
 def fake_google(monkeypatch, token_status=200):
@@ -160,7 +160,7 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
     assert b["text"] == "Paid Rs 5" and b["attachments"] == [] and b["has_invoice_attachment"] is False
     assert b["message_id"]  # falls back to a hash when there is no Message-ID header
     q = calls[0][1]["q"]
-    assert "has:attachment" in q and f"after:{int(datetime(2026, 10, 1).timestamp())}" in q
+    assert "has:attachment" in q and "after:1790812800" in q
     assert not any("att2" in c[0] for c in calls)
 
 
@@ -176,3 +176,52 @@ def test_token_refresh_failure_is_recorded_by_the_poller(gmail, monkeypatch):
         r = email_poller.process_user_emails(cfg)
         assert r["success"] is False
         assert "Gmail" in cfg.last_error and "rt-secret" not in cfg.last_error
+
+
+def connect(gmail, monkeypatch):
+    fake_google(monkeypatch)
+    gmail.post(f"{URL}/callback", json={"code": "c", "state": state_for()}, headers=AUTH)
+
+
+def test_test_connection_uses_gmail_for_gmail_configs(gmail, monkeypatch):
+    connect(gmail, monkeypatch)
+    r = gmail.post("/api/v1/email-config/test", headers=AUTH)
+    assert r.status_code == 200 and r.get_json()["success"] is True
+    fake_google(monkeypatch, token_status=400)
+    r = gmail.post("/api/v1/email-config/test", headers=AUTH)
+    assert r.status_code == 400 and r.get_json()["success"] is False
+    assert "Connection failed" in r.get_json()["message"]
+
+
+def test_put_rejects_imap_fields_on_gmail_config(gmail, monkeypatch):
+    connect(gmail, monkeypatch)
+    r = gmail.put("/api/v1/email-config", json={"imap_server": "imap.x.com"}, headers=AUTH)
+    assert r.status_code == 400 and "connected with Gmail" in r.get_json()["error"]
+    assert gmail.put("/api/v1/email-config", json={"polling_enabled": False}, headers=AUTH).status_code == 200
+
+
+def test_naive_since_is_utc(gmail, monkeypatch):
+    import inbox.gmail as g
+    seen = []
+    monkeypatch.setattr(g.requests, "post", lambda *a, **k: Resp(200, {"access_token": "at"}))
+    monkeypatch.setattr(g.requests, "get", lambda url, params=None, **k: seen.append(params) or Resp(200, {}))
+    g.GmailClient("rt").fetch_new_emails(datetime(2026, 10, 1))
+    assert "after:1790812800" in seen[0]["q"]  # 2026-10-01T00:00:00Z
+
+
+def test_disconnect_revokes_but_survives_revoke_failure(gmail, monkeypatch):
+    import inbox.gmail as g
+    connect(gmail, monkeypatch)
+    sent = []
+
+    def post(url, data=None, **kw):
+        sent.append((url, data))
+        raise g.requests.RequestException("down")
+
+    monkeypatch.setattr(g.requests, "post", post)
+    assert gmail.post(f"{URL}/disconnect", headers=AUTH).status_code == 200
+    assert sent == [("https://oauth2.googleapis.com/revoke", {"token": "rt-secret"})]
+    from app import app
+    from models import EmailConfig
+    with app.app_context():
+        assert EmailConfig.query.count() == 0

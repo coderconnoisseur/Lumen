@@ -13,7 +13,7 @@ from inbox import gmail
 from models import EmailConfig, User
 from models.database import db
 from utils.auth import require_auth
-from utils.crypto import encrypt_secret
+from utils.crypto import decrypt_secret, encrypt_secret
 from utils.email_service import EmailService
 from utils.limiter import limiter
 
@@ -129,6 +129,9 @@ def update_config():
     if not config:
         return jsonify({'error': 'Configuration not found'}), 404
     
+    if config.oauth_refresh_token and {'imap_server', 'imap_password', 'imap_port', 'use_ssl'} & data.keys():
+        return jsonify({'error': 'This inbox is connected with Gmail; disconnect it to use IMAP'}), 400
+
     # Update fields if provided
     if 'polling_enabled' in data:
         config.polling_enabled = data['polling_enabled']
@@ -182,7 +185,8 @@ def test_connection():
         return jsonify({'error': 'Configuration not found'}), 404
     
     try:
-        service = EmailService(config)
+        service = (gmail.GmailClient(decrypt_secret(config.oauth_refresh_token)) if config.oauth_refresh_token
+                   else EmailService(config))
         service.connect()
         service.disconnect()
         
@@ -319,6 +323,8 @@ def gmail_disconnect():
     """Disconnect Gmail: delete the config and with it the stored token."""
     config = EmailConfig.query.filter_by(user_id=g.user_id).first()
     if config:
+        if config.oauth_refresh_token:
+            gmail.revoke(decrypt_secret(config.oauth_refresh_token))
         db.session.delete(config)
         db.session.commit()
         logger.info("Disconnected Gmail")

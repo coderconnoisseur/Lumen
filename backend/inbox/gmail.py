@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import requests
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly openid email"
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 STATE_MAX_AGE = 600  # seconds
 _TIMEOUT = 20
@@ -35,7 +36,7 @@ def configured() -> bool:
 
 
 def _signer() -> URLSafeTimedSerializer:
-    return URLSafeTimedSerializer(Config.SECRET_KEY)
+    return URLSafeTimedSerializer(Config.SECRET_KEY, salt="gmail-oauth")
 
 
 def auth_url(user_id: str) -> tuple[str, str]:
@@ -76,6 +77,14 @@ def exchange_code(code: str) -> dict:
     return {"refresh_token": refresh, "email": resp.json()["emailAddress"]}
 
 
+def revoke(token: str) -> None:
+    """Best effort: tell Google to forget the grant. Never raises."""
+    try:
+        requests.post(REVOKE_URL, data={"token": token}, timeout=_TIMEOUT)
+    except requests.RequestException as e:
+        logger.warning(f"Gmail token revoke failed ({type(e).__name__})")
+
+
 def _decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
 
@@ -88,7 +97,7 @@ class GmailClient:
         self._access = None
 
     def connect(self):
-        pass
+        self._headers()  # refresh an access token now, so a revoked sign-in fails loudly
 
     def disconnect(self):
         pass
@@ -108,6 +117,8 @@ class GmailClient:
         return resp.json()
 
     def fetch_new_emails(self, since: datetime) -> list[dict]:
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)  # the poller passes naive UTC
         q = f"({' OR '.join(['has:attachment', *_MONEY_WORDS])}) after:{int(since.timestamp())}"
         self._headers()  # a bad token fails here, loudly, before any listing
         ids, page = [], None
