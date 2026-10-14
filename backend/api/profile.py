@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine
@@ -97,3 +98,39 @@ def put_profile(body: ProfileUpdate, claims: dict = Depends(current_user), engin
             user.onboarded_at = datetime.utcnow()
         session.commit()
         return {"success": True, "profile": _as_dict(user)}
+
+
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+_MAGIC = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg"}
+
+
+def _image_ext(data: bytes) -> str | None:
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return next((ext for magic, ext in _MAGIC.items() if data.startswith(magic)), None)
+
+
+@router.put("/avatar", dependencies=[Depends(rate_limit("10 per minute"))])
+def put_avatar(file: UploadFile = File(...), claims: dict = Depends(current_user),
+               engine: Engine = Depends(get_engine)):
+    from utils.files import get_store
+
+    if claims.get("is_anonymous"):
+        raise HTTPException(403, "Demo accounts don't have a profile. Sign up to save yours.")
+    data = file.file.read(MAX_AVATAR_BYTES + 1)
+    if len(data) > MAX_AVATAR_BYTES:
+        raise HTTPException(413, "That photo is over 2 MB. Choose a smaller one.")
+    ext = _image_ext(data)
+    if ext is None:
+        raise HTTPException(415, "Use a PNG, JPEG or WebP photo.")
+    key = f"{claims['sub']}/avatar-{int(time.time())}.{ext}"  # a new key each time, so caches never show the old one
+    store = get_store()
+    store.put(key, data)
+    with Session(engine) as session:
+        user = ensure_user(session, claims["sub"], claims.get("email"))
+        old, user.avatar_key = user.avatar_key, key
+        session.commit()
+        profile = _as_dict(user)
+    if old and old != key:
+        store.delete(old)
+    return {"success": True, "profile": profile}

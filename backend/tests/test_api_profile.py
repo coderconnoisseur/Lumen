@@ -113,3 +113,56 @@ def test_profile_columns_are_added_to_an_existing_users_table(tmp_path):
         have = {c["name"] for c in inspect(db.engine).get_columns("users")}
     assert {"display_name", "avatar_key", "currency", "monthly_income", "monthly_budget", "use_case", "goals",
             "onboarded_at"} <= have
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+
+def upload(c, data, who=USER, anonymous=False, name="me.png"):
+    return c.put("/api/profile/avatar", headers=bearer(who, anonymous), files={"file": (name, data)})
+
+
+def test_avatar_upload_is_stored_under_the_user(client):
+    import utils.files
+
+    c, _ = client
+    p = upload(c, PNG).json()["profile"]
+    assert p["avatar_key"].startswith(f"{USER}/avatar-") and p["avatar_key"].endswith(".png")
+    assert utils.files.get_store().get(p["avatar_key"])[0] == PNG
+
+
+def test_second_upload_replaces_and_deletes_the_first(client, monkeypatch):
+    import utils.files
+    from api import profile
+
+    c, _ = client
+    first = upload(c, PNG).json()["profile"]["avatar_key"]
+    monkeypatch.setattr(profile.time, "time", lambda: 9_999_999_999)
+    second = upload(c, JPEG, name="me.jpg").json()["profile"]["avatar_key"]
+    assert second != first and second.endswith(".jpg")
+    assert utils.files.get_store().get(first) is None
+
+
+def test_avatar_checks_content_not_name(client):
+    c, _ = client
+    assert upload(c, b"%PDF-1.7 not an image", name="me.png").status_code == 415
+
+
+def test_avatar_too_big(client):
+    c, _ = client
+    assert upload(c, PNG + b"\x00" * (2 * 1024 * 1024)).status_code == 413
+
+
+def test_demo_accounts_cannot_upload(client):
+    c, _ = client
+    assert upload(c, PNG, anonymous=True).status_code == 403
+
+
+def test_webp_avatar_is_served_as_webp(client):
+    import utils.files
+
+    c, _ = client
+    webp = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"\x00" * 32
+    key = upload(c, webp, name="me.webp").json()["profile"]["avatar_key"]
+    assert key.endswith(".webp") and utils.files.get_store().get(key)[1] == "image/webp"
