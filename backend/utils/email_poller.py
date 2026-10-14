@@ -34,6 +34,9 @@ def _readable(day) -> bool:
         return False
 
 
+_COUNT = {'imported': 'transactions_added', 'credit': 'credits', 'duplicate': 'duplicates', 'matched': 'duplicates'}
+
+
 def process_user_emails(config: EmailConfig) -> dict:
     """Process emails for a single user"""
     service = None
@@ -50,12 +53,16 @@ def process_user_emails(config: EmailConfig) -> dict:
         default_currency = (user.currency if user else None) or Config.DEFAULT_CURRENCY
 
         # First run backfills 30 days, then everything since the last poll
-        since_date = config.last_poll_time or datetime.utcnow() - timedelta(days=30)
+        # SINCE is day-granular, so re-scan 2 days back; Message-ID dedup makes that safe
+        since_date = (config.last_poll_time - timedelta(days=2) if config.last_poll_time
+                      else datetime.utcnow() - timedelta(days=30))
+        retry = False  # an email left for the next poll keeps last_poll_time where it was
         emails = service.fetch_new_emails(since_date)
         logger.info(f"Found {len(emails)} candidate emails for {config.email_address}")
 
         for email_data in emails:
             message_id = email_data['message_id']
+            committed = False
             if already_processed(db.session, config.user_id, message_id):
                 continue
 
@@ -78,27 +85,32 @@ def process_user_emails(config: EmailConfig) -> dict:
                 except LLMError as e:
                     # provider outage: leave it unprocessed so the next poll retries
                     logger.warning(f"Email parse unavailable ({e.kind}); will retry next poll")
+                    retry = True
                     continue
-                if parsed is None:
-                    counts['skipped'] += 1
-                else:
+                outcome = "skipped"
+                if parsed is not None:
                     if not _readable(parsed.date):
                         parsed.date = _email_day(email_data['date'])
-                    outcome = save_email_transaction(
-                        db.session, config.user_id, parsed, message_id, default_currency=default_currency)
-                    if outcome == "imported":
-                        counts['transactions_added'] += 1
-                    elif outcome == "credit":
-                        counts['credits'] += 1
-                    elif outcome in ("duplicate", "matched"):
-                        counts['duplicates'] += 1
-                    else:
-                        counts['skipped'] += 1
+                    try:
+                        outcome = save_email_transaction(
+                            db.session, config.user_id, parsed, message_id, default_currency=default_currency)
+                        mark_processed(db.session, config.user_id, message_id)
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Saving one email failed ({type(e).__name__}); will retry next poll")
+                        retry = True
+                        continue
+                    counts[_COUNT.get(outcome, 'skipped')] += 1
+                    committed = True
+                else:
+                    counts['skipped'] += 1
             else:
                 counts['skipped'] += 1
 
-            mark_processed(db.session, config.user_id, message_id)
-            db.session.commit()
+            if not committed:
+                mark_processed(db.session, config.user_id, message_id)
+                db.session.commit()
 
             if config.mark_as_read:
                 try:
@@ -107,7 +119,8 @@ def process_user_emails(config: EmailConfig) -> dict:
                     logger.error(f"Failed to mark email as read: {e}")
 
         # Update config status
-        config.last_poll_time = datetime.utcnow()
+        if not retry:
+            config.last_poll_time = datetime.utcnow()
         config.last_successful_poll = datetime.utcnow()
         config.emails_processed = (config.emails_processed or 0) + processed_count + counts['transactions_added']
         config.last_error = None

@@ -48,9 +48,7 @@ async def _lifespan(_app: FastAPI):
     if os.getenv("EMAIL_POLLING") == "1":
         from utils.scheduler import scheduler
 
-        scheduler.app = flask_app
-        scheduler.interval_seconds = 600
-        scheduler.start()
+        scheduler.start(app=flask_app, interval_seconds=600)
     yield
 
 

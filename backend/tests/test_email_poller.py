@@ -88,7 +88,7 @@ def test_first_run_backfills_30_days_then_since_last_poll(env, monkeypatch):
     assert timedelta(days=29) < datetime.utcnow() - fake.since < timedelta(days=31)
     first = env.config(U1).last_poll_time
     env.poller.process_user_emails(env.config(U1))
-    assert fake.since == first
+    assert fake.since == first - timedelta(days=2)
 
 
 def test_invoice_attachment_goes_to_invoice_path_and_is_marked(env, monkeypatch):
@@ -161,7 +161,7 @@ def test_lifespan_starts_scheduler_only_when_enabled(monkeypatch):
     from utils.scheduler import scheduler
 
     started = []
-    monkeypatch.setattr(scheduler, "start", lambda: started.append(scheduler.interval_seconds))
+    monkeypatch.setattr(scheduler, "start", lambda app=None, interval_seconds=None: started.append((app, interval_seconds)))
     monkeypatch.setattr(asgi.flask_module, "startup_checks", lambda: None)
 
     async def run():
@@ -173,4 +173,47 @@ def test_lifespan_starts_scheduler_only_when_enabled(monkeypatch):
     assert started == []
     monkeypatch.setenv("EMAIL_POLLING", "1")
     asyncio.run(run())
-    assert started == [600]
+    assert started == [(asgi.flask_app, 600)]
+
+
+def test_retry_keeps_last_poll_time_and_rescans_two_days_back(env, monkeypatch):
+    from datetime import datetime, timedelta
+    cfg = env.config(U1)
+    old = cfg.last_poll_time = datetime.utcnow() - timedelta(days=3)
+    env.db.session.commit()
+    state = {"down": True}
+
+    def parse(*a, **k):
+        if state["down"]:
+            raise LLMError(LLMError.UNAVAILABLE, "outage")
+        return parsed()
+    monkeypatch.setattr(env.poller, "parse_money_email", parse)
+    fake = env.services_[U1] = Fake([mail("<d>")])
+    env.poller.process_user_emails(env.config(U1))
+    assert env.config(U1).last_poll_time == old
+    assert fake.since <= old - timedelta(days=2)
+    state["down"] = False
+    r = env.poller.process_user_emails(env.config(U1))
+    assert r["transactions_added"] == 1
+    assert env.config(U1).last_poll_time > old
+
+
+def test_save_error_on_one_email_does_not_abort_batch(env, monkeypatch):
+    from datetime import datetime, timedelta
+    cfg = env.config(U1)
+    old = cfg.last_poll_time = datetime.utcnow() - timedelta(days=1)
+    env.db.session.commit()
+    real = env.poller.save_email_transaction
+
+    def save(session, uid, p, mid, **k):
+        if mid == "<bad>":
+            raise RuntimeError("db hiccup")
+        return real(session, uid, p, mid, **k)
+    monkeypatch.setattr(env.poller, "save_email_transaction", save)
+    monkeypatch.setattr(env.poller, "parse_money_email", lambda *a, **k: parsed())
+    env.services_[U1] = Fake([mail("<bad>"), mail("<ok>")])
+    r = env.poller.process_user_emails(env.config(U1))
+    assert r["success"] and r["transactions_added"] == 1
+    from models import ProcessedEmail
+    assert [p.message_id for p in ProcessedEmail.query.all()] == ["<ok>"]
+    assert env.config(U1).last_poll_time == old
