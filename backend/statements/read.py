@@ -43,7 +43,10 @@ def rows(text):
     # ponytail: blank rows are kept as [] so Line.line stays the real file line; parse skips them
     best, best_score = None, -1
     for delimiter in (",", ";", "	"):
-        parsed = [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), delimiter=delimiter)]
+        try:
+            parsed = [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), delimiter=delimiter)]
+        except csv.Error:  # e.g. an unclosed quote past the field limit
+            continue
         h = find_header(parsed)
         if h is None:
             continue
@@ -51,7 +54,12 @@ def rows(text):
         score = counts.count(len(parsed[h])) / len(counts) if counts else 1
         if score > best_score:
             best, best_score = parsed, score
-    return best if best is not None else [[c.strip() for c in r] for r in csv.reader(io.StringIO(text))]
+    if best is not None:
+        return best
+    try:
+        return [[c.strip() for c in r] for r in csv.reader(io.StringIO(text))]
+    except csv.Error:
+        return []
 
 
 def _norm(cell):
@@ -66,6 +74,8 @@ def guess_mapping(header):
         for i, name in enumerate(names):
             if i in claimed or not name:
                 continue
+            if key in ("debit", "credit", "amount") and re.search(r"\b(card|no|number)\b", header[i].lower()):
+                continue  # "Credit Card No" is an identifier, not money
             if any(name == s or (len(s) >= 4 and name.startswith(s)) for s in _SYNONYMS[key]):
                 mapping[key] = i
                 claimed.add(i)
@@ -122,9 +132,9 @@ def parse(rows, header_index, mapping):
             amount, kind = _signed(_cell(row, mapping["amount"]))
             marker = _cell(row, mapping["drcr"]).lower()
             if amount is not None and marker:
-                if marker.startswith(("dr", "debit")):
+                if marker == "d" or marker.startswith(("dr", "debit")):
                     kind = "debit"
-                elif marker.startswith(("cr", "credit")):
+                elif marker == "c" or marker.startswith(("cr", "credit")):
                     kind = "credit"
         lines.append(Line(i, parse_date(_cell(row, mapping["date"])), _cell(row, mapping["description"]), amount, kind))
     return lines

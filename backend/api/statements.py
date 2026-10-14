@@ -110,6 +110,10 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
     debits = [ln for ln in ok if ln.kind == "debit"]
     credits = sum(1 for ln in ok if ln.kind == "credit")
 
+    currency = currency.strip().upper() if currency else currency
+    if currency and not re.fullmatch(r"[A-Z]{3}", currency):
+        raise HTTPException(400, "Currency must be a 3-letter code.")
+
     with Session(engine) as session:
         user = ensure_user(session, user_id, claims.get("email"))
         code = currency or user.currency or Config.DEFAULT_CURRENCY

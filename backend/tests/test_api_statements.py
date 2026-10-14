@@ -184,3 +184,14 @@ def test_header_line_override(client):
     m = json.dumps({"date": 0, "description": 1, "amount": 2})
     b = post(c, "import", data, mapping=m, header_line="2").json()
     assert b["imported"] == 1
+
+
+def test_unclosed_quote_payload_is_400(client):
+    c, _ = client
+    assert post(c, "preview", b'Date,Amount\n"' + b"a" * 200000).status_code == 400
+
+
+def test_bad_currency_is_400(client):
+    c, _ = client
+    m = json.dumps({"date": 0, "description": 1, "amount": 2})
+    assert post(c, "import", mapping=m, currency="RUPEES").status_code == 400

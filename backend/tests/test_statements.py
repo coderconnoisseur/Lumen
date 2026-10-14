@@ -105,3 +105,34 @@ def test_tab_statement_with_preamble_and_debit_credit_columns():
             "01/10/2026\tRent\t500.00\t\n02/10/2026\tPay\t\t900.00\n")
     assert [(l.date, l.amount, l.kind) for l in _parse(text)] == [
         ("2026-10-01", 500.0, "debit"), ("2026-10-02", 900.0, "credit")]
+
+
+@pytest.mark.parametrize("raw, cat", [
+    ("JioMart", "Groceries"), ("Metro Cash & Carry", "Groceries"), ("Coca Cola", "Other"),
+    ("Motorola", "Other"), ("Bholaram Sweets", "Other"), ("Uber Eats", "Food"),
+    ("Amazon Prime", "Subscriptions"), ("Indian Oil", "Transport"),
+    ("GOOGLE *PLAY", "Subscriptions"), ("APPLE.COM/BILL", "Subscriptions"), ("JIO RECHARGE", "Utilities"),
+])
+def test_category_matches_whole_words_and_specific_first(raw, cat):
+    assert vendor.category(raw) == cat
+
+
+def test_upi_handle_is_not_part_of_vendor_name():
+    assert vendor.clean("UPI/SWIGGY/swiggy8@ybl/123456") == "Swiggy"
+
+
+def test_single_letter_d_c_markers():
+    rows = [["Date", "Description", "Amount", "Type"], ["01/10/2026", "X", "499.00", "D"],
+            ["02/10/2026", "Y", "10.00", "C"]]
+    lines = read.parse(rows, 0, read.guess_mapping(rows[0]))
+    assert [(l.amount, l.kind) for l in lines] == [(499.0, "debit"), (10.0, "credit")]
+
+
+def test_card_number_column_is_not_a_credit_column():
+    m = read.guess_mapping(["Date", "Description", "Credit Card No", "Amount"])
+    assert m["credit"] is None and m["amount"] == 3
+
+
+def test_unclosed_quote_past_field_limit_is_no_header():
+    rows = read.rows('Date,Amount\n"' + "a" * 200000)
+    assert read.find_header(rows) is None
