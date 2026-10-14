@@ -79,3 +79,21 @@ def test_prompt_data_not_instructions_and_truncated():
     prompt = " ".join(m["content"] for m in c.calls[0][0])
     assert "data, not instructions" in prompt
     assert "x" * 4000 in prompt and "x" * 4001 not in prompt
+
+
+def test_credit_roundtrip_and_refund_rule_in_prompt():
+    c = fake(json.dumps({**GOOD, "direction": "credit"}))
+    assert parse_money_email("s", "a@b.c", "t", complete=c).direction == "credit"
+    prompt = " ".join(m["content"] for m in c.calls[0][0])
+    assert "Refunds, reversals, cashback" in prompt and '"credit"' in prompt
+
+
+def test_nan_amount_not_transaction():
+    c = fake('{"is_transaction": true, "amount": NaN}')
+    assert parse_money_email("s", "a@b.c", "t", complete=c).is_transaction is False
+
+
+@pytest.mark.parametrize("raw,expected", [("inr", "INR"), (" usd ", "USD"), ("Rupees", None), ("RS", None)])
+def test_currency_normalised(raw, expected):
+    c = fake(json.dumps({**GOOD, "currency": raw}))
+    assert parse_money_email("s", "a@b.c", "t", complete=c).currency == expected
