@@ -211,6 +211,21 @@ def test_llm_outage_on_invoice_attachment_leaves_email_for_retry(env, monkeypatc
     assert env.config(U1).last_poll_time is None  # retry pins the window
 
 
+def test_already_saved_attachment_is_not_resubmitted(env, monkeypatch):
+    from models import Transaction
+    from utils.files import invoice_key
+    env.db.session.add(Transaction(id="t1", user_id=U1, vendor_name="V", date="2026-10-01", total_amount=5,
+                                   file_key=invoice_key(U1, b"saved", "pdf")))
+    env.db.session.commit()
+    calls = []
+    monkeypatch.setattr(env.poller, "process_invoice_attachment",
+                        lambda content, fn, uid, data: calls.append(fn) or {"success": True})
+    env.services_[U1] = Fake([mail("<i>", has_invoice_attachment=True, attachments=[
+        {"filename": "a.pdf", "content": b"saved"}, {"filename": "b.pdf", "content": b"new"}])])
+    env.poller.process_user_emails(env.config(U1))
+    assert calls == ["b.pdf"]
+
+
 def test_failed_poll_keeps_last_poll_time(env):
     from datetime import datetime, timedelta
     old = env.config(U1).last_poll_time = datetime.utcnow() - timedelta(days=5)

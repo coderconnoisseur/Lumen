@@ -94,8 +94,10 @@ class EmailService:
                 if part.get_content_maintype() == 'multipart':
                     continue
                 filename = part.get_filename()
-                if filename and part.get_content_disposition() == 'attachment':  # inline logos aren't invoices
-                    if self._is_invoice_attachment(filename):
+                if filename:
+                    # an image with a Content-ID is an inline logo/signature, not an invoice
+                    if self._is_invoice_attachment(filename) and not (
+                            part.get('Content-ID') and part.get_content_maintype() == 'image'):
                         attachments.append({'filename': filename, 'content': part.get_payload(decode=True)})
                     continue
                 kind = part.get_content_type()

@@ -130,8 +130,10 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
             {"mimeType": "text/plain", "body": {"data": b64("Rs 499 debited")}},
             {"mimeType": "application/pdf", "filename": "inv.pdf", "body": {"attachmentId": "att1"},
              "headers": [{"name": "Content-Disposition", "value": 'attachment; filename="inv.pdf"'}]},
+            {"mimeType": "application/pdf", "filename": "apple.pdf", "body": {"attachmentId": "att4"},
+             "headers": [{"name": "Content-Disposition", "value": 'inline; filename="apple.pdf"'}]},
             {"mimeType": "image/png", "filename": "logo.png", "body": {"attachmentId": "att3"},
-             "headers": [{"name": "Content-Disposition", "value": 'inline; filename="logo.png"'}]},
+             "headers": [{"name": "Content-ID", "value": "<logo@x>"}]},
             {"mimeType": "text/calendar", "filename": "x.ics", "body": {"attachmentId": "att2"}}]}}
     html = {"id": "m2", "payload": {"mimeType": "text/html", "headers": [{"name": "Subject", "value": "Order"}],
                                     "body": {"data": b64("<p>Paid <b>Rs 5</b></p>")}}}
@@ -149,7 +151,7 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
             return Resp(200, plain)
         if url.endswith("/m2"):
             return Resp(200, html)
-        assert url.endswith("/m1/attachments/att1")
+        assert url.endswith(("/m1/attachments/att1", "/m1/attachments/att4"))
         return Resp(200, {"data": b64("PDFBYTES")})
 
     monkeypatch.setattr(g.requests, "post", post)
@@ -159,7 +161,7 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
     a, b = out
     assert a["id"] == "m1" and a["message_id"] == "<abc@x>" and a["subject"] == "Receipt"
     assert a["from"] == "bank@x.com" and a["text"] == "Rs 499 debited"
-    assert a["attachments"] == [{"filename": "inv.pdf", "content": b"PDFBYTES"}]
+    assert [x["filename"] for x in a["attachments"]] == ["inv.pdf", "apple.pdf"]  # inline PDF counts, cid logo does not
     assert a["has_invoice_attachment"] is True
     assert b["text"] == "Paid Rs 5" and b["attachments"] == [] and b["has_invoice_attachment"] is False
     assert b["message_id"]  # falls back to a hash when there is no Message-ID header

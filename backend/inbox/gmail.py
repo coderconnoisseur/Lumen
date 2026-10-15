@@ -149,9 +149,9 @@ class GmailClient:
             stack = part.get("parts", []) + stack
             body, name, kind = part.get("body", {}), part.get("filename"), part.get("mimeType", "")
             if name:
-                disp = next((x["value"] for x in part.get("headers", []) if x["name"].lower() == "content-disposition"), "")
-                # inline images (logos, signatures) are not invoices
-                if disp.lower().startswith("attachment") and name.lower().endswith(_EXTENSIONS) and body.get("attachmentId"):
+                cid = any(h["name"].lower() == "content-id" for h in part.get("headers", []))
+                # an image with a Content-ID is an inline logo/signature, not an invoice
+                if not (cid and kind.startswith("image/")) and name.lower().endswith(_EXTENSIONS) and body.get("attachmentId"):
                     data = self._get(f"messages/{msg['id']}/attachments/{body['attachmentId']}")["data"]
                     attachments.append({'filename': name, 'content': _decode(data)})
             elif kind in ("text/plain", "text/html") and body.get("data"):

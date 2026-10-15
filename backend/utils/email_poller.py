@@ -9,7 +9,7 @@ from inbox.filter import is_candidate
 from inbox.gmail import GmailClient
 from inbox.parse import parse_money_email
 from inbox.save import already_processed, mark_processed, save_email_transaction
-from models import EmailConfig, Receipt, Transaction, User
+from models import EmailConfig, Receipt, ReviewItem, Transaction, User
 from models.database import db
 from utils.crypto import decrypt_secret
 from utils.files import invoice_key, keep
@@ -72,6 +72,14 @@ def process_user_emails(config: EmailConfig) -> dict:
                 llm_down = False
                 for attachment in email_data['attachments']:
                     try:
+                        # saved by an earlier, partly failed pass over this email: don't submit it twice
+                        key = invoice_key(str(config.user_id), attachment['content'],
+                                          os.path.splitext(attachment['filename'])[1].lower().replace('.', ''))
+                        if (db.session.query(Transaction.id).filter_by(user_id=config.user_id, file_key=key).first()
+                                or db.session.query(ReviewItem.id).filter(
+                                    ReviewItem.user_id == config.user_id,
+                                    ReviewItem.invoice.contains(key, autoescape=True)).first()):
+                            continue
                         result = process_invoice_attachment(
                             attachment['content'], attachment['filename'], config.user_id, email_data)
                         if result['success']:
