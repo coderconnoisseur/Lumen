@@ -209,6 +209,8 @@ def test_split_follow_up():
     assert split_follow_up("You spent 500.\nNext: Which vendor was it?") == ("You spent 500.", "Which vendor was it?")
     assert split_follow_up("No suggestion here.") == ("No suggestion here.", None)
     assert split_follow_up("Next: a\nmore\nnext:  b ") == ("Next: a\nmore", "b")
+    assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
+    assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
 
 
@@ -221,3 +223,21 @@ def test_exchange_rate_malformed_reply_is_an_error(db, world, monkeypatch):
         def raise_for_status(self): pass
     monkeypatch.setattr(tools.requests, "get", lambda *a, **k: R())
     assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "USD", "quote": "INR"})
+
+
+def test_run_tool_turns_unexpected_errors_into_data_but_lets_llm_errors_through(db, world, monkeypatch):
+    from dataclasses import replace
+
+    from agent import tools
+    from agent.tools import run_tool
+    from llm.errors import LLMError
+
+    def boom(exc):
+        def run(ctx, args): raise exc
+        return run
+    ctx = _ctx(db, world)
+    monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(RuntimeError("db down"))))
+    assert run_tool(ctx, "lookup_vendors", {})["error"].startswith("lookup_vendors failed: db down")
+    monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(LLMError(LLMError.AUTH, "x"))))
+    with pytest.raises(LLMError):
+        run_tool(ctx, "lookup_vendors", {})

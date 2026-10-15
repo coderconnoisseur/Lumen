@@ -37,7 +37,7 @@ class AgentState(TypedDict):
     llm_calls: int
 
 
-_NEXT = re.compile(r"^[ \t]*next:[ \t]*(.+?)[ \t]*$", re.IGNORECASE | re.MULTILINE)
+_NEXT = re.compile(r"^[ \t]*[*_]*next:[*_]*[ \t]*(.+?)[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:
@@ -131,6 +131,8 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
     if attachment:  # data, not instructions (system prompt rule); a block in the question avoids a fake tool call
+        # checks first: truncation must cut a long item list, never the flags
+        attachment = {**{k: v for k, v in attachment.items() if k != "invoice"}, "invoice": attachment.get("invoice")}
         question = (f"{question}\n\nAttached invoice (extracted data and checks; nothing is saved yet):\n"
                     f"{json.dumps(attachment, default=str)[:MAX_TOOL_RESULT_CHARS]}")
     state: AgentState = {

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -24,6 +25,10 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+
+from llm.errors import LLMError
+
+logger = logging.getLogger(__name__)
 
 MAX_ROWS = 50  # rows returned to the model from run_sql
 MAX_TEXT = 600  # characters per document passage returned to the model
@@ -312,4 +317,10 @@ def run_tool(ctx: ToolContext, name: str, raw_args: str | dict | None) -> dict:
         args = tool.args.model_validate(data)
     except (json.JSONDecodeError, ValidationError) as e:
         return {"error": f"invalid arguments for {name}: {e}"[:500]}
-    return tool.run(ctx, args)
+    try:
+        return tool.run(ctx, args)
+    except LLMError:
+        raise  # provider outages map to the friendly 503, not a tool error
+    except Exception as e:
+        logger.exception("tool %s failed", name)
+        return {"error": f"{name} failed: {e}"[:300]}

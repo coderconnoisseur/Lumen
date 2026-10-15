@@ -123,3 +123,13 @@ def test_a_next_line_becomes_the_follow_up(ctx):
 
     out = run_agent("hi", ctx, complete=Script(_reply("Answer.\nNext: Follow?")))
     assert out["answer"] == "Answer." and out["follow_up"] == "Follow?"
+
+
+def test_attachment_flags_survive_truncation_with_a_long_item_list(ctx):
+    from agent.graph import run_agent
+
+    att = {"invoice": {"items": [{"description": "item " * 20}] * 100}, "flags": [{"code": "DUPLICATE_X"}],
+           "confidence": 0.9, "proposal_id": "p1"}
+    script = Script(_reply("ok"))
+    run_agent("is this fine?", ctx, complete=script, attachment=att)
+    assert "DUPLICATE_X" in script.sent[0]["messages"][1]["content"]
