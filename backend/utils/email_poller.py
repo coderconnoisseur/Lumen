@@ -2,96 +2,167 @@
 import logging
 import tempfile
 import os
-from datetime import datetime, timedelta
-from models import EmailConfig, Receipt, Transaction
+from datetime import date, datetime, timedelta
+from email.utils import parsedate_to_datetime
+from config import Config
+from inbox.filter import is_candidate
+from inbox.gmail import GmailClient
+from inbox.parse import parse_money_email
+from inbox.save import already_processed, mark_processed, save_email_transaction
+from models import EmailConfig, Receipt, ReviewItem, Transaction, User
 from models.database import db
+from utils.crypto import decrypt_secret
 from utils.files import invoice_key, keep
 from utils.email_service import EmailService
 from utils.image_processing import image_to_base64, render_pdf_first_page, pil_image_to_bytes
+from utils.llm import LLMError
 from api.review import read_with_feedback, submit_invoice
 
 logger = logging.getLogger(__name__)
 
 
+def _email_day(header: str) -> str | None:
+    try:
+        return parsedate_to_datetime(header).date().isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _readable(day) -> bool:
+    try:
+        date.fromisoformat((day or "")[:10])
+        return True
+    except ValueError:
+        return False
+
+
+_COUNT = {'imported': 'transactions_added', 'credit': 'credits', 'duplicate': 'duplicates', 'matched': 'duplicates'}
+
+
 def process_user_emails(config: EmailConfig) -> dict:
     """Process emails for a single user"""
     service = None
+    counts = dict(transactions_added=0, credits=0, duplicates=0, skipped=0)
     processed_count = 0
     error_count = 0
-    
+
     try:
         logger.info(f"Starting email polling for {config.email_address}")
-        service = EmailService(config)
+        service = (GmailClient(decrypt_secret(config.oauth_refresh_token)) if config.oauth_refresh_token
+                   else EmailService(config))
         service.connect()
-        
-        # Fetch emails since last poll (or last 7 days if never polled)
-        since_date = config.last_poll_time or datetime.utcnow() - timedelta(days=7)
-        emails = service.fetch_new_emails(since_date)
-        
-        logger.info(f"📧 Found {len(emails)} emails with invoice attachments for {config.email_address}")
-        
-        if len(emails) == 0:
-            logger.warning(f"⚠️  No emails with attachments found. Check if there are unread emails with image/PDF attachments in {config.folder_to_watch}")
-        
-        for email_data in emails:
-            logger.info(f"Processing email: {email_data['subject']} from {email_data['from']}")
-            
-            for attachment in email_data['attachments']:
-                try:
-                    logger.info(f"Processing attachment: {attachment['filename']}")
-                    
-                    # Process attachment
-                    result = process_invoice_attachment(
-                        attachment['content'],
-                        attachment['filename'],
-                        config.user_id,
-                        email_data
-                    )
-                    
-                    if result['success']:
-                        processed_count += 1
-                        logger.info(f"Successfully processed invoice: {attachment['filename']}")
-                    else:
+
+        user = db.session.get(User, config.user_id)
+        default_currency = (user.currency if user else None) or Config.DEFAULT_CURRENCY
+
+        # First run backfills 30 days, then everything since the last poll
+        # SINCE is day-granular, so re-scan 2 days back; Message-ID dedup makes that safe
+        since_date = (config.last_poll_time - timedelta(days=2) if config.last_poll_time
+                      else datetime.utcnow() - timedelta(days=30))
+        retry = False  # an email left for the next poll keeps last_poll_time where it was
+        total = 0  # fetch_new_emails yields one message at a time
+        for email_data in service.fetch_new_emails(since_date):
+            total += 1
+            message_id = email_data['message_id']
+            committed = False
+            if already_processed(db.session, config.user_id, message_id):
+                continue
+
+            if email_data['has_invoice_attachment']:
+                llm_down = False
+                for attachment in email_data['attachments']:
+                    try:
+                        # saved by an earlier, partly failed pass over this email: don't submit it twice
+                        key = invoice_key(str(config.user_id), attachment['content'],
+                                          os.path.splitext(attachment['filename'])[1].lower().replace('.', ''))
+                        if (db.session.query(Transaction.id).filter_by(user_id=config.user_id, file_key=key).first()
+                                or db.session.query(ReviewItem.id).filter(
+                                    ReviewItem.user_id == config.user_id,
+                                    ReviewItem.invoice.contains(key, autoescape=True)).first()):
+                            continue
+                        result = process_invoice_attachment(
+                            attachment['content'], attachment['filename'], config.user_id, email_data)
+                        if result['success']:
+                            processed_count += 1
+                        else:
+                            error_count += 1
+                            logger.error(f"Failed to process invoice: {result.get('error', 'Unknown error')}")
+                    except LLMError as e:
+                        logger.warning(f"Invoice read unavailable ({e.kind}); will retry next poll")
+                        llm_down = True
+                        break
+                    except Exception as e:
+                        logger.error(f"Error processing attachment {attachment['filename']}: {e}")
                         error_count += 1
-                        logger.error(f"Failed to process invoice: {result.get('error', 'Unknown error')}")
-                        
-                except Exception as e:
-                    logger.error(f"Error processing attachment {attachment['filename']}: {e}")
-                    error_count += 1
-            
-            # Mark as read if configured
+                if llm_down:  # provider outage: leave it unprocessed so the next poll retries
+                    retry = True
+                    continue
+            elif is_candidate(email_data['subject'], email_data['text'], False):
+                try:
+                    parsed = parse_money_email(email_data['subject'], email_data['from'], email_data['text'])
+                except LLMError as e:
+                    # provider outage: leave it unprocessed so the next poll retries
+                    logger.warning(f"Email parse unavailable ({e.kind}); will retry next poll")
+                    retry = True
+                    continue
+                outcome = "skipped"
+                if parsed is not None:
+                    if not _readable(parsed.date):
+                        parsed.date = _email_day(email_data['date'])
+                    try:
+                        outcome = save_email_transaction(
+                            db.session, config.user_id, parsed, message_id, default_currency=default_currency)
+                        mark_processed(db.session, config.user_id, message_id)
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Saving one email failed ({type(e).__name__}); will retry next poll")
+                        retry = True
+                        continue
+                    counts[_COUNT.get(outcome, 'skipped')] += 1
+                    committed = True
+                else:
+                    counts['skipped'] += 1
+            else:
+                counts['skipped'] += 1
+
+            if not committed:
+                mark_processed(db.session, config.user_id, message_id)
+                db.session.commit()
+
             if config.mark_as_read:
                 try:
                     service.mark_as_read(email_data['id'])
                 except Exception as e:
                     logger.error(f"Failed to mark email as read: {e}")
-        
+
         # Update config status
-        config.last_poll_time = datetime.utcnow()
+        if not retry:
+            config.last_poll_time = datetime.utcnow()
         config.last_successful_poll = datetime.utcnow()
-        config.emails_processed += processed_count
+        config.emails_processed = (config.emails_processed or 0) + processed_count + counts['transactions_added']
         config.last_error = None
         db.session.commit()
-        
-        logger.info(f"Polling complete: {processed_count} processed, {error_count} errors")
-        
+
+        logger.info(f"Polling complete: {processed_count} invoices, {counts}, {error_count} errors")
+
         return {
             'success': True,
             'processed': processed_count,
             'errors': error_count,
-            'total_emails': len(emails),
-            'emails_checked': len(emails),
-            'invoices_created': processed_count
+            'total_emails': total,
+            'emails_checked': total,
+            'invoices_created': processed_count,
+            **counts
         }
-        
+
     except Exception as e:
         logger.error(f"Email polling failed for {config.email_address}: {e}")
         db.session.rollback()  # Rollback failed transaction
         try:
-            config.last_poll_time = datetime.utcnow()
-            config.last_error = str(e)
+            config.last_error = str(e)  # last_poll_time stays: the next poll re-scans what this one missed
             db.session.commit()
-        except:
+        except Exception:
             db.session.rollback()
         return {
             'success': False,
@@ -99,9 +170,10 @@ def process_user_emails(config: EmailConfig) -> dict:
             'processed': processed_count,
             'errors': error_count,
             'emails_checked': 0,
-            'invoices_created': processed_count
+            'invoices_created': processed_count,
+            **counts
         }
-    
+
     finally:
         if service:
             service.disconnect()
@@ -184,6 +256,8 @@ def process_invoice_attachment(content: bytes, filename: str, user_id: str, emai
                 'filename': filename
             }
         
+    except LLMError:
+        raise  # the poller retries the email next poll
     except Exception as e:
         logger.error(f"Error processing invoice {filename}: {e}", exc_info=True)
         return {

@@ -6,8 +6,10 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+import hashlib
 import logging
 
+from inbox.filter import html_to_text, is_candidate
 from utils.crypto import decrypt_secret
 
 logger = logging.getLogger(__name__)
@@ -47,85 +49,81 @@ class EmailService:
                 logger.error(f"Error disconnecting: {e}")
     
     def fetch_new_emails(self, since_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
-        """Fetch unread emails with attachments"""
+        """Fetch emails since a date (read or not): invoice attachments, or bodies that look like money emails"""
         try:
             self.imap.select(self.config.folder_to_watch)
-            
-            # Search criteria - look for unseen emails
-            search_criteria = '(UNSEEN)'
+
+            search_criteria = 'ALL'
             if since_date:
-                date_str = since_date.strftime("%d-%b-%Y")
-                search_criteria = f'(UNSEEN SINCE {date_str})'
-            
+                search_criteria = f'(SINCE {since_date.strftime("%d-%b-%Y")})'
+
             status, message_ids = self.imap.search(None, search_criteria)
-            
             if status != 'OK':
                 logger.warning(f"Search failed with status: {status}")
                 return []
-            
+
             email_ids = message_ids[0].split()
-            logger.info(f"Found {len(email_ids)} unread emails")
-            
-            emails = []
-            
-            for email_id in email_ids:
+            logger.info(f"Found {len(email_ids)} emails since {since_date}")
+
+            for email_id in email_ids:  # one message at a time, so a big backfill never sits in memory
                 try:
                     email_data = self._fetch_email(email_id)
-                    if email_data and email_data['attachments']:
-                        emails.append(email_data)
+                    if email_data and (email_data['has_invoice_attachment']
+                                       or is_candidate(email_data['subject'], email_data['text'], False)):
+                        yield email_data
                 except Exception as e:
                     logger.error(f"Error processing email {email_id}: {e}")
-            
-            logger.info(f"Found {len(emails)} emails with invoice attachments")
-            return emails
-            
+
         except Exception as e:
             logger.error(f"Error fetching emails: {e}")
-            return []
-    
+
     def _fetch_email(self, email_id: bytes) -> Optional[Dict[str, Any]]:
-        """Fetch single email with attachments"""
+        """Fetch one email: headers, body text and invoice attachments"""
         try:
             status, msg_data = self.imap.fetch(email_id, '(RFC822)')
-            
             if status != 'OK':
                 return None
-            
-            email_message = email.message_from_bytes(msg_data[0][1])
-            
-            email_data = {
-                'id': email_id.decode(),
-                'subject': email_message.get('Subject', ''),
-                'from': email_message.get('From', ''),
-                'date': email_message.get('Date', ''),
-                'attachments': []
-            }
-            
-            # Extract attachments
-            for part in email_message.walk():
+
+            msg = email.message_from_bytes(msg_data[0][1])
+            subject, sender, date = msg.get('Subject', ''), msg.get('From', ''), msg.get('Date', '')
+            message_id = (msg.get('Message-ID') or '').strip() or hashlib.sha1(
+                f"{sender}{date}{subject}".encode()).hexdigest()
+
+            attachments, plain, html = [], None, None
+            for part in msg.walk():
                 if part.get_content_maintype() == 'multipart':
                     continue
-                if part.get('Content-Disposition') is None:
-                    continue
-                
                 filename = part.get_filename()
                 if filename:
-                    logger.debug(f"Found attachment: {filename}")
-                    if self._is_invoice_attachment(filename):
-                        logger.info(f"Processing invoice attachment: {filename}")
-                        email_data['attachments'].append({
-                            'filename': filename,
-                            'content': part.get_payload(decode=True)
-                        })
-                    else:
-                        logger.debug(f"Skipped attachment (not invoice): {filename}")
-            
-            return email_data if email_data['attachments'] else None
-            
+                    # an image with a Content-ID is an inline logo/signature, not an invoice
+                    if self._is_invoice_attachment(filename) and not (
+                            part.get('Content-ID') and part.get_content_maintype() == 'image'):
+                        attachments.append({'filename': filename, 'content': part.get_payload(decode=True)})
+                    continue
+                kind = part.get_content_type()
+                if kind in ('text/plain', 'text/html'):
+                    payload = part.get_payload(decode=True) or b''
+                    body = payload.decode(part.get_content_charset() or 'utf-8', errors='replace')
+                    if kind == 'text/plain' and plain is None:
+                        plain = body
+                    elif kind == 'text/html' and html is None:
+                        html = body
+
+            return {
+                'id': email_id.decode(),
+                'message_id': message_id,
+                'subject': subject,
+                'from': sender,
+                'date': date,
+                'text': plain if plain is not None else html_to_text(html or ''),
+                'attachments': attachments,
+                'has_invoice_attachment': bool(attachments),
+            }
+
         except Exception as e:
             logger.error(f"Error fetching email: {e}")
             return None
-    
+
     def _is_invoice_attachment(self, filename: str) -> bool:
         """Check if attachment is likely an invoice"""
         # Accept all common image and PDF formats

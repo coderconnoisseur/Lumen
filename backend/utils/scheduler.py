@@ -17,8 +17,10 @@ class EmailPollingScheduler:
         self.running = False
         self.thread = None
     
-    def start(self):
+    def start(self, app: Flask = None, interval_seconds: int = None):
         """Start the polling scheduler"""
+        self.app = app or self.app
+        self.interval_seconds = interval_seconds or self.interval_seconds
         if self.running:
             logger.warning("Scheduler already running")
             return

@@ -333,3 +333,15 @@ class ReviewItem(db.Model):
     note = db.Column(Text, nullable=True)  # the reviewer's reason
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     decided_at = db.Column(db.DateTime, nullable=True)
+
+
+class ProcessedEmail(db.Model):
+    """SPEC-EMAIL-INGEST: Message-IDs already read, so a re-poll never re-parses (or re-bills) an email."""
+    __tablename__ = "processed_emails"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    message_id = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "message_id", name="u_processed_email"),)

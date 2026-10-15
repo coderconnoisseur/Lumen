@@ -82,6 +82,18 @@ pypdfium2, image → PNG) → `utils/openrouter.py` (one vision call, JSON reply
 (dates, amounts, names) → `utils/save_transaction.py` (dedupe on user+vendor+invoice number, save items).
 SPEC-EXTRACT will replace this with schema-validated extraction, rule checks and a review queue.
 
+### Email inbox ingestion (`inbox/`, `utils/email_poller.py`, `routes/email_config.py`)
+Connect Gmail (or IMAP) and money emails become transactions. `inbox/gmail.py` is the Gmail API client (read-only
+scope; OAuth with a signed, salted `state`; the refresh token is stored encrypted on `EmailConfig.oauth_refresh_token`,
+`imap_server='gmail-api'`) and maps messages to the same shape as IMAP. `utils/email_poller.py` (started when
+`EMAIL_POLLING=1`) fetches new mail per user, `inbox/filter.py` keeps money emails, `inbox/parse.py` reads them,
+and `inbox/save.py` writes a `Transaction` with `source="email"`, deduped by Message-ID and against existing rows from
+any source. The sign-in popup returns to `/oauth/gmail` (`app/oauth/gmail/page.tsx`), which hands `code`/`state` to
+`components/gmailOAuthButton.tsx` (postMessage, `BroadcastChannel("gmail-oauth")`, sessionStorage fallback), which
+posts them to `/email-config/gmail/callback`. `/email-config/status` reports `provider` (`gmail`/`imap`), last poll,
+last error and `transactions_added` (count of the user's `source="email"` rows); `components/emailStatusCard.tsx`
+shows them with a **Check now** button (`/poll-now`).
+
 ### RAG (`rag/`): document search with citations
 | File | What it does |
 |---|---|

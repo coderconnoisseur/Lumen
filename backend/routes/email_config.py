@@ -6,12 +6,14 @@ No `user_id` is read from query strings, form bodies, or JSON bodies.
 from datetime import datetime
 import logging
 
+import requests
 from flask import Blueprint, g, request, jsonify
 
-from models import EmailConfig, User
+from inbox import gmail
+from models import EmailConfig, Transaction, User
 from models.database import db
 from utils.auth import require_auth
-from utils.crypto import encrypt_secret
+from utils.crypto import decrypt_secret, encrypt_secret
 from utils.email_service import EmailService
 from utils.limiter import limiter
 
@@ -31,10 +33,14 @@ def get_status():
     if not config:
         return jsonify({'configured': False})
     
+    is_gmail = bool(config.oauth_refresh_token) or config.imap_server == 'gmail-api'
+    added = Transaction.query.filter_by(user_id=user_id, source='email').count()
+
     return jsonify({
         'configured': True,
         'email_address': config.email_address,
-        'provider': config.provider,
+        'provider': 'gmail' if is_gmail else 'imap',
+        'transactions_added': added,
         'polling_enabled': config.polling_enabled,
         'polling_interval_minutes': config.polling_interval_minutes,
         'folder_to_watch': config.folder_to_watch,
@@ -127,6 +133,9 @@ def update_config():
     if not config:
         return jsonify({'error': 'Configuration not found'}), 404
     
+    if config.oauth_refresh_token and {'imap_server', 'imap_password', 'imap_port', 'use_ssl'} & data.keys():
+        return jsonify({'error': 'This inbox is connected with Gmail; disconnect it to use IMAP'}), 400
+
     # Update fields if provided
     if 'polling_enabled' in data:
         config.polling_enabled = data['polling_enabled']
@@ -180,7 +189,8 @@ def test_connection():
         return jsonify({'error': 'Configuration not found'}), 404
     
     try:
-        service = EmailService(config)
+        service = (gmail.GmailClient(decrypt_secret(config.oauth_refresh_token)) if config.oauth_refresh_token
+                   else EmailService(config))
         service.connect()
         service.disconnect()
         
@@ -257,36 +267,69 @@ def resume_polling():
     return jsonify({'message': 'Polling resumed'})
 
 
+def _gmail_unconfigured():
+    if gmail.configured():
+        return None
+    return jsonify({'error': "Gmail isn't configured"}), 503
+
+
 @email_config_bp.route('/gmail/auth-url', methods=['GET'])
 @email_config_bp.route('/gmail/auth', methods=['GET'])
 @require_auth
 def gmail_auth():
-    """Gmail OAuth is not implemented — use IMAP with an app password."""
-    return jsonify({
-        'error': 'gmail_oauth_unavailable',
-        'message': (
-            'Gmail OAuth is not available yet. Configure email polling with '
-            'IMAP: use an app-specific password from your Google Account '
-            'security settings and enter it in the email configuration dialog.'
-        ),
-    }), 501
+    """Start Gmail sign-in: the URL to send the user to, plus the signed state."""
+    if (blocked := _gmail_unconfigured()):
+        return blocked
+    url, state = gmail.auth_url(g.user_id)
+    return jsonify({'auth_url': url, 'state': state})
 
 
 @email_config_bp.route('/gmail/callback', methods=['POST'])
 @require_auth
 def gmail_callback():
-    """Handle Gmail OAuth callback"""
-    # TODO: Implement OAuth callback
+    """Finish Gmail sign-in: verify the state, trade the code, store the encrypted refresh token."""
+    if (blocked := _gmail_unconfigured()):
+        return blocked
+    data = request.json or {}
+    if not data.get('code') or gmail.verify_state(data.get('state') or '') != g.user_id:
+        return jsonify({'error': 'Invalid or expired sign-in state. Please try again.'}), 400
+    try:
+        result = gmail.exchange_code(data['code'])
+    except (gmail.GmailError, requests.RequestException) as e:
+        logger.error(f"Gmail sign-in failed: {type(e).__name__}")
+        return jsonify({'error': str(e) if isinstance(e, gmail.GmailError) else 'Could not reach Google'}), 400
+
+    user_id = g.user_id
+    if not db.session.get(User, user_id):
+        db.session.add(User(id=user_id, email=g.user_email or result['email']))
+    config = EmailConfig.query.filter_by(user_id=user_id).first()
+    if not config:
+        config = EmailConfig(user_id=user_id)
+        db.session.add(config)
+    config.email_address = result['email']
+    config.provider = 'gmail'
+    config.imap_server = 'gmail-api'  # NOT NULL column; unused by the Gmail API client
+    config.oauth_refresh_token = encrypt_secret(result['refresh_token'])
+    config.polling_enabled = True
+    config.last_error = None
+    config.updated_at = datetime.utcnow()
+    db.session.commit()
+    logger.info(f"Connected Gmail for {config.email_address}")
     return jsonify({
-        'error': 'Gmail OAuth not yet implemented. Use IMAP with App Password instead.'
-    }), 501
+        'configured': True, 'email_address': config.email_address, 'provider': 'gmail',
+        'polling_enabled': True, 'message': 'Gmail connected',
+    })
 
 
 @email_config_bp.route('/gmail/disconnect', methods=['POST'])
 @require_auth
 def gmail_disconnect():
-    """Disconnect Gmail OAuth"""
-    # TODO: Implement OAuth disconnect
-    return jsonify({
-        'error': 'Gmail OAuth not yet implemented. Use IMAP with App Password instead.'
-    }), 501
+    """Disconnect Gmail: delete the config and with it the stored token."""
+    config = EmailConfig.query.filter_by(user_id=g.user_id).first()
+    if config:
+        if config.oauth_refresh_token:
+            gmail.revoke(decrypt_secret(config.oauth_refresh_token))
+        db.session.delete(config)
+        db.session.commit()
+        logger.info("Disconnected Gmail")
+    return jsonify({'message': 'Gmail disconnected'})
