@@ -14,14 +14,19 @@ exactly the same synthetic number. Refuses non-SQLite databases unless
 from __future__ import annotations
 
 import argparse
+import functools
+import logging
 import random
 import sys
+import threading
+import time as clock
 import uuid
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
+logger = logging.getLogger(__name__)
 
 
 def main(argv=None) -> int:
@@ -44,6 +49,7 @@ def main(argv=None) -> int:
     counts = seed(engine, ChunkStore(engine), FastEmbedder(), args.user_id)
     print(f"Seeded {counts['transactions']} transactions, {counts['transaction_items']} line items and "
           f"{counts['documents']} documents for {args.user_id[:8]}…")
+    [t.join() for t in threading.enumerate() if t.name == "demo-uploads"]  # let the file uploads finish
     return 0
 
 
@@ -103,6 +109,27 @@ def _rental_agreement(today: date) -> dict:
     ]}
 
 
+@functools.lru_cache(maxsize=2)  # keyed on the embedder: the server has one, so every visitor reuses this
+def demo_documents(embedder) -> list[tuple]:
+    """(filename, doc_type, title, sections, vectors, pdf bytes) for each demo PDF, parsed and embedded once per
+    process: on a small server this is most of a demo's setup time."""
+    from rag.chunking import chunk_sections, sections_from_pdf
+    from rag.ingest import passage_text
+
+    out = []
+    corpus = BACKEND / "evals" / "data" / "corpus"
+    for path in sorted(p for p in corpus.glob("*.pdf") if "-u1-" in p.name or p.name.startswith("po-po-u1")):
+        data = path.read_bytes()
+        title, sections = sections_from_pdf(data)
+        title = title or path.name
+        vectors = embedder.embed_passages([passage_text(title, c.heading, c.text)
+                                           for c in chunk_sections("demo", sections)])
+        doc_type = ("purchase_order" if path.name.startswith("po-") else
+                    "policy" if path.name.startswith("policy") else "contract")
+        out.append((path.name, doc_type, title, sections, vectors, data))
+    return out
+
+
 def seed(engine, store, embedder, user_id: str, today: date | None = None) -> dict:
     """Give `user_id` the demo data, moved so the newest transaction is yesterday; also used by the one-click demo
     (api/demo.py). `today` is for tests."""
@@ -116,9 +143,11 @@ def seed(engine, store, embedder, user_id: str, today: date | None = None) -> di
     from evals.generator.corpus import render_pdf
     from evals.generator.world import build_world
     from models.database import db
+    from rag.chunking import chunk_sections
     from rag.ingest import ingest_pdf
     from utils import files
 
+    t0 = clock.perf_counter()
     world = build_world(42)
     source = next(u for u in world["users"] if u["key"] == "u1")
     remap = lambda old: str(uuid.uuid5(uuid.UUID(user_id), old))  # stable per account
@@ -160,19 +189,30 @@ def seed(engine, store, embedder, user_id: str, today: date | None = None) -> di
         conn.execute(delete(tables["purchase_orders"]).where(tables["purchase_orders"].c.id.in_([p["id"] for p in pos])))
         if pos:
             conn.execute(insert(tables["purchase_orders"]), pos)
+    t_rows = clock.perf_counter()
     store.ensure_schema()
-    corpus = BACKEND / "evals" / "data" / "corpus"
-    docs = sorted(p for p in corpus.glob("*.pdf") if "-u1-" in p.name or p.name.startswith("po-po-u1"))
-    for path in docs:
-        data = path.read_bytes()
-        doc_id = ingest_pdf(store, embedder, user_id=user_id, data=data, filename=path.name,
-                            doc_type="purchase_order" if path.name.startswith("po-") else
-                            "policy" if path.name.startswith("policy") else "contract")
-        files.keep(files.document_key(user_id, doc_id), data)  # so "Open original" works for demo documents
+    docs, uploads = demo_documents(embedder), []
+    for filename, doc_type, title, sections, vectors, data in docs:
+        doc_id = str(uuid.uuid4())
+        doc_id = store.upsert_document(doc_id=doc_id, user_id=user_id, title=title, doc_type=doc_type,
+                                       filename=filename, chunks=chunk_sections(doc_id, sections), vectors=vectors,
+                                       embedding_model=embedder.model_id)
+        uploads.append((files.document_key(user_id, doc_id), data))  # so "Open original" works for demo documents
     data = render_pdf(_rental_agreement(today))
     doc_id = ingest_pdf(store, embedder, user_id=user_id, data=data, filename="rental-agreement-greenview.pdf",
                         doc_type="contract")
-    files.keep(files.document_key(user_id, doc_id), data)
+    uploads.append((files.document_key(user_id, doc_id), data))
+    t_docs = clock.perf_counter()
+
+    def upload():
+        try:
+            for key, blob in uploads:
+                files.keep(key, blob)
+        except Exception as e:  # the demo works without originals; only "Open original" is missing
+            logger.warning("Demo file uploads stopped: %s", type(e).__name__)
+
+    threading.Thread(target=upload, name="demo-uploads", daemon=True).start()
+    logger.info("Demo seed: rows %.1fs, documents %.1fs, %d uploads queued", t_rows - t0, t_docs - t_rows, len(uploads))
     return {"transactions": len(rows), "transaction_items": len(items), "documents": len(docs) + 1}
 
 

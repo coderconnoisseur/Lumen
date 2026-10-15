@@ -144,3 +144,51 @@ def test_the_demo_account_has_a_profile_ask_lumen_can_read(seeded):
 def test_reseeding_the_same_day_adds_nothing(seeded):
     _, _, _, counts, again, before, rows = seeded
     assert counts == again and before == len(rows)
+
+
+def _wait_for_uploads():
+    import threading
+
+    for t in threading.enumerate():
+        if t.name == "demo-uploads":
+            t.join()
+
+
+def test_two_visitors_share_one_embedding_of_the_demo_documents(tmp_path, monkeypatch):
+    """The corpus PDFs are parsed and embedded once per process; uploads run in the background and a storage
+    outage doesn't fail the seed; each visitor still searches only their own copy."""
+    import models  # noqa: F401
+    import utils.files
+    from models.database import db
+    from rag.embed import FakeEmbedder
+    from rag.store import ChunkStore
+    from scripts import seed_demo_data
+
+    class Counting(FakeEmbedder):
+        calls = {"corpus": 0, "rental": 0}
+
+        def embed_passages(self, texts):
+            self.calls["rental" if any("Greenview" in t for t in texts) else "corpus"] += 1
+            return super().embed_passages(texts)
+
+    def down(key, data):
+        raise RuntimeError("storage is down")
+
+    monkeypatch.setattr(utils.files, "keep", down)
+    seed_demo_data.demo_documents.cache_clear()
+    engine = create_engine(f"sqlite:///{tmp_path / 'demo.db'}")
+    db.metadata.create_all(engine)
+    store, embedder = ChunkStore(engine), Counting()
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    seed_demo_data.seed(engine, store, embedder, a, today=TODAY)
+    corpus_calls = embedder.calls["corpus"]
+    seed_demo_data.seed(engine, store, embedder, b, today=TODAY)
+    _wait_for_uploads()
+    assert corpus_calls > 0 and embedder.calls == {"corpus": corpus_calls, "rental": 2}
+    for uid in (a, b):
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM transactions WHERE user_id = :u"), {"u": uid}).scalar() > 200
+        assert len(store.list_documents(uid)) == 11
+        hits = store.dense_search(uid, embedder.embed_query("NetLink 90 days written notice terminate"), k=3)
+        assert hits and "NetLink" in hits[0].title
+        assert {h.doc_id for h in hits} <= {d["id"] for d in store.list_documents(uid)}
