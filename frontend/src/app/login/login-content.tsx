@@ -19,6 +19,7 @@ import {
 	rise,
 } from "@/components/auth/auth-shell";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { warmApi } from "@/lib/api/client";
 
 type Mode = "signin" | "signup" | "reset";
 
@@ -92,6 +93,9 @@ export default function LoginContent() {
 	const [isStartingGoogle, setIsStartingGoogle] = useState(false);
 	const [authError, setAuthError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+
+	// The app's first request (your profile) would otherwise wait out the API's wake-up after sign-in.
+	useEffect(warmApi, []);
 
 	useEffect(() => {
 		if (!loading && user) {
