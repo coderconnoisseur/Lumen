@@ -107,9 +107,42 @@ def list_proposals(status: Literal["pending", "approved", "rejected"] | None = N
         return {"success": True, "proposals": [_proposal_dict(p) for p in rows]}
 
 
+def _save_invoice(proposal_id: str, user_id: str, deps: AgentDeps) -> dict | None:
+    """Approve a save_invoice proposal: claim it atomically (a double approve can't save twice), then run
+    submit_invoice outside the claim. None = not a save_invoice (the normal path handles it)."""
+    from api.review import submit_invoice
+    from models import AuditEvent, Proposal
+
+    with Session(deps.engine) as session, session.begin():
+        p = session.scalar(select(Proposal).where(Proposal.id == proposal_id, Proposal.user_id == user_id))
+        if p is None or p.type != "save_invoice":
+            return None
+        if not session.execute(update(Proposal).where(
+                Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
+                .values(status="saving")).rowcount:
+            raise HTTPException(409, f"Proposal is already {p.status}")
+        payload = json.loads(p.payload or "{}")
+    try:
+        item = submit_invoice(deps.engine, user_id, payload)
+    except Exception:
+        with Session(deps.engine) as session, session.begin():
+            session.execute(update(Proposal).where(Proposal.id == proposal_id).values(status="pending"))
+        raise
+    applied = {"review_item": item["id"], "status": item["status"], "transaction_id": item.get("transaction_id")}
+    with Session(deps.engine) as session, session.begin():
+        p = session.get(Proposal, proposal_id)
+        p.status, p.decided_at = "approved", datetime.utcnow()
+        session.add(AuditEvent(user_id=user_id, actor="user", action="proposal_approved", proposal_id=p.id,
+                               detail=json.dumps({"applied": applied})))
+        session.flush()
+        return {"success": True, "proposal": _proposal_dict(p), "applied": applied}
+
+
 def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> dict:
     from models import AuditEvent, Proposal, Transaction
 
+    if decision == "approved" and (saved := _save_invoice(proposal_id, user_id, deps)):
+        return saved
     with Session(deps.engine) as session, session.begin():
         p = session.scalar(select(Proposal).where(Proposal.id == proposal_id, Proposal.user_id == user_id))
         if p is None:

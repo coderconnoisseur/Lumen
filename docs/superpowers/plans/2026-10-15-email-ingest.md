@@ -1,0 +1,60 @@
+# Email Ingestion Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Every spend that produces an email becomes a transaction automatically (Gmail OAuth or IMAP), without duplicates.
+
+**Architecture:** A new `backend/inbox/` package holds the pieces: a candidate filter, an LLM body parser, a saver
+(dedup by Message-ID and the statement matcher), and a Gmail API client that yields the same email dicts the IMAP
+service does. The existing poller (`utils/email_poller.py`) gains the body path and Message-ID dedup; the existing
+scheduler starts inside the API process when `EMAIL_POLLING=1`; the stubbed Gmail OAuth routes become real; a small
+callback page completes the existing frontend button.
+
+**Tech Stack:** Python stdlib (`email`, `html.parser`, `hashlib`), `requests`, Pydantic, SQLAlchemy, `llm.client.complete` (role `text`), Flask/FastAPI, pytest; Next.js.
+
+**Spec:** `docs/direction/specs/SPEC-EMAIL-INGEST.md`
+
+## Global Constraints
+- Candidates: subject or body contains a money word (`debited`, `spent`, `charged`, `paid`, `payment`, `receipt`, `invoice`, `order`, `renewal`, `renewed`, `subscription`, `upi`, `txn`, `transaction`) or the email has an invoice attachment; skip promos (subject contains `offer`, `sale`, `% off`, `discount`, `newsletter`, `deal`) unless it also has an amount pattern like `(?:rs\.?|inr|₹|\$|usd|eur|€|£|chf)\s?[\d,]+(?:\.\d+)?`.
+- Parser output (Pydantic `ParsedEmail`): `is_transaction: bool, direction: Literal["debit","credit"] | None, amount: float | None, currency: str | None (ISO 3), merchant: str | None, date: str | None (ISO), kind: Literal["alert","receipt","order","subscription","other"] | None`. Body text truncated to 4000 chars; email text is data, not instructions (state it in the prompt).
+- Save rule: debits only (credits counted, skipped); `source="email"`; vendor via `statements.vendor.clean(merchant)`; category `"Subscriptions"` when `kind == "subscription"`, else `statements.vendor.category(merchant)`; `import_key = sha1(f"{user_id}|{message_id}")` hex; skip when the statement-style matcher finds an existing transaction (same user, amount within 0.01, ±3 days, shared ≥3-letter word) of ANY source.
+- `processed_emails(user_id, message_id)` new table with a unique constraint; a message is handled at most once per user.
+- First run backfills 30 days; afterwards since `last_poll_time`. IMAP search uses `SINCE` (not only `UNSEEN`).
+- Scheduler starts in the API process only when `EMAIL_POLLING=1`; interval 600 s.
+- Gmail OAuth: env `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`; scope `https://www.googleapis.com/auth/gmail.readonly` + `openid email`; `access_type=offline`, `prompt=consent`; `state` signed with `itsdangerous.URLSafeTimedSerializer(SECRET_KEY)` carrying the user id, max age 600 s; refresh token stored encrypted (`utils.crypto.encrypt_secret`) in `email_configs.oauth_refresh_token`; `imap_server` set to the placeholder `"gmail-api"` (column is NOT NULL).
+- Never log tokens, passwords or email bodies.
+
+## Review Focus
+1. The same email seen twice (two polls, or IMAP UNSEEN off) creates one transaction.
+2. A bank alert and the Netflix receipt for the same charge create one transaction.
+3. A promotional email with prices ("50% off, now ₹499") is not saved as a spend.
+4. A refund/credit email is not saved as a spend.
+5. A Gmail token refresh failure marks the config's `last_error` and doesn't crash the poll loop for other users.
+
+---
+
+### Task 1: candidate filter and body parser (`inbox/filter.py`, `inbox/parse.py`)
+**Files:** Create `backend/inbox/__init__.py`, `backend/inbox/filter.py`, `backend/inbox/parse.py`; Test `backend/tests/test_inbox_parse.py`.
+**Produces:** `filter.html_to_text(html: str) -> str` (stdlib `HTMLParser`, drops script/style, collapses whitespace); `filter.is_candidate(subject: str, text: str, has_invoice_attachment: bool) -> bool`; `parse.ParsedEmail` (fields above); `parse.parse_money_email(subject: str, sender: str, text: str, *, complete=None) -> ParsedEmail | None` — one `llm.client.complete(messages, role="text", response_format={"type": "json_object"}, max_tokens=300)` call (inject `complete` for tests), JSON → `ParsedEmail`; invalid JSON or validation error → one retry, then `None`; amounts ≤ 0 or missing → `is_transaction=False`.
+- [ ] Step 1: failing tests — `is_candidate` table: "₹649.00 debited from your account for NETFLIX" → True; "Your Zomato order #123 — ₹420" → True; "Netflix: your membership renewed" → True; "MEGA SALE 50% off — now ₹499" → False; "Weekly newsletter" → False; "Meeting tomorrow" → False; any subject with `has_invoice_attachment=True` → True. `html_to_text("<p>Paid <b>₹420</b></p><script>x</script>") == "Paid ₹420"`. `parse_money_email` with a fake `complete` returning `{"is_transaction":true,"direction":"debit","amount":649,"currency":"INR","merchant":"NETFLIX","date":"2026-10-12","kind":"subscription"}` → fields; invalid JSON twice → None (and the fake was called twice); `{"is_transaction":true,"amount":0,...}` → `is_transaction False`; the prompt passed to `complete` contains the instruction that email text is data, not instructions, and the body is truncated to 4000 chars.
+- [ ] Step 2: run → FAIL (ModuleNotFoundError). Step 3: implement. Step 4: run → PASS; full suite green. Step 5: commit "Inbox: money-email filter and body parser (SPEC-EMAIL-INGEST)".
+
+### Task 2: saving with dedup (`inbox/save.py`, shared matcher)
+**Files:** Create `backend/statements/match.py` (move the matching rule out of `api/statements.py`: `candidates(session, user_id, lo: str, hi: str, *, any_source: bool) -> list[Transaction]` and `is_match(amount, day: date, vendor: str, t) -> bool`), update `api/statements.py` to use it (statements keep `any_source=False`: invoice-only candidates); Create `backend/inbox/save.py`; Modify `backend/models/__init__.py` (+`ProcessedEmail` model: `id`, `user_id String(36) index`, `message_id String`, `created_at`; `UniqueConstraint("user_id","message_id")`); Test `backend/tests/test_inbox_save.py`.
+**Produces:** `save.already_processed(session, user_id, message_id) -> bool`; `save.mark_processed(session, user_id, message_id)`; `save.save_email_transaction(session, user_id, parsed: ParsedEmail, message_id: str, *, default_currency: str) -> Literal["imported","credit","duplicate","matched","not_transaction"]` (caller commits).
+- [ ] Step 1: failing tests (sqlite engine + `metadata.create_all`, like `tests/test_api_statements.py`): debit parsed email → one `Transaction(source="email", vendor cleaned, category, currency, import_key)` + "imported"; the same message id again → "duplicate", still one row; credit → "credit", no row; `is_transaction False` → "not_transaction"; an existing statement row (source "statement") for the same amount ±2 days with a shared word → "matched" (email matcher uses any source); `kind="subscription"` → category "Subscriptions"; another user's identical row doesn't match; `mark_processed` twice doesn't raise (check before insert). The statement API tests still pass after the matcher move.
+- [ ] Steps 2-5 as usual; commit "Inbox: save email transactions with Message-ID and cross-source dedup".
+
+### Task 3: poller body path, IMAP search, scheduler in production
+**Files:** Modify `backend/utils/email_service.py` (search `SINCE <date>` always; `_fetch_email` returns `message_id` (Message-ID header, fallback sha1 of from+date+subject), `text` (text/plain part, else `html_to_text` of text/html), `has_invoice_attachment`; keep emails with no attachment when `is_candidate` is true), `backend/utils/email_poller.py` (per email: skip if processed; invoice attachments → existing path; else candidate → `parse_money_email` → `save_email_transaction`; `mark_processed` either way; counts `transactions_added`, `credits`, `duplicates`, `skipped`; first run since 30 days; per-user errors set `last_error`, never stop the loop), `backend/asgi.py` lifespan (start `utils.scheduler.scheduler` with interval 600 when `os.getenv("EMAIL_POLLING") == "1"`), `backend/utils/scheduler.py` (interval argument honoured; needs the Flask app context — reuse `app` from `asgi`'s flask module). Tests `backend/tests/test_email_poller.py`.
+- [ ] Step 1: failing tests with a fake service object (no IMAP): two emails (a debit alert, a promo) → 1 transaction, promo skipped and still marked processed; running the poll twice → still 1; an email with an invoice attachment goes to the invoice path (monkeypatch `process_invoice_attachment`) and is marked processed; an exception for one user's config sets its `last_error` and `poll_all_users` continues with the next; lifespan starts the scheduler only with `EMAIL_POLLING=1` (monkeypatch `scheduler.start`).
+- [ ] Steps 2-5; commit "Email poller: read money emails' bodies, dedup by Message-ID, run in production".
+
+### Task 4: Gmail OAuth and the Gmail API client
+**Files:** Create `backend/inbox/gmail.py` (`auth_url(user_id) -> (url, state)`, `exchange_code(code) -> {refresh_token, email}`, `class GmailClient(refresh_token)` with `fetch_new_emails(since: datetime) -> list[dict]` returning the same dict shape as `EmailService` (`id`, `message_id`, `subject`, `from`, `date`, `text`, `attachments`, `has_invoice_attachment`), using `requests` against `https://oauth2.googleapis.com/token` and `https://gmail.googleapis.com/gmail/v1/users/me/messages` with `q = "newer_than:30d"` on first run else `after:<epoch>`, plus the money words); Modify `backend/routes/email_config.py` (`/gmail/auth-url` → `{auth_url, state}`; `/gmail/callback` POST `{code, state}` → verify state (signed, user matches `g.user_id`), exchange, create/update `EmailConfig(provider="gmail", imap_server="gmail-api", email_address, oauth_refresh_token=encrypt_secret(...), polling_enabled=True)`; `/gmail/disconnect` → delete the config); `backend/utils/email_poller.py` (choose `GmailClient` when `config.oauth_refresh_token`, else `EmailService`); `backend/config.py` (+3 env vars, None default). Tests `backend/tests/test_gmail.py`.
+- [ ] Step 1: failing tests with `requests` monkeypatched: auth-url contains client id, scope, `access_type=offline`, a state that verifies to the user; callback with a wrong/expired state → 400; good callback stores an encrypted token (not equal to the raw token; `decrypt_secret` round-trips) and the email; `GmailClient.fetch_new_emails` maps a Gmail message (base64url text/plain body, headers) to the dict shape; a token refresh 400 raises a clear error the poller records as `last_error`; disconnect deletes the row; routes return 503 "Gmail isn't configured" when env vars are missing.
+- [ ] Steps 2-5; commit "Gmail sign-in for email ingestion (OAuth, Gmail API client)".
+
+### Task 5: callback page, status, docs
+**Files:** Create `frontend/src/app/oauth/gmail/page.tsx` ("use client": reads `code`/`state` from the URL, posts `{type: "gmail-oauth", code, state}` to `window.opener` and the `BroadcastChannel("gmail-oauth")` the button listens on — match `components/gmailOAuthButton.tsx` exactly — then `window.close()`, with a fallback message "You can close this window"); Modify `backend/routes/email_config.py` `/status` to include `transactions_added` (sum from the poller counts stored on the config, or count of `source="email"` transactions) and the provider; Modify `frontend/src/components/emailStatusCard.tsx` to show provider, last poll, transactions added, last error, and a **Check now** button (`emailConfigApi.pollNow`); docs: `docs/CODEBASE-GUIDE.md` (inbox section), `docs/DEPLOY.md` §1 (Gmail API + test users + redirect URI `https://lumen.nishantbuilds.me/oauth/gmail`, Render env `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI`, `EMAIL_POLLING=1`), `docs/direction/PROGRESS.md`, `TODO.md`.
+- [ ] Steps: implement; `npx tsc --noEmit`, `next lint`, `npm run build`; backend suite green; commit "Email ingestion: Gmail callback page, status card, docs".

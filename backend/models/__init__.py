@@ -57,6 +57,8 @@ class Transaction(db.Model):
     currency = db.Column(db.String(3), nullable=True)  # as printed (ISO code), never converted; NULL = old rows
     po_number = db.Column(db.String, nullable=True)
     file_key = db.Column(db.String, nullable=True)  # the original upload (utils/files.py), served by /api/files
+    source = db.Column(db.String, nullable=True)  # SPEC-STATEMENTS: "statement" for imported rows
+    import_key = db.Column(db.String, nullable=True)  # SPEC-STATEMENTS: dedupe hash of an imported line
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -279,7 +281,7 @@ class Proposal(db.Model):
     risk = db.Column(db.String(10), nullable=False)  # low | medium | high
     reason = db.Column(Text, nullable=False)
     evidence = db.Column(Text, nullable=False, default="[]")  # JSON list of citations / SQL
-    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | approved | rejected
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | saving (a save_invoice being applied) | approved | rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     decided_at = db.Column(db.DateTime, nullable=True)
 
@@ -331,3 +333,15 @@ class ReviewItem(db.Model):
     note = db.Column(Text, nullable=True)  # the reviewer's reason
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     decided_at = db.Column(db.DateTime, nullable=True)
+
+
+class ProcessedEmail(db.Model):
+    """SPEC-EMAIL-INGEST: Message-IDs already read, so a re-poll never re-parses (or re-bills) an email."""
+    __tablename__ = "processed_emails"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    message_id = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "message_id", name="u_processed_email"),)

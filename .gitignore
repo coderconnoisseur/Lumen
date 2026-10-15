@@ -43,6 +43,8 @@ uploads/
 *.jpeg
 *.png
 !frontend/public/**
+# README screenshots are committed.
+!docs/screenshots/*.png
 # Generated eval inputs are committed: cassettes are keyed on these exact bytes.
 !backend/evals/data/**
 # Release and bench results are the committed record of eval numbers (dev runs stay local).

@@ -8,6 +8,27 @@ if (!API_BASE_URL) {
 	);
 }
 
+/** Wake the API (Render's free plan sleeps when idle) while the user is still reading or signing in. */
+export const warmApi = (): void => {
+	fetch(`${API_BASE_URL}/health`).catch(() => {});
+};
+
+// Read results kept for a few minutes, so moving between pages doesn't refetch (or re-run analysis), and
+// identical requests fired together share one call. Any write clears it, and so does signing out.
+// ponytail: in-memory per tab (a reload refetches); move to sessionStorage if reloads matter.
+const CACHE_MS = 5 * 60_000;
+const READ_ONLY_POSTS = ["/api/analytics/analyze"];
+const cache = new Map<string, { at: number; data: Promise<unknown> }>();
+
+function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+	const hit = cache.get(key);
+	if (hit && Date.now() - hit.at < CACHE_MS) return hit.data as Promise<T>;
+	const data = load();
+	data.catch(() => cache.delete(key));
+	cache.set(key, { at: Date.now(), data });
+	return data;
+}
+
 const TOKEN_KEY = "lumen_access_token";
 const USER_KEY = "lumen_user";
 const TOKEN_KEY_LEGACY = "invox_access_token";
@@ -41,6 +62,7 @@ export const tokenManager = {
 	},
 
 	removeToken: (): void => {
+		cache.clear();
 		if (typeof window === "undefined") return;
 		localStorage.removeItem(TOKEN_KEY);
 		localStorage.removeItem(USER_KEY);
@@ -85,7 +107,11 @@ const createApiClient = (): AxiosInstance => {
 	);
 
 	client.interceptors.response.use(
-		(response) => response,
+		(response) => {
+			const { method, url = "" } = response.config;
+			if (method !== "get" && !READ_ONLY_POSTS.includes(url)) cache.clear();
+			return response;
+		},
 		async (error: AxiosError) => {
 			if (error.response?.status === 401 && !redirectingToSignIn) {
 				redirectingToSignIn = true;
@@ -358,18 +384,40 @@ export interface ChatAnswer {
 	steps: ChatStep[];
 	proposals: string[];
 	stopped: string;
+	attachment?: ChatAttachment | null;
+	follow_up?: string | null;
+}
+
+/** What the chat made of an attached invoice: the read fields, the checks, and the proposal that saves it. */
+export interface ChatAttachment {
+	invoice?: {
+		vendor_name: string | null;
+		invoice_number: string | null;
+		date: string | null;
+		currency: string | null;
+		total_amount: number | null;
+		items?: { item_name: string; total_price: number | null }[];
+	};
+	flags?: { rule: string; severity: "note" | "warn" | "fail"; detail: string }[];
+	confidence?: string;
+	proposal_id?: string;
+	error?: string;
+	code?: string;
 }
 
 export const chatApi = {
-	sendMessage: async (query: string): Promise<ChatAnswer> => {
-		const response = await apiClient.post("/chat", { query });
+	sendMessage: async (query: string, file?: File): Promise<ChatAnswer> => {
+		const form = new FormData();
+		form.append("query", query);
+		if (file) form.append("file", file);
+		const response = file
+			? await apiClient.post("/chat", form, { headers: { "Content-Type": undefined } })
+			: await apiClient.post("/chat", { query });
 		return response.data.data;
 	},
 
-	getSuggestions: async () => {
-		const response = await apiClient.get("/chat/suggestions");
-		return response.data;
-	},
+	getSuggestions: () =>
+		cached("/chat/suggestions", async () => (await apiClient.get("/chat/suggestions")).data),
 
 	getHistory: async (limit = 50) => {
 		const response = await apiClient.get("/chat/history", {
@@ -397,16 +445,12 @@ export const analyticsApi = {
 		queryParams.append("year", year.toString());
 		if (month !== undefined) queryParams.append("month", month.toString());
 		if (week !== undefined) queryParams.append("week", week.toString());
-		const response = await apiClient.get(
-			`/analytics/summary?${queryParams.toString()}`
-		);
-		return response.data;
+		const url = `/analytics/summary?${queryParams.toString()}`;
+		return cached(url, async () => (await apiClient.get(url)).data);
 	},
 
-	getAllTimeSummary: async () => {
-		const response = await apiClient.get("/analytics/summary");
-		return response.data;
-	},
+	getAllTimeSummary: () =>
+		cached("/analytics/summary", async () => (await apiClient.get("/analytics/summary")).data),
 };
 
 export const transactionApi = {
@@ -439,10 +483,8 @@ export const transactionApi = {
 		if (params?.sort_order)
 			queryParams.append("sort_order", params.sort_order);
 
-		const response = await apiClient.get(
-			`/transactions?${queryParams.toString()}`
-		);
-		return response.data;
+		const url = `/transactions?${queryParams.toString()}`;
+		return cached(url, async () => (await apiClient.get(url)).data);
 	},
 
 	updateTransaction: async (
@@ -500,10 +542,8 @@ export const transactionApi = {
 };
 
 export const aiAnalyticsApi = {
-	getDashboard: async () => {
-		const response = await apiClient.get("/api/analytics/dashboard");
-		return response.data;
-	},
+	getDashboard: () =>
+		cached("/api/analytics/dashboard", async () => (await apiClient.get("/api/analytics/dashboard")).data),
 
 	runAnalysis: async (
 		options: {
@@ -513,13 +553,14 @@ export const aiAnalyticsApi = {
 			useLlm?: boolean;
 		} = {}
 	) => {
-		const response = await apiClient.post("/api/analytics/analyze", {
+		const body = {
 			include_fraud: options.includeFraud ?? true,
 			include_forecast: options.includeForecast ?? true,
 			include_risk: options.includeRisk ?? true,
 			use_llm: options.useLlm ?? false,
-		});
-		return response.data;
+		};
+		return cached(`/api/analytics/analyze ${JSON.stringify(body)}`,
+			async () => (await apiClient.post("/api/analytics/analyze", body)).data);
 	},
 
 	getReminders: async (daysAhead: number = 7) => {
@@ -529,12 +570,10 @@ export const aiAnalyticsApi = {
 		return response.data;
 	},
 
-	getAnomalies: async (riskLevel?: string) => {
-		const response = await apiClient.get("/api/analytics/anomalies", {
+	getAnomalies: (riskLevel?: string) =>
+		cached(`/api/analytics/anomalies ${riskLevel ?? ""}`, async () => (await apiClient.get("/api/analytics/anomalies", {
 			params: riskLevel ? { risk_level: riskLevel } : {},
-		});
-		return response.data;
-	},
+		})).data),
 
 	getForecast: async (daysAhead: number = 30) => {
 		const response = await apiClient.get("/api/analytics/forecast", {
@@ -553,14 +592,13 @@ export const aiAnalyticsApi = {
 		severity?: string;
 		limit?: number;
 	} = {}) => {
-		const response = await apiClient.get("/api/analytics/insights", {
-			params: {
-				...(options.type && { type: options.type }),
-				...(options.severity && { severity: options.severity }),
-				limit: options.limit || 20,
-			},
-		});
-		return response.data;
+		const params = {
+			...(options.type && { type: options.type }),
+			...(options.severity && { severity: options.severity }),
+			limit: options.limit || 20,
+		};
+		return cached(`/api/analytics/insights ${JSON.stringify(params)}`,
+			async () => (await apiClient.get("/api/analytics/insights", { params })).data);
 	},
 
 	markInsightRead: async (insightId: number) => {
@@ -657,8 +695,10 @@ export const agentApi = {
 		return response.data.proposals;
 	},
 
-	decide: async (id: string, decision: "approve" | "reject"): Promise<void> => {
-		await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+	/** `applied` is set when approving changed something; a saved invoice reports its review `status` ("flagged" = needs a look). */
+	decide: async (id: string, decision: "approve" | "reject"): Promise<{ status?: string } | null> => {
+		const response = await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+		return response.data.applied ?? null;
 	},
 };
 
@@ -736,4 +776,40 @@ export const profileApi = {
 	// The bucket is private: fetch with the token and show it as an object URL.
 	avatarUrl: async (key: string): Promise<string> =>
 		URL.createObjectURL((await apiClient.get(`/api/files/${key}`, { responseType: "blob" })).data),
+};
+
+export type StatementMapping = Record<"date" | "description" | "debit" | "credit" | "amount" | "drcr", number | null>;
+export type StatementPreview = {
+	columns: string[];
+	mapping: StatementMapping;
+	header_line: number;
+	sample: { line: number; date: string | null; description: string; amount: number | null; kind: string | null }[];
+	counts: { rows: number; debits: number; credits: number; unreadable: number };
+};
+export type StatementResult = {
+	imported: number;
+	duplicates: number;
+	matched: number;
+	credits: number;
+	unreadable: number[];
+};
+
+const upload = (file: File, extra: Record<string, string> = {}) => {
+	const form = new FormData();
+	form.append("file", file);
+	for (const [k, v] of Object.entries(extra)) form.append(k, v);
+	return form;
+};
+
+export const statementApi = {
+	preview: async (file: File): Promise<StatementPreview> =>
+		(await apiClient.post("/api/statements/preview", upload(file), { headers: { "Content-Type": undefined } })).data,
+	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number): Promise<StatementResult> =>
+		(
+			await apiClient.post(
+				"/api/statements/import",
+				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine) }),
+				{ headers: { "Content-Type": undefined } },
+			)
+		).data,
 };

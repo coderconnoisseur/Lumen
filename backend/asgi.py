@@ -11,6 +11,7 @@ api/errors.py; parity tests in tests/test_asgi.py).
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 
@@ -19,7 +20,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app as flask_module
-from api import agent, demo, documents, errors, files, profile, review
+from api import agent, demo, documents, errors, files, profile, review, statements
 from api.deps import llm_deadline
 from config import Config
 
@@ -44,6 +45,10 @@ async def _lifespan(_app: FastAPI):
     flask_module.startup_checks()
     if Config.FLASK_ENV == "production":
         threading.Thread(target=_warm_retrieval, daemon=True).start()
+    if os.getenv("EMAIL_POLLING") == "1":
+        from utils.scheduler import scheduler
+
+        scheduler.start(app=flask_app, interval_seconds=600)
     yield
 
 
@@ -81,4 +86,4 @@ def create_app(*routers: APIRouter) -> FastAPI:
     return app
 
 
-app = create_app(documents.router, agent.router, demo.router, review.router, files.router, profile.router)
+app = create_app(documents.router, agent.router, demo.router, review.router, files.router, profile.router, statements.router)

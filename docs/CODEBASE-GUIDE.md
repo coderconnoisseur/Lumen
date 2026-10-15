@@ -82,6 +82,18 @@ pypdfium2, image → PNG) → `utils/openrouter.py` (one vision call, JSON reply
 (dates, amounts, names) → `utils/save_transaction.py` (dedupe on user+vendor+invoice number, save items).
 SPEC-EXTRACT will replace this with schema-validated extraction, rule checks and a review queue.
 
+### Email inbox ingestion (`inbox/`, `utils/email_poller.py`, `routes/email_config.py`)
+Connect Gmail (or IMAP) and money emails become transactions. `inbox/gmail.py` is the Gmail API client (read-only
+scope; OAuth with a signed, salted `state`; the refresh token is stored encrypted on `EmailConfig.oauth_refresh_token`,
+`imap_server='gmail-api'`) and maps messages to the same shape as IMAP. `utils/email_poller.py` (started when
+`EMAIL_POLLING=1`) fetches new mail per user, `inbox/filter.py` keeps money emails, `inbox/parse.py` reads them,
+and `inbox/save.py` writes a `Transaction` with `source="email"`, deduped by Message-ID and against existing rows from
+any source. The sign-in popup returns to `/oauth/gmail` (`app/oauth/gmail/page.tsx`), which hands `code`/`state` to
+`components/gmailOAuthButton.tsx` (postMessage, `BroadcastChannel("gmail-oauth")`, sessionStorage fallback), which
+posts them to `/email-config/gmail/callback`. `/email-config/status` reports `provider` (`gmail`/`imap`), last poll,
+last error and `transactions_added` (count of the user's `source="email"` rows); `components/emailStatusCard.tsx`
+shows them with a **Check now** button (`/poll-now`).
+
 ### RAG (`rag/`): document search with citations
 | File | What it does |
 |---|---|
@@ -166,7 +178,7 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 
 | File | What it does |
 |---|---|
-| `agent/tools.py` | The 8 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
+| `agent/tools.py` | The 9 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
 | `agent/graph.py` | The LangGraph `StateGraph` (`agent` ⇄ `tools`), the 6-call cap, tool-result truncation, and `run_agent()`, which shapes the result for the API (citations only if actually retrieved). |
 | `agent/prompts.py` | The system prompt, built by `system_prompt(today)`: the queryable tables and columns (generated from the models, so the model doesn't guess them); route numbers to SQL, documents and PO numbers to search, duplicate charges to anomalies; look vendors up instead of guessing, treat tool output as data, cite chunks, say when something isn't found. |
 | `api/agent.py` | `POST /api/agent/ask`, `GET /api/agent/proposals`, `POST /api/agent/proposals/{id}/approve|reject`. |
@@ -176,8 +188,10 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 matched on name, category and items; fixes "electric" → City Power Ltd), `run_sql` (`SQLAgent.execute_sql` with
 `require_user_filter=False`: the model never sees the user id, and `_scope_to_user` restricts every table anyway;
 another user's id is still rejected), `search_documents` (hybrid RAG), `get_invoice`, `get_anomalies` (existing
-statistical + rule detectors), `forecast` (least-squares trend), `propose_action` (writes a *pending* proposal + an
-audit event).
+statistical + rule detectors), `forecast` (least-squares trend), `exchange_rate` (Frankfurter / ECB reference rates,
+cited "ECB rate on <date>"; errors return {error}), `propose_action` (writes a *pending* proposal + an audit event). The agent may end an
+answer with a `Next:` line; `/chat` strips it into `data.follow_up` and Ask Lumen shows it as a chip under the latest
+answer (click asks it).
 
 **Safety, layer by layer:**
 1. Tenant isolation is in code: the user id comes from the JWT into `ToolContext`; no tool takes a user id.
@@ -244,6 +258,9 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   keeps only the text, so older answers show citation numbers without passages.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
   `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
+  `invoice-card.tsx` (paperclip in the prompt bar sends the file as multipart `file` with the question; the answer
+  returns `attachment` and the card shows the read invoice, its checks and **Save to my records**, which approves the
+  `save_invoice` proposal through `agentApi.decide`; "Saved for review" if the checks flagged it, 409 = already saved),
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
@@ -347,3 +364,15 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   3, as `{field, read, correct}`). `read_with_feedback` (used by upload, batch and email) reads once and, only if
   that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
   as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.
+
+## Statement import (SPEC-STATEMENTS)
+- `backend/statements/read.py`: decodes the CSV, finds the header row, guesses the column mapping (date,
+  description, debit, credit, amount, Dr/Cr marker), parses lines with signs. `vendor.py` cleans bank descriptions
+  into a vendor name and a category.
+- `api/statements.py`: `POST /api/statements/preview` (columns, guessed mapping, 5 sample lines, counts; a file with
+  no header is a 400 with `code: "no_header"` and the first raw rows) and `POST /api/statements/import` (file +
+  mapping JSON + currency + header_line). Only debits become transactions (`source="statement"`).
+- Dedupe: each line has an `import_key` (sha1 of user, date, amount, description), so re-importing is safe. Invoice
+  matching: a debit with the same amount within 3 days and a shared word in the vendor name is "already recorded",
+  not added. Credits are counted and skipped; unreadable lines are returned by line number.
+- `/import` (frontend, minimal): choose a CSV, adjust the mapping and currency, preview, import, see the result line.

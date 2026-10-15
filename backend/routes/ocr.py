@@ -42,6 +42,63 @@ OCR_LLM_MESSAGES = {
 }
 
 
+class UploadError(Exception):
+    def __init__(self, message: str, status: int = 400, code: str = "bad_upload"):
+        super().__init__(message)
+        self.message, self.status, self.code = message, status, code
+
+
+def read_uploaded_invoice(engine, user_id: str, filename: str, content: bytes) -> dict:
+    """Validate, read (PDF page 1 / image) and keep an uploaded invoice. Shared by /extract and Ask Lumen."""
+    upload_error = validate_upload(filename, content)
+    if upload_error:
+        raise UploadError(upload_error)
+
+    file_ext = filename.lower().rsplit('.', 1)[-1]
+
+    # OCR (PDFs: first page only)
+    if file_ext == 'pdf':
+        try:
+            first_page, total_pages = render_pdf_first_page(content)
+        except PDFReadError as e:
+            logger.info("Unreadable PDF upload %r: %s", filename, e)
+            raise UploadError("Couldn't open this PDF. It may be corrupted or password-protected.", 422, "pdf_unreadable")
+        if first_page is None:
+            raise UploadError("This PDF has no pages.", 422, "pdf_empty")
+
+        image_base64 = image_to_base64(pil_image_to_bytes(first_page, format='PNG'))
+        logger.info("Processing PDF page 1/%d with the vision model...", total_pages)
+        structured_data = read_with_feedback(engine, user_id, image_base64, 'image/png')
+        structured_data['pages_processed'] = 1
+        structured_data['total_pages'] = total_pages
+    elif file_ext in CONVERT_TO_PNG:
+        try:
+            png = image_to_png(content)
+        except ImageReadError as e:
+            logger.info("Unreadable %s upload %r: %s", file_ext, filename, e)
+            raise UploadError("Couldn't open this image. It may be corrupted.", 422, "image_unreadable")
+        logger.info("Processing %s image as PNG with the vision model...", file_ext)
+        structured_data = read_with_feedback(engine, user_id, image_to_base64(png), 'image/png')
+    elif file_ext in MEDIA_TYPES:
+        logger.info("Processing %s image with the vision model...", file_ext)
+        structured_data = read_with_feedback(engine, user_id, image_to_base64(content), MEDIA_TYPES[file_ext])
+    else:
+        raise UploadError('Unsupported file format. Please upload PDF or image file (JPG, PNG, GIF, BMP, WEBP).')
+
+    structured_data['source_file'] = filename
+    structured_data['file_type'] = file_ext
+
+    # The reader already returns the fixed, validated structure (EXT-01); keep the original file
+    structured_data['file_key'] = keep(invoice_key(user_id, content, file_ext), content)
+    if structured_data["total_amount"] is None and not structured_data["vendor_name"]:
+        logger.info("OCR found no invoice data in %r", filename)
+        logger.debug("OCR reply for %r: %s", filename, structured_data)
+        raise UploadError(
+            "We couldn't find invoice details in this file. Please upload a clear photo or PDF of an invoice or receipt.",
+            422, "no_invoice_data")
+    return structured_data
+
+
 @ocr_bp.route('/extract', methods=['POST'])
 @limiter.limit("15 per minute")
 @require_auth
@@ -60,71 +117,16 @@ def extract_invoice_data():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    file_content = file.read()
-    upload_error = validate_upload(file.filename, file_content)
-    if upload_error:
-        return jsonify({"error": upload_error}), 400
-
-    file_ext = file.filename.lower().rsplit('.', 1)[-1]
-
-    # Step 1: OCR (PDFs: first page only)
+    # Steps 1-2: validate, OCR, keep the original
     try:
-        if file_ext == 'pdf':
-            try:
-                first_page, total_pages = render_pdf_first_page(file_content)
-            except PDFReadError as e:
-                logger.info("Unreadable PDF upload %r: %s", file.filename, e)
-                return api_error(
-                    "Couldn't open this PDF. It may be corrupted or password-protected.",
-                    status=422,
-                    code="pdf_unreadable",
-                )
-            if first_page is None:
-                return api_error("This PDF has no pages.", status=422, code="pdf_empty")
-
-            image_base64 = image_to_base64(pil_image_to_bytes(first_page, format='PNG'))
-            logger.info("Processing PDF page 1/%d with the vision model...", total_pages)
-            structured_data = read_with_feedback(db.engine, str(user_id), image_base64, 'image/png')
-            structured_data['pages_processed'] = 1
-            structured_data['total_pages'] = total_pages
-        elif file_ext in CONVERT_TO_PNG:
-            try:
-                png = image_to_png(file_content)
-            except ImageReadError as e:
-                logger.info("Unreadable %s upload %r: %s", file_ext, file.filename, e)
-                return api_error(
-                    "Couldn't open this image. It may be corrupted.",
-                    status=422,
-                    code="image_unreadable",
-                )
-            logger.info("Processing %s image as PNG with the vision model...", file_ext)
-            structured_data = read_with_feedback(db.engine, str(user_id), image_to_base64(png), 'image/png')
-        elif file_ext in MEDIA_TYPES:
-            logger.info("Processing %s image with the vision model...", file_ext)
-            structured_data = read_with_feedback(db.engine, str(user_id),
-                image_to_base64(file_content), MEDIA_TYPES[file_ext]
-            )
-        else:
-            return jsonify({'error': 'Unsupported file format. Please upload PDF or image file (JPG, PNG, GIF, BMP, WEBP).'}), 400
+        normalized = read_uploaded_invoice(db.engine, str(user_id), file.filename, file.read())
+    except UploadError as e:
+        return api_error(e.message, status=e.status, code=e.code)
     except LLMError as e:
         return llm_api_error(e, OCR_LLM_MESSAGES, context=f"OCR failed for user={user_id}")
     except Exception as e:
         return api_error("Invoice extraction failed", code="extract_failed", log=e)
-
-    structured_data['source_file'] = file.filename
-    structured_data['file_type'] = file_ext
-
-    # Step 2: the reader already returns the fixed, validated structure (EXT-01); keep the original file
-    normalized = structured_data
-    normalized['file_key'] = keep(invoice_key(str(user_id), file_content, file_ext), file_content)
-    if normalized["total_amount"] is None and not normalized["vendor_name"]:
-        logger.info("OCR found no invoice data in %r", file.filename)
-        logger.debug("OCR reply for %r: %s", file.filename, structured_data)
-        return api_error(
-            "We couldn't find invoice details in this file. Please upload a clear photo or PDF of an invoice or receipt.",
-            status=422,
-            code="no_invoice_data",
-        )
+    structured_data = normalized
 
     # Step 3: Check (SPEC-EXTRACT): nothing doubtful -> saved as a transaction; otherwise it waits in the
     # review queue. If this fails the user must know: reporting success would lose the invoice silently.

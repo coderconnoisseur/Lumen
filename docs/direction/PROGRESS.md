@@ -239,7 +239,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   no vision. Bench (SQL dev): 29/28/28 of 32, tied; registry groq text = gpt-oss-120b → qwen → gpt-oss-20b, judge
   qwen. Local dev server runs `LUMEN_LLM_TIER=groq`.
 - **Owner's manual test** found the reranker-score abstention cut-off refusing short questions → removed (STORY 12).
-- **Agent:** tools (8, typed, user id from the JWT), LangGraph loop (6-call cap, truncated results), proposals +
+- **Agent:** tools (9, typed, user id from the JWT), LangGraph loop (6-call cap, truncated results), proposals +
   audit log, `/api/agent/*`. The first recording showed SQL rejections because the model can't write the user-id
   filter; the agent's `run_sql` now relies on server-side scoping (STORY 14).
 - **Demo data:** `scripts/seed_demo_data.py` seeded the owner's local account (235 transactions, 10 documents).
@@ -285,6 +285,10 @@ Design decisions are logged in one place: `docs/direction/DECISIONS.md`.
   questions picked from the goals.
 - With no profile the agent's prompt is byte-for-byte the recorded one, so the eval cassettes stay valid (no
   re-recording, no quota).
+
+- **Statement import** (2026-10-14, SPEC-STATEMENTS): CSV bank/card statements. `backend/statements/` reads and maps
+  columns, `api/statements.py` previews and imports (duplicates skipped by `import_key`, lines matching an existing
+  invoice not re-added), `/import` is the bare-bones screen. PDF statements and credits are not handled yet.
 
 ## Deferred (owner: later)
 - **Harder invoice test set** (2026-10-09): the synthetic set is read perfectly (56/56), so it can't show gains or
@@ -346,4 +350,10 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    "Open original" on the documents and review test pages.
    Loop A built 2026-10-09 (`corrections_for`, `read_with_feedback`, hints in the prompt); measurement waits for
    the harder set.
+   Email ingestion built 2026-10-15 (branch `feat/email-ingest`): Gmail sign-in (OAuth popup, callback page
+   `/oauth/gmail`), poller reads money emails, saves `source="email"` transactions deduped by Message-ID and across
+   sources; status card shows provider, last poll, transactions added, last error, **Check now**.
+   Attach an invoice in Ask Lumen built 2026-10-15 (branch `chat-tools`): paperclip, invoice card with checks, one-click
+   Save (approves the `save_invoice` proposal). SPEC-CHAT-TOOLS done 2026-10-15: `exchange_rate` tool (ECB) and a
+   follow-up chip per answer. The agent eval suites await the one re-record after SPEC-AGENT-TOOLS.
 8. UI refactor (owner-led, last).
