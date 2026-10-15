@@ -111,6 +111,16 @@ def _audit(session: Session, user_id: str, actor: str, action: str, item, **deta
                            detail=json.dumps({"review_item_id": item.id, **detail})))
 
 
+def check_invoice(engine: Engine, user_id: str, invoice: dict) -> dict:
+    """The checks submit_invoice runs (duplicate, maths, PO), without saving anything (Ask Lumen's invoice card)."""
+    from models import ReviewItem
+
+    with Session(engine) as session:
+        item = ReviewItem(invoice=json.dumps(invoice))
+        _check(session, item, user_id)
+        return {"flags": json.loads(item.flags), "confidence": item.confidence}
+
+
 def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | None = None, *,
                    on: date | None = None, adapt: bool = True) -> dict:
     """Check an extracted invoice; approve it at once if nothing is doubtful, otherwise queue it. Used by the

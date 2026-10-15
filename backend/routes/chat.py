@@ -15,7 +15,37 @@ logger = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat", __name__)
 
-def _ask(question: str, user_id: str) -> dict:
+def _attach(file, user_id: str) -> dict:
+    """Read and check an invoice attached in Ask Lumen and file a save_invoice proposal; saves nothing."""
+    import json as _json
+
+    from sqlalchemy.orm import Session
+
+    from api.agent import get_agent_deps
+    from api.review import check_invoice
+    from models import AuditEvent, Proposal
+    from routes.ocr import UploadError, read_uploaded_invoice
+
+    engine = get_agent_deps().engine
+    try:
+        invoice = read_uploaded_invoice(engine, user_id, file.filename or "", file.read())
+    except UploadError as e:
+        return {"error": e.message, "code": e.code}
+    checks = check_invoice(engine, user_id, invoice)
+    proposal_id = str(uuid.uuid4())
+    target = invoice.get("invoice_number") or invoice.get("vendor_name") or "attached invoice"
+    proposal = Proposal(id=proposal_id, user_id=user_id, type="save_invoice",
+                        target=target,
+                        payload=_json.dumps(invoice, default=str), risk="low",
+                        reason="Save the invoice you attached in chat.", evidence="[]", status="pending")
+    with Session(engine) as session, session.begin():
+        session.add(proposal)
+        session.add(AuditEvent(user_id=user_id, actor="user", action="proposal_created", proposal_id=proposal_id,
+                               detail=_json.dumps({"type": "save_invoice", "target": target})))
+    return {"invoice": invoice, **checks, "proposal_id": proposal_id}
+
+
+def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
     """Ask Lumen is the agent (SPEC-AGENT, switched after AGT-07 passed its gates on 2026-10-09): it picks its tools
     (SQL, documents, anomalies, forecast, invoices), cites evidence and only proposes changes."""
     from datetime import date
@@ -29,7 +59,7 @@ def _ask(question: str, user_id: str) -> dict:
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today(), profile=profile_for(deps.engine, user_id))
-    out = run_agent(question, ctx, complete=deps.complete)
+    out = run_agent(question, ctx, complete=deps.complete, attachment=attachment)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.
     return {"query": question, "query_type": "agent", "response": out["answer"],
@@ -39,7 +69,7 @@ def _ask(question: str, user_id: str) -> dict:
             "steps": [{"tool": s["tool"], "summary": s.get("summary"), "latency_ms": s.get("latency_ms")}
                       for s in out["steps"]],
             "stopped": out["stopped"],
-            "proposals": out["proposals"]}
+            "proposals": out["proposals"], "attachment": attachment}
 
 
 def _save_exchange(user_id: str, question: str, answer: str) -> None:
@@ -68,8 +98,11 @@ _LLM_MESSAGES = {
 @require_auth
 def chat():
     """Natural language query interface. Identity from JWT only."""
-    data = request.json or {}
-    query = (data.get("query") or "").strip()
+    file = request.files.get("file")
+    if file:
+        query = (request.form.get("query") or "").strip()
+    else:
+        query = ((request.get_json(silent=True) or {}).get("query") or "").strip()
 
     if not query:
         return jsonify({"error": "Query is required"}), 400
@@ -84,14 +117,15 @@ def chat():
 
     try:
         logger.info("Processing chat query for user=%s", user_id)
-        result = _ask(query, user_id)
+        attachment = _attach(file, user_id) if file else None
+        result = _ask(query, user_id, **({"attachment": attachment} if attachment else {}))
     except LLMError as e:
         return llm_api_error(e, _LLM_MESSAGES, context=f"Chat failed for user={user_id}")
     except Exception as e:
         return api_error("Chat request failed", code="chat_failed", log=e)
 
     try:
-        _save_exchange(user_id, query, result["response"])
+        _save_exchange(user_id, f"{query} [attached: {file.filename}]" if file else query, result["response"])
     except Exception as e:
         # Losing history shouldn't cost the user their answer.
         db.session.rollback()

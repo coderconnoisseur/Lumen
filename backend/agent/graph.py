@@ -110,12 +110,15 @@ def build_graph(ctx: ToolContext, *, complete: Callable[..., Any], max_tool_call
 
 
 def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] | None = None,
-              max_tool_calls: int = MAX_TOOL_CALLS) -> dict:
+              max_tool_calls: int = MAX_TOOL_CALLS, attachment: dict | None = None) -> dict:
     """Answer one question. Returns the answer, citations, the tool steps (for "show your work"), the SQL that ran,
     any proposals filed, and why the loop stopped."""
     if complete is None:
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
+    if attachment:  # data, not instructions (system prompt rule); a block in the question avoids a fake tool call
+        question = (f"{question}\n\nAttached invoice (extracted data and checks; nothing is saved yet):\n"
+                    f"{json.dumps(attachment, default=str)[:MAX_TOOL_RESULT_CHARS]}")
     state: AgentState = {
         "messages": [{"role": "system", "content": system_prompt(ctx.today, ctx.profile)},
                      {"role": "user", "content": question}],
