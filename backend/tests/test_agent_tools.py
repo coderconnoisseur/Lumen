@@ -173,7 +173,7 @@ def test_system_prompt_with_a_profile_uses_its_currency_and_context():
     text = system_prompt(date(2026, 10, 14), {"display_name": "Asha", "currency": "CHF", "use_case": "household",
                                               "goals": ["stay_on_budget"], "monthly_budget": 4000,
                                               "monthly_income": None})
-    assert "Amounts are in CHF." in text and "INR" not in text
+    assert "Amounts are in CHF unless" in text and "INR" not in text
     assert "Asha" in text and "household" in text and "stay on budget" in text and "4000" in text
 
 
@@ -212,6 +212,9 @@ def test_split_follow_up():
     assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
     assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
+    # seen in production: the model put it on the answer's line
+    assert split_follow_up("I don't have that information. Next: Which vendor?") == (
+        "I don't have that information.", "Which vendor?")
 
 
 def test_exchange_rate_malformed_reply_is_an_error(db, world, monkeypatch):

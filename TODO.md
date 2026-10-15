@@ -55,3 +55,11 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 - [x] Live exchange-rate tool and follow-up suggestions in Ask Lumen (SPEC-CHAT-TOOLS, 2026-10-15).
 - [ ] Harder invoice test set; AI judge for written answers; `currency`/`po_number` in the agent schema at the next
   re-recording; citation format in `/api/documents/ask`.
+- [ ] **Chatbot limits audit, then web search** (owner, 2026-10-16): list the questions Ask Lumen can't answer today
+  (e.g. "is ₹X a fair price for a Pixel 11?", "my take-home pay under India's new tax regime") and decide which
+  tools close them; a web search tool is the first candidate (with sources cited like documents). Fold into
+  SPEC-AGENT-TOOLS before the eval re-record.
+- [ ] Dashboard "Needs Review" counts transactions, not the review queue, so it always shows 0 (fix in the revamp).
+- [ ] Demo setup took 66 s on a freshly restarted API (seeding + document indexing); make it fast before outreach.
+- [ ] Agent's "today" is UTC (`api/agent.py`, `routes/chat.py`): 00:00-05:30 IST it's yesterday, so "this month" on
+  the 1st means last month. Fix with a timezone in the profile (not hard-coded IST).

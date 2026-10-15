@@ -20,6 +20,8 @@ const CACHE_MS = 5 * 60_000;
 const READ_ONLY_POSTS = ["/api/analytics/analyze"];
 const cache = new Map<string, { at: number; data: Promise<unknown> }>();
 
+export const clearApiCache = (): void => cache.clear();
+
 function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
 	const hit = cache.get(key);
 	if (hit && Date.now() - hit.at < CACHE_MS) return hit.data as Promise<T>;
