@@ -116,7 +116,7 @@ class GmailClient:
             raise GmailError(f"Gmail API error (HTTP {resp.status_code})")
         return resp.json()
 
-    def fetch_new_emails(self, since: datetime) -> list[dict]:
+    def fetch_new_emails(self, since: datetime):
         if since.tzinfo is None:
             since = since.replace(tzinfo=timezone.utc)  # the poller passes naive UTC
         q = f"({' OR '.join(['has:attachment', *_MONEY_WORDS])}) after:{int(since.timestamp())}"
@@ -128,16 +128,14 @@ class GmailClient:
             page = listing.get("nextPageToken")
             if not page:
                 break
-        emails = []
-        for mid in ids:
+        for mid in ids:  # one message at a time, so a big backfill never sits in memory
             try:
                 mail = self._email(self._get(f"messages/{mid}", {"format": "full"}))
             except Exception as e:
                 logger.error(f"Error processing Gmail message {mid}: {type(e).__name__}")
                 continue
             if mail['has_invoice_attachment'] or is_candidate(mail['subject'], mail['text'], False):
-                emails.append(mail)
-        return emails
+                yield mail
 
     def _email(self, msg: dict) -> dict:
         payload = msg["payload"]
@@ -151,7 +149,9 @@ class GmailClient:
             stack = part.get("parts", []) + stack
             body, name, kind = part.get("body", {}), part.get("filename"), part.get("mimeType", "")
             if name:
-                if name.lower().endswith(_EXTENSIONS) and body.get("attachmentId"):
+                disp = next((x["value"] for x in part.get("headers", []) if x["name"].lower() == "content-disposition"), "")
+                # inline images (logos, signatures) are not invoices
+                if disp.lower().startswith("attachment") and name.lower().endswith(_EXTENSIONS) and body.get("attachmentId"):
                     data = self._get(f"messages/{msg['id']}/attachments/{body['attachmentId']}")["data"]
                     attachments.append({'filename': name, 'content': _decode(data)})
             elif kind in ("text/plain", "text/html") and body.get("data"):

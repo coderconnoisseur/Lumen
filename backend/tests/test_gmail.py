@@ -128,7 +128,10 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
         {"name": "Date", "value": "Sat, 10 Oct 2026 10:00:00 +0000"}, {"name": "Message-ID", "value": "<abc@x>"}],
         "parts": [
             {"mimeType": "text/plain", "body": {"data": b64("Rs 499 debited")}},
-            {"mimeType": "application/pdf", "filename": "inv.pdf", "body": {"attachmentId": "att1"}},
+            {"mimeType": "application/pdf", "filename": "inv.pdf", "body": {"attachmentId": "att1"},
+             "headers": [{"name": "Content-Disposition", "value": 'attachment; filename="inv.pdf"'}]},
+            {"mimeType": "image/png", "filename": "logo.png", "body": {"attachmentId": "att3"},
+             "headers": [{"name": "Content-Disposition", "value": 'inline; filename="logo.png"'}]},
             {"mimeType": "text/calendar", "filename": "x.ics", "body": {"attachmentId": "att2"}}]}}
     html = {"id": "m2", "payload": {"mimeType": "text/html", "headers": [{"name": "Subject", "value": "Order"}],
                                     "body": {"data": b64("<p>Paid <b>Rs 5</b></p>")}}}
@@ -152,6 +155,7 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
     monkeypatch.setattr(g.requests, "post", post)
     monkeypatch.setattr(g.requests, "get", get)
     out = g.GmailClient("rt").fetch_new_emails(datetime(2026, 10, 1))
+    assert iter(out) is out  # streamed, not a list
     a, b = out
     assert a["id"] == "m1" and a["message_id"] == "<abc@x>" and a["subject"] == "Receipt"
     assert a["from"] == "bank@x.com" and a["text"] == "Rs 499 debited"
@@ -161,7 +165,7 @@ def test_client_maps_gmail_messages_to_the_imap_shape(gmail, monkeypatch):
     assert b["message_id"]  # falls back to a hash when there is no Message-ID header
     q = calls[0][1]["q"]
     assert "has:attachment" in q and "after:1790812800" in q
-    assert not any("att2" in c[0] for c in calls)
+    assert not any("att2" in c[0] or "att3" in c[0] for c in calls)  # inline logo is not fetched
 
 
 def test_token_refresh_failure_is_recorded_by_the_poller(gmail, monkeypatch):
@@ -205,7 +209,7 @@ def test_naive_since_is_utc(gmail, monkeypatch):
     seen = []
     monkeypatch.setattr(g.requests, "post", lambda *a, **k: Resp(200, {"access_token": "at"}))
     monkeypatch.setattr(g.requests, "get", lambda url, params=None, **k: seen.append(params) or Resp(200, {}))
-    g.GmailClient("rt").fetch_new_emails(datetime(2026, 10, 1))
+    list(g.GmailClient("rt").fetch_new_emails(datetime(2026, 10, 1)))
     assert "after:1790812800" in seen[0]["q"]  # 2026-10-01T00:00:00Z
 
 

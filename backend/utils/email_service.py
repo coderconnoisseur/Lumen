@@ -65,22 +65,17 @@ class EmailService:
             email_ids = message_ids[0].split()
             logger.info(f"Found {len(email_ids)} emails since {since_date}")
 
-            emails = []
-            for email_id in email_ids:
+            for email_id in email_ids:  # one message at a time, so a big backfill never sits in memory
                 try:
                     email_data = self._fetch_email(email_id)
                     if email_data and (email_data['has_invoice_attachment']
                                        or is_candidate(email_data['subject'], email_data['text'], False)):
-                        emails.append(email_data)
+                        yield email_data
                 except Exception as e:
                     logger.error(f"Error processing email {email_id}: {e}")
 
-            logger.info(f"Found {len(emails)} candidate emails")
-            return emails
-
         except Exception as e:
             logger.error(f"Error fetching emails: {e}")
-            return []
 
     def _fetch_email(self, email_id: bytes) -> Optional[Dict[str, Any]]:
         """Fetch one email: headers, body text and invoice attachments"""
@@ -99,7 +94,7 @@ class EmailService:
                 if part.get_content_maintype() == 'multipart':
                     continue
                 filename = part.get_filename()
-                if part.get('Content-Disposition') is not None and filename:
+                if filename and part.get_content_disposition() == 'attachment':  # inline logos aren't invoices
                     if self._is_invoice_attachment(filename):
                         attachments.append({'filename': filename, 'content': part.get_payload(decode=True)})
                     continue

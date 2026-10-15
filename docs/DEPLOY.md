@@ -34,6 +34,7 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
      `https://lumen.nishantbuilds.me/oauth/gmail`. On Render set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
      `GOOGLE_REDIRECT_URI=https://lumen.nishantbuilds.me/oauth/gmail` and `EMAIL_POLLING=1`. Note: `gmail.readonly` is
      a restricted scope; public use needs Google's verification, test users work without it.
+     While the app is in Testing, Google expires refresh tokens after 7 days: reconnect Gmail from the email card then.
 6. **Email sending** (sign-up confirmation and password reset links). Supabase's built-in mailer only delivers to the
    project team's own addresses, a few an hour, so real visitors never get the link. Use your own SMTP, e.g. Resend
    (free tier):

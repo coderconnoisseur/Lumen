@@ -198,6 +198,28 @@ def test_retry_keeps_last_poll_time_and_rescans_two_days_back(env, monkeypatch):
     assert env.config(U1).last_poll_time > old
 
 
+def test_llm_outage_on_invoice_attachment_leaves_email_for_retry(env, monkeypatch):
+    def down(*a, **k):
+        raise LLMError(LLMError.UNAVAILABLE, "outage")
+    monkeypatch.setattr(env.poller, "read_with_feedback", down)
+    env.services_[U1] = Fake([mail("<i>", attachments=[{"filename": "a.png", "content": b"x"}],
+                                   has_invoice_attachment=True)])
+    r = env.poller.process_user_emails(env.config(U1))
+    assert r["success"] and r["invoices_created"] == 0
+    from models import ProcessedEmail
+    assert ProcessedEmail.query.count() == 0
+    assert env.config(U1).last_poll_time is None  # retry pins the window
+
+
+def test_failed_poll_keeps_last_poll_time(env):
+    from datetime import datetime, timedelta
+    old = env.config(U1).last_poll_time = datetime.utcnow() - timedelta(days=5)
+    env.db.session.commit()
+    env.services_[U1] = Fake([], fail=True)
+    assert env.poller.process_user_emails(env.config(U1))["success"] is False
+    assert env.config(U1).last_poll_time == old
+
+
 def test_save_error_on_one_email_does_not_abort_batch(env, monkeypatch):
     from datetime import datetime, timedelta
     cfg = env.config(U1)

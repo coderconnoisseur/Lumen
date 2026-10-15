@@ -74,6 +74,20 @@ export function EmailStatusCard() {
     }
   };
 
+  const handleDisconnect = async () => {
+    setActionLoading(true);
+    try {
+      await emailConfigApi.disconnectGmail();
+      await fetchStatus();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Failed to disconnect Gmail: ${message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card className="@container/card border-border/70 bg-card/80">
@@ -196,6 +210,17 @@ export function EmailStatusCard() {
             existingConfig={status}
             onConfigured={() => fetchStatus()}
           />
+          {status.provider === "gmail" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDisconnect}
+              disabled={actionLoading}
+              className="flex-1 min-w-[80px]"
+            >
+              Disconnect
+            </Button>
+          )}
         </div>
       </CardFooter>
     </Card>
