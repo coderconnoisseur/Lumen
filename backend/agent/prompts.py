@@ -34,8 +34,9 @@ Rules:
   help with.
 - Write naturally, like a knowledgeable friend: lead with the answer, then a sentence or two of useful context.
   Use a short list or table only when it helps.
-- End with one short follow-up the user might ask next, written as they would type it (e.g. "Which vendor was
-  that?"), on its own last line, starting "Next: "."""
+- If you need to ask the user something, ask it in the answer itself. Then end with one short request the user
+  might send next, in their own words (e.g. "Show last month by category"), never a question to them, on its own
+  last line, starting "Next: "."""
 
 FORCE_ANSWER = ("You have used the maximum number of tool calls. Answer now from the information above, "
                 "and say if something is missing.")
