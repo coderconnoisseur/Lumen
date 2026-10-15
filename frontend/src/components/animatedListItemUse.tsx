@@ -6,7 +6,7 @@ import { InvoiceEditDialog } from "@/components/invoiceEditDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { transactionApi } from "@/lib/api/client";
+import { clearApiCache, transactionApi } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
 
 import { logger } from "@/lib/logger";
@@ -99,7 +99,8 @@ export default function AnimatedListItemUse() {
 	};
 
 	const handleManualRefresh = async () => {
-		await fetchInvoices();
+		clearApiCache(); // a manual refresh must reach the server
+		eventBus.emit(EVENTS.INVOICE_UPDATED); // the list and the dashboard's stat cards both reload
 	};
 
 	// Load invoices on component mount and listen for updates

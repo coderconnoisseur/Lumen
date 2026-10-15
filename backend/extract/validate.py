@@ -57,7 +57,8 @@ def validate(inv: dict, ctx: Context) -> list[Flag]:
 
     try:
         day = date.fromisoformat(str(inv.get("date")))
-        if day > ctx.today or day < ctx.today - MAX_AGE:
+        # one day of slack: the server runs on UTC, so "today" in India is often tomorrow here
+        if day > ctx.today + timedelta(days=1) or day < ctx.today - MAX_AGE:
             flags.append(Flag("bad_date", "fail", f"date {day} is in the future or over 2 years old"))
     except ValueError:
         flags.append(Flag("bad_date", "fail", f"unreadable date {inv.get('date')!r}"))
