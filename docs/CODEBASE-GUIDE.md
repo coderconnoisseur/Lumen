@@ -230,6 +230,10 @@ The model writes its own search queries, so their embeddings are cached during `
 transactions, line items, 10 documents) into your local account, touching only the seeded rows. The same `seed()`
 backs the live **Try the demo** links: the landing page sends them to `/demo` (`app/demo/page.tsx`), which signs the
 visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the chat, so every visitor gets a private copy.
+The demo is one person's last 12 months ending yesterday: rent (Greenview Residency), phone (SkyTel Mobile, with a price
+rise), gym (FitZone Gym), food delivery (QuickBite, with a duplicate charge), a high latest electricity bill, a rental
+agreement PDF, and a profile (income 1,20,000, budget 70,000, goals) written to the users row so Ask Lumen sees it. Setup
+embeds the demo documents once per server and uploads the files in the background; timings are logged.
 
 ## 7b. Deployment (SPEC-DEPLOY, owner runbook in `docs/DEPLOY.md`)
 - `lumen.nishantbuilds.me` → Vercel (`frontend/`, production branch `main`); `api.lumen.nishantbuilds.me` → Render
