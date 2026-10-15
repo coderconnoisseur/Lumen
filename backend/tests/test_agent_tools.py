@@ -212,6 +212,14 @@ def test_split_follow_up():
     assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
     assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
+    # seen in production: a bare "Next:", and Lumen asking the user (a chip would send its own question back to it)
+    assert split_follow_up("Which period?\nNext:") == ("Which period?", None)
+    assert split_follow_up("Here it is.\nNext: Would you like last month or the last three?") == (
+        "Here it is.\n\nWould you like last month or the last three?", None)
+    assert split_follow_up("Done.\nNext: Can I afford a trip in December?") == (
+        "Done.", "Can I afford a trip in December?")  # the user's own voice stays a chip
+    assert split_follow_up("Here.\n\nNext:\n\n*“Show the old regime too”*") == ("Here.", "Show the old regime too")
+    assert split_follow_up("Here.\nNext: “Show my phone spending”") == ("Here.", "Show my phone spending")
     # seen in production: the model put it on the answer's line
     assert split_follow_up("I don't have that information. Next: Which vendor?") == (
         "I don't have that information.", "Which vendor?")
