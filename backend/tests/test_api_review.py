@@ -173,3 +173,15 @@ def test_a_vendor_with_corrections_is_read_again_with_them_as_hints(client, monk
     seen.clear()
     review.read_with_feedback(client.engine, BOB, "aGk=", "image/png")
     assert seen == [None]  # no history: one read only
+
+
+def test_a_seen_warning_does_not_hold_back_a_save(client):
+    """Ask Lumen's Save: the user saw the card's checks, so a new vendor is saved; a failure still waits (2026-10-16)."""
+    from api.review import submit_invoice
+
+    new_vendor = invoice(vendor_name="Croma Retail", invoice_number="CR-1")
+    assert submit_invoice(client.engine, ALICE, new_vendor)["status"] == "flagged"  # upload path: unchanged
+    assert submit_invoice(client.engine, ALICE, {**new_vendor, "invoice_number": "CR-2"},
+                          warnings_seen=True)["status"] == "approved"
+    wrong_total = invoice(vendor_name="Croma Retail", invoice_number="CR-3", total_amount=999.0)
+    assert submit_invoice(client.engine, ALICE, wrong_total, warnings_seen=True)["status"] == "flagged"

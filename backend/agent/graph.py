@@ -38,7 +38,7 @@ class AgentState(TypedDict):
 
 
 # At a line start, or after a sentence on the same line ("…information. Next: …"); not "do this next: tomorrow".
-_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*[ \t]*(.*?)[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
+_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*\s*(.*?)[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
 # Lumen asking the user ("Would you like…?"): as a chip it would send Lumen's own question back to it, so it stays in
 # the answer as its closing question instead (owner report, 2026-10-16).
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
@@ -51,7 +51,8 @@ def split_follow_up(text: str) -> tuple[str, str | None]:
     if not matches:
         return text, None
     m = matches[-1]
-    answer, follow_up = (text[:m.start()] + text[m.end():]).strip(), m.group(1).strip()
+    # \s* above lets the request sit on the line after "Next:" (seen in production), quoted or in italics
+    answer, follow_up = (text[:m.start()] + text[m.end():]).strip(), m.group(1).strip(" \t*_\"'“”‘’")
     if not follow_up:  # a bare "Next:"
         return answer, None
     if _ASKS_USER.match(follow_up):
