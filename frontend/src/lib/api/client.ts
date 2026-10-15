@@ -359,6 +359,7 @@ export interface ChatAnswer {
 	proposals: string[];
 	stopped: string;
 	attachment?: ChatAttachment | null;
+	follow_up?: string | null;
 }
 
 /** What the chat made of an attached invoice: the read fields, the checks, and the proposal that saves it. */

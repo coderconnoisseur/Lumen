@@ -110,8 +110,8 @@ export default function ChatbotContent() {
 	}
 
 	// Proposals filed by answers on screen show under that answer; older pending ones gather at the end.
-	const shown = new Set(messages.flatMap((m) => m.answer?.proposals ?? []));
-	const waiting = proposals.filter((p) => !shown.has(p.id));
+	const shown = new Set(messages.flatMap((m) => [...(m.answer?.proposals ?? []), m.answer?.attachment?.proposal_id ?? ""]));
+	const waiting = proposals.filter((p) => p.type !== "save_invoice" && !shown.has(p.id));
 
 	const proposalCards = (list: Proposal[]) => list.map((p) => <ProposalCard key={p.id} proposal={p} />);
 	const waitingBlock = waiting.length > 0 && (
@@ -202,6 +202,8 @@ export default function ChatbotContent() {
 													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
 												}
 												attachment={m.answer?.attachment}
+												followUp={m.id === messages[messages.length - 1].id && !busy ? m.answer?.follow_up : null}
+												onFollowUp={(text) => void ask(text)}
 												onRetry={m.question && !busy ? () => void ask(m.question!, m.file, m.id) : undefined}
 											>
 												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}

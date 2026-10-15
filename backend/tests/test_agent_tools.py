@@ -175,3 +175,69 @@ def test_system_prompt_with_a_profile_uses_its_currency_and_context():
                                               "monthly_income": None})
     assert "Amounts are in CHF." in text and "INR" not in text
     assert "Asha" in text and "household" in text and "stay on budget" in text and "4000" in text
+
+
+def test_exchange_rate_ok(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    class R:
+        def json(self): return {"amount": 1.0, "base": "USD", "date": "2026-10-13", "rates": {"INR": 83.1}}
+        def raise_for_status(self): pass
+    monkeypatch.setattr(tools.requests, "get", lambda *a, **k: R())
+    out = run_tool(_ctx(db, world), "exchange_rate", {"base": "usd", "quote": "inr"})
+    assert out == {"base": "USD", "quote": "INR", "rate": 83.1, "date": "2026-10-13",
+                   "source": "ECB reference rate (Frankfurter)"}
+
+
+def test_exchange_rate_service_down(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    def boom(*a, **k): raise tools.requests.RequestException("down")
+    monkeypatch.setattr(tools.requests, "get", boom)
+    assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "USD", "quote": "INR"})
+
+
+def test_exchange_rate_bad_code_rejected(db, world):
+    from agent.tools import run_tool
+    assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "DOLLARS", "quote": "INR"})
+
+
+def test_split_follow_up():
+    from agent.graph import split_follow_up
+    assert split_follow_up("You spent 500.\nNext: Which vendor was it?") == ("You spent 500.", "Which vendor was it?")
+    assert split_follow_up("No suggestion here.") == ("No suggestion here.", None)
+    assert split_follow_up("Next: a\nmore\nnext:  b ") == ("Next: a\nmore", "b")
+    assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
+    assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
+    assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
+
+
+def test_exchange_rate_malformed_reply_is_an_error(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    class R:
+        def json(self): return {"date": "2026-10-13", "rates": None}
+        def raise_for_status(self): pass
+    monkeypatch.setattr(tools.requests, "get", lambda *a, **k: R())
+    assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "USD", "quote": "INR"})
+
+
+def test_run_tool_turns_unexpected_errors_into_data_but_lets_llm_errors_through(db, world, monkeypatch):
+    from dataclasses import replace
+
+    from agent import tools
+    from agent.tools import run_tool
+    from llm.errors import LLMError
+
+    def boom(exc):
+        def run(ctx, args): raise exc
+        return run
+    ctx = _ctx(db, world)
+    monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(RuntimeError("db down"))))
+    assert run_tool(ctx, "lookup_vendors", {})["error"].startswith("lookup_vendors failed: db down")
+    monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(LLMError(LLMError.AUTH, "x"))))
+    with pytest.raises(LLMError):
+        run_tool(ctx, "lookup_vendors", {})

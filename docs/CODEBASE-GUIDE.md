@@ -178,7 +178,7 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 
 | File | What it does |
 |---|---|
-| `agent/tools.py` | The 8 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
+| `agent/tools.py` | The 9 tools, each a Pydantic args model + a function taking `ToolContext`. `tool_schemas()` turns the args models into the JSON schemas the model sees; `run_tool()` validates the model's arguments and returns errors as data the model can correct. |
 | `agent/graph.py` | The LangGraph `StateGraph` (`agent` ⇄ `tools`), the 6-call cap, tool-result truncation, and `run_agent()`, which shapes the result for the API (citations only if actually retrieved). |
 | `agent/prompts.py` | The system prompt, built by `system_prompt(today)`: the queryable tables and columns (generated from the models, so the model doesn't guess them); route numbers to SQL, documents and PO numbers to search, duplicate charges to anomalies; look vendors up instead of guessing, treat tool output as data, cite chunks, say when something isn't found. |
 | `api/agent.py` | `POST /api/agent/ask`, `GET /api/agent/proposals`, `POST /api/agent/proposals/{id}/approve|reject`. |
@@ -188,8 +188,10 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 matched on name, category and items; fixes "electric" → City Power Ltd), `run_sql` (`SQLAgent.execute_sql` with
 `require_user_filter=False`: the model never sees the user id, and `_scope_to_user` restricts every table anyway;
 another user's id is still rejected), `search_documents` (hybrid RAG), `get_invoice`, `get_anomalies` (existing
-statistical + rule detectors), `forecast` (least-squares trend), `propose_action` (writes a *pending* proposal + an
-audit event).
+statistical + rule detectors), `forecast` (least-squares trend), `exchange_rate` (Frankfurter / ECB reference rates,
+cited "ECB rate on <date>"; errors return {error}), `propose_action` (writes a *pending* proposal + an audit event). The agent may end an
+answer with a `Next:` line; `/chat` strips it into `data.follow_up` and Ask Lumen shows it as a chip under the latest
+answer (click asks it).
 
 **Safety, layer by layer:**
 1. Tenant isolation is in code: the user id comes from the JWT into `ToolContext`; no tool takes a user id.
