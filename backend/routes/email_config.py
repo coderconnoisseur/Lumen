@@ -10,7 +10,7 @@ import requests
 from flask import Blueprint, g, request, jsonify
 
 from inbox import gmail
-from models import EmailConfig, User
+from models import EmailConfig, Transaction, User
 from models.database import db
 from utils.auth import require_auth
 from utils.crypto import decrypt_secret, encrypt_secret
@@ -33,10 +33,14 @@ def get_status():
     if not config:
         return jsonify({'configured': False})
     
+    is_gmail = bool(config.oauth_refresh_token) or config.imap_server == 'gmail-api'
+    added = Transaction.query.filter_by(user_id=user_id, source='email').count()
+
     return jsonify({
         'configured': True,
         'email_address': config.email_address,
-        'provider': config.provider,
+        'provider': 'gmail' if is_gmail else 'imap',
+        'transactions_added': added,
         'polling_enabled': config.polling_enabled,
         'polling_interval_minutes': config.polling_interval_minutes,
         'folder_to_watch': config.folder_to_watch,

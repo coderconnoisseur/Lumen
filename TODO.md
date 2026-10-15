@@ -36,6 +36,8 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 
 ## 3. Owner: dashboard settings (steps in `docs/DEPLOY.md` §1)
 - [ ] **Google sign-in** (step 5): Google OAuth client + Supabase provider.
+- [ ] **Gmail inbox ingestion** (step 5, last bullet): enable Gmail API, add yourself as a test user, redirect URI
+  `https://lumen.nishantbuilds.me/oauth/gmail`, Render env `GOOGLE_*` + `EMAIL_POLLING=1`. Code is done.
 - [ ] **Email delivery** (step 6): custom SMTP (e.g. Resend); without it confirmation and reset emails don't reach
   users.
 - [ ] **LLM capacity:** free tiers are shared by every visitor; add credits or a paid text model before promoting.

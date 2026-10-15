@@ -142,6 +142,26 @@ export function EmailStatusCard() {
                 : "Never"}
             </span>
           </div>
+          <div className="flex justify-between items-center gap-2">
+            <span className="shrink-0">Provider:</span>
+            <span className="font-medium truncate text-right">
+              {status.provider === "gmail" ? "Gmail" : "IMAP"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center gap-2">
+            <span className="shrink-0">Transactions added:</span>
+            <span className="font-medium truncate text-right">
+              {status.transactions_added ?? 0}
+            </span>
+          </div>
+          {status.last_error && (
+            <div className="flex justify-between items-start gap-2 text-destructive">
+              <span className="shrink-0">Last error:</span>
+              <span className="font-medium text-right break-words min-w-0">
+                {status.last_error}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 mt-2 w-full">
           <Button
@@ -170,7 +190,7 @@ export function EmailStatusCard() {
             className="flex-1 min-w-[80px]"
           >
             <RefreshCw className="h-4 w-4 mr-1" />
-            Poll Now
+            Check now
           </Button>
           <EmailConfigDialog
             existingConfig={status}

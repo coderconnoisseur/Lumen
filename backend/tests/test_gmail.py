@@ -225,3 +225,17 @@ def test_disconnect_revokes_but_survives_revoke_failure(gmail, monkeypatch):
     from models import EmailConfig
     with app.app_context():
         assert EmailConfig.query.count() == 0
+
+
+def test_status_reports_provider_and_email_transaction_count(gmail, monkeypatch):
+    from app import app
+    from models import Transaction
+    from models.database import db
+    connect(gmail, monkeypatch)
+    with app.app_context():
+        for src in ("email", "email", "upload"):
+            db.session.add(Transaction(user_id="user-1", vendor_name="Netflix", date="2026-10-01",
+                                       total_amount=9.99, source=src))
+        db.session.commit()
+    s = gmail.get("/api/v1/email-config/status", headers=AUTH).get_json()
+    assert s["provider"] == "gmail" and s["transactions_added"] == 2

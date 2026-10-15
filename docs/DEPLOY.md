@@ -28,6 +28,12 @@ Do the steps in order. Paste secrets only into the dashboards, never into chat o
    - **Credentials → Create credentials → OAuth client ID** → Web application. Authorized JavaScript origin
      `https://lumen.nishantbuilds.me`; authorized redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`.
    - Supabase **Authentication → Sign In / Providers → Google**: enable, paste the client ID and secret, Save.
+   - **Gmail inbox ingestion** (optional; same Google Cloud project): **APIs & Services → Library** → enable
+     **Gmail API**. On the consent screen add the scope `.../auth/gmail.readonly` and, while the app is in Testing,
+     your address under **Test users**. In the same OAuth client add the authorized redirect URI
+     `https://lumen.nishantbuilds.me/oauth/gmail`. On Render set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+     `GOOGLE_REDIRECT_URI=https://lumen.nishantbuilds.me/oauth/gmail` and `EMAIL_POLLING=1`. Note: `gmail.readonly` is
+     a restricted scope; public use needs Google's verification, test users work without it.
 6. **Email sending** (sign-up confirmation and password reset links). Supabase's built-in mailer only delivers to the
    project team's own addresses, a few an hour, so real visitors never get the link. Use your own SMTP, e.g. Resend
    (free tier):

@@ -350,4 +350,7 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    "Open original" on the documents and review test pages.
    Loop A built 2026-10-09 (`corrections_for`, `read_with_feedback`, hints in the prompt); measurement waits for
    the harder set.
+   Email ingestion built 2026-10-15 (branch `feat/email-ingest`): Gmail sign-in (OAuth popup, callback page
+   `/oauth/gmail`), poller reads money emails, saves `source="email"` transactions deduped by Message-ID and across
+   sources; status card shows provider, last poll, transactions added, last error, **Check now**.
 8. UI refactor (owner-led, last).
