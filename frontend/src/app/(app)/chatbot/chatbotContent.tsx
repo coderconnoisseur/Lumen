@@ -19,6 +19,8 @@ type Message = {
 	content: string;
 	/** the question an assistant message answers, for "ask again" */
 	question?: string;
+	/** the invoice attached to that question, resent on retry */
+	file?: File;
 	/** evidence; only live answers have it (history stores the text) */
 	answer?: ChatAnswer;
 	elapsedMs?: number;
@@ -73,16 +75,16 @@ export default function ChatbotContent() {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
 	}, [messages]);
 
-	async function ask(question: string, replaceId?: string) {
+	async function ask(question: string, file?: File, replaceId?: string) {
 		const id = crypto.randomUUID();
 		const started = Date.now();
 		setMessages((list) => [
 			...list.filter((m) => m.id !== replaceId),
 			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question }]),
-			{ id, role: "assistant", content: "", question, pending: true },
+			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
 		try {
-			const answer = await chatApi.sendMessage(question);
+			const answer = await chatApi.sendMessage(question, file);
 			if (answer.proposals.length) setProposals(await agentApi.proposals());
 			setMessages((list) =>
 				list.map((m) =>
@@ -147,7 +149,7 @@ export default function ChatbotContent() {
 								Ask about spending, invoices or contracts. Answers come with their sources.
 							</p>
 							<div className="mt-8 w-full">
-								<PromptBar hero onSend={(text) => void ask(text)} busy={busy} />
+								<PromptBar hero onSend={(text, file) => void ask(text, file)} busy={busy} />
 							</div>
 							<div className="mt-4 flex flex-wrap justify-center gap-2">
 								{suggestions.map((text, i) => (
@@ -185,7 +187,7 @@ export default function ChatbotContent() {
 										<div key={m.id} className="flex items-center gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-ink">
 											<span className="flex-1">{m.content}</span>
 											{m.question && (
-												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.id)}>
+												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.file, m.id)}>
 													Try again
 												</Button>
 											)}
@@ -199,7 +201,8 @@ export default function ChatbotContent() {
 												showEvidenceNote={
 													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
 												}
-												onRetry={m.question && !busy ? () => void ask(m.question!, m.id) : undefined}
+												attachment={m.answer?.attachment}
+												onRetry={m.question && !busy ? () => void ask(m.question!, m.file, m.id) : undefined}
 											>
 												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}
 											</Answer>
@@ -212,7 +215,7 @@ export default function ChatbotContent() {
 						</div>
 
 						<div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
-							<PromptBar onSend={(text) => void ask(text)} busy={busy} />
+							<PromptBar onSend={(text, file) => void ask(text, file)} busy={busy} />
 							<p className="mt-2 text-center text-[11.5px] text-ink-3">
 								Lumen cites its sources and only proposes changes; nothing is applied until you approve it.
 							</p>

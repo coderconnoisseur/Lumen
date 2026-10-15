@@ -2,7 +2,7 @@
 
 // Composer adapted from Beautiful UI's Prompt Bar (beautifului.dev, MIT): auto-growing input, voice, send.
 import { useLayoutEffect, useRef, useState } from "react";
-import { ArrowUp, Mic } from "lucide-react";
+import { ArrowUp, Mic, Paperclip, X } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -11,13 +11,15 @@ export function PromptBar({
 	busy,
 	hero = false,
 }: {
-	onSend: (text: string) => void;
+	onSend: (text: string, file?: File) => void;
 	busy: boolean;
 	/** the large, centred version shown before the first question */
 	hero?: boolean;
 }) {
 	const [draft, setDraft] = useState("");
+	const [file, setFile] = useState<File | null>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const fileRef = useRef<HTMLInputElement>(null);
 	const canSend = draft.trim().length > 0 && !busy;
 
 	useLayoutEffect(() => {
@@ -29,8 +31,9 @@ export function PromptBar({
 
 	function send() {
 		if (!canSend) return;
-		onSend(draft.trim());
+		onSend(draft.trim(), file ?? undefined);
 		setDraft("");
+		setFile(null);
 	}
 
 	return (
@@ -62,6 +65,38 @@ export function PromptBar({
 				)}
 			/>
 			<div className="flex items-center justify-end gap-1.5">
+				<input
+					ref={fileRef}
+					type="file"
+					hidden
+					accept=".pdf,.jpg,.jpeg,.png,.webp"
+					onChange={(event) => {
+						setFile(event.target.files?.[0] ?? null);
+						event.target.value = "";
+					}}
+				/>
+				{file && (
+					<span className="mr-auto flex h-7 min-w-0 items-center gap-1 rounded-full bg-inset pr-1 pl-2.5 text-[12px] text-ink-2 shadow-hairline">
+						<span className="max-w-40 truncate">{file.name}</span>
+						<button
+							type="button"
+							aria-label="Remove attachment"
+							onClick={() => setFile(null)}
+							className="flex size-5 items-center justify-center rounded-full hover:bg-hover-2 hover:text-ink"
+						>
+							<X className="size-3" />
+						</button>
+					</span>
+				)}
+				<button
+					type="button"
+					aria-label="Attach an invoice"
+					title="Attach an invoice (PDF or image)"
+					onClick={() => fileRef.current?.click()}
+					className="flex size-9 items-center justify-center rounded-full text-ink-2 transition-colors duration-200 hover:bg-hover-2 hover:text-ink"
+				>
+					<Paperclip className="size-[18px]" strokeWidth={1.8} />
+				</button>
 				{/* Voice input lands with its backend; the button is here so the bar's layout is final. */}
 				<button
 					type="button"

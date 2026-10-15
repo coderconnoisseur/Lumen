@@ -20,7 +20,7 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 - [ ] **Money health score with an action list** (the insight marquee; `ai/risk_assessment.py` has a start).
 - [ ] **Proactive notifications** ("Advice that comes to you": statement dates, renewals, unusual bills, double
   charges).
-- [ ] **Agent: remember goals, web search, files attached in chat** (Ask Lumen section; AGT-05 memory).
+- [ ] **Agent: remember goals, web search** (files attached in chat: done 2026-10-15) (Ask Lumen section; AGT-05 memory).
 
 ## 2. Inner app revamp (after section 1)
 - [ ] **New layout and components** in the landing's language: near-black canvas, Newsreader titles and big numbers,

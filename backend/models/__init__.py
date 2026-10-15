@@ -281,7 +281,7 @@ class Proposal(db.Model):
     risk = db.Column(db.String(10), nullable=False)  # low | medium | high
     reason = db.Column(Text, nullable=False)
     evidence = db.Column(Text, nullable=False, default="[]")  # JSON list of citations / SQL
-    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | approved | rejected
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | saving (a save_invoice being applied) | approved | rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     decided_at = db.Column(db.DateTime, nullable=True)
 

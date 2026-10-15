@@ -353,4 +353,6 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    Email ingestion built 2026-10-15 (branch `feat/email-ingest`): Gmail sign-in (OAuth popup, callback page
    `/oauth/gmail`), poller reads money emails, saves `source="email"` transactions deduped by Message-ID and across
    sources; status card shows provider, last poll, transactions added, last error, **Check now**.
+   Attach an invoice in Ask Lumen built 2026-10-15 (branch `chat-tools`): paperclip, invoice card with checks, one-click
+   Save (approves the `save_invoice` proposal).
 8. UI refactor (owner-led, last).
