@@ -358,11 +358,34 @@ export interface ChatAnswer {
 	steps: ChatStep[];
 	proposals: string[];
 	stopped: string;
+	attachment?: ChatAttachment | null;
+}
+
+/** What the chat made of an attached invoice: the read fields, the checks, and the proposal that saves it. */
+export interface ChatAttachment {
+	invoice?: {
+		vendor_name: string | null;
+		invoice_number: string | null;
+		date: string | null;
+		currency: string | null;
+		total_amount: number | null;
+		items?: { item_name: string; total_price: number | null }[];
+	};
+	flags?: { rule: string; severity: "note" | "warn" | "fail"; detail: string }[];
+	confidence?: string;
+	proposal_id?: string;
+	error?: string;
+	code?: string;
 }
 
 export const chatApi = {
-	sendMessage: async (query: string): Promise<ChatAnswer> => {
-		const response = await apiClient.post("/chat", { query });
+	sendMessage: async (query: string, file?: File): Promise<ChatAnswer> => {
+		const form = new FormData();
+		form.append("query", query);
+		if (file) form.append("file", file);
+		const response = file
+			? await apiClient.post("/chat", form, { headers: { "Content-Type": undefined } })
+			: await apiClient.post("/chat", { query });
 		return response.data.data;
 	},
 
@@ -657,8 +680,10 @@ export const agentApi = {
 		return response.data.proposals;
 	},
 
-	decide: async (id: string, decision: "approve" | "reject"): Promise<void> => {
-		await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+	/** `applied` is set when approving changed something; a saved invoice reports its review `status` ("flagged" = needs a look). */
+	decide: async (id: string, decision: "approve" | "reject"): Promise<{ status?: string } | null> => {
+		const response = await apiClient.post(`/api/agent/proposals/${encodeURIComponent(id)}/${decision}`);
+		return response.data.applied ?? null;
 	},
 };
 

@@ -6,7 +6,8 @@ import { useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUpRight, Check, Copy, FileText, Info, RotateCcw } from "lucide-react";
-import { filesApi, type ChatSource } from "@/lib/api/client";
+import { filesApi, type ChatAttachment, type ChatSource } from "@/lib/api/client";
+import { InvoiceCard } from "./invoice-card";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +72,7 @@ export function Answer({
 	sources,
 	showEvidenceNote,
 	onRetry,
+	attachment,
 	children,
 }: {
 	content: string;
@@ -79,6 +81,7 @@ export function Answer({
 	/** true when the answer cites no passage and looked at none of the user's data */
 	showEvidenceNote: boolean;
 	onRetry?: () => void;
+	attachment?: ChatAttachment | null;
 	children?: ReactNode;
 }) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -110,6 +113,7 @@ export function Answer({
 
 	return (
 		<div className="flex flex-col gap-2" style={{ animation: "fade-up 400ms cubic-bezier(0.23,1,0.32,1) both" }}>
+			{attachment && <InvoiceCard attachment={attachment} />}
 			<div className="bui-md">
 				<ReactMarkdown
 					remarkPlugins={[remarkGfm]}

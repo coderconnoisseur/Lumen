@@ -256,6 +256,9 @@ visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the 
   keeps only the text, so older answers show citation numbers without passages.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
   `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
+  `invoice-card.tsx` (paperclip in the prompt bar sends the file as multipart `file` with the question; the answer
+  returns `attachment` and the card shows the read invoice, its checks and **Save to my records**, which approves the
+  `save_invoice` proposal through `agentApi.decide`; "Saved for review" if the checks flagged it, 409 = already saved),
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
