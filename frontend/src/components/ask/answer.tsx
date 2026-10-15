@@ -73,6 +73,8 @@ export function Answer({
 	showEvidenceNote,
 	onRetry,
 	attachment,
+	followUp,
+	onFollowUp,
 	children,
 }: {
 	content: string;
@@ -82,6 +84,9 @@ export function Answer({
 	showEvidenceNote: boolean;
 	onRetry?: () => void;
 	attachment?: ChatAttachment | null;
+	/** suggested next question, only passed for the latest answer */
+	followUp?: string | null;
+	onFollowUp?: (text: string) => void;
 	children?: ReactNode;
 }) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -150,6 +155,16 @@ export function Answer({
 			)}
 
 			{children}
+
+			{followUp && onFollowUp && (
+				<button
+					type="button"
+					onClick={() => onFollowUp(followUp)}
+					className="self-start rounded-full border border-line px-3.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:bg-hover hover:text-ink"
+				>
+					{followUp}
+				</button>
+			)}
 
 			<div className="flex items-center gap-0.5">
 				<button

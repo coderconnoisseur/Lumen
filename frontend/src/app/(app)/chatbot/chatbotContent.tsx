@@ -202,6 +202,8 @@ export default function ChatbotContent() {
 													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
 												}
 												attachment={m.answer?.attachment}
+												followUp={m.id === messages[messages.length - 1].id && !busy ? m.answer?.follow_up : null}
+												onFollowUp={(text) => void ask(text)}
 												onRetry={m.question && !busy ? () => void ask(m.question!, m.file, m.id) : undefined}
 											>
 												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}

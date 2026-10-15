@@ -52,5 +52,6 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 - [ ] Suggested questions ignore `use_case`; no test that another user can't fetch your avatar.
 
 ## 5. AI engineering (see `docs/direction/PROGRESS.md` → Deferred)
+- [x] Live exchange-rate tool and follow-up suggestions in Ask Lumen (SPEC-CHAT-TOOLS, 2026-10-15).
 - [ ] Harder invoice test set; AI judge for written answers; `currency`/`po_number` in the agent schema at the next
-  re-recording; live exchange-rate tool; citation format in `/api/documents/ask`.
+  re-recording; citation format in `/api/documents/ask`.

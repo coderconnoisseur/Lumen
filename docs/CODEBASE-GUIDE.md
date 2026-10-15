@@ -188,8 +188,10 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 matched on name, category and items; fixes "electric" → City Power Ltd), `run_sql` (`SQLAgent.execute_sql` with
 `require_user_filter=False`: the model never sees the user id, and `_scope_to_user` restricts every table anyway;
 another user's id is still rejected), `search_documents` (hybrid RAG), `get_invoice`, `get_anomalies` (existing
-statistical + rule detectors), `forecast` (least-squares trend), `propose_action` (writes a *pending* proposal + an
-audit event).
+statistical + rule detectors), `forecast` (least-squares trend), `exchange_rate` (Frankfurter / ECB reference rates,
+cited "ECB rate on <date>"), `propose_action` (writes a *pending* proposal + an audit event). The agent may end an
+answer with a `Next:` line; `/chat` strips it into `data.follow_up` and Ask Lumen shows it as a chip under the latest
+answer (click asks it).
 
 **Safety, layer by layer:**
 1. Tenant isolation is in code: the user id comes from the JWT into `ToolContext`; no tool takes a user id.
