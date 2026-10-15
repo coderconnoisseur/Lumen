@@ -61,3 +61,5 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
   SPEC-AGENT-TOOLS before the eval re-record.
 - [ ] Dashboard "Needs Review" counts transactions, not the review queue, so it always shows 0 (fix in the revamp).
 - [ ] Demo setup took 66 s on a freshly restarted API (seeding + document indexing); make it fast before outreach.
+- [ ] Agent's "today" is UTC (`api/agent.py`, `routes/chat.py`): 00:00-05:30 IST it's yesterday, so "this month" on
+  the 1st means last month. Fix with a timezone in the profile (not hard-coded IST).

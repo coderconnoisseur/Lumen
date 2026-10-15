@@ -100,7 +100,7 @@ export default function AnimatedListItemUse() {
 
 	const handleManualRefresh = async () => {
 		clearApiCache(); // a manual refresh must reach the server
-		await fetchInvoices();
+		eventBus.emit(EVENTS.INVOICE_UPDATED); // the list and the dashboard's stat cards both reload
 	};
 
 	// Load invoices on component mount and listen for updates
