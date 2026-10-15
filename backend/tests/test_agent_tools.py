@@ -210,3 +210,14 @@ def test_split_follow_up():
     assert split_follow_up("No suggestion here.") == ("No suggestion here.", None)
     assert split_follow_up("Next: a\nmore\nnext:  b ") == ("Next: a\nmore", "b")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
+
+
+def test_exchange_rate_malformed_reply_is_an_error(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    class R:
+        def json(self): return {"date": "2026-10-13", "rates": None}
+        def raise_for_status(self): pass
+    monkeypatch.setattr(tools.requests, "get", lambda *a, **k: R())
+    assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "USD", "quote": "INR"})

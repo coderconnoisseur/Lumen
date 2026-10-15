@@ -37,7 +37,7 @@ class AgentState(TypedDict):
     llm_calls: int
 
 
-_NEXT = re.compile(r"^[ 	]*next:[ 	]*(.+?)[ 	]*$", re.IGNORECASE | re.MULTILINE)
+_NEXT = re.compile(r"^[ \t]*next:[ \t]*(.+?)[ \t]*$", re.IGNORECASE | re.MULTILINE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:

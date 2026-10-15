@@ -262,7 +262,7 @@ def _exchange_rate(ctx: ToolContext, args: ExchangeRateArgs) -> dict:
         body = r.json()
         return {"base": base, "quote": quote, "rate": body["rates"][quote], "date": body["date"],
                 "source": "ECB reference rate (Frankfurter)"}
-    except (requests.RequestException, KeyError, ValueError) as e:
+    except (requests.RequestException, KeyError, ValueError, TypeError, AttributeError) as e:
         return {"error": f"Couldn't get the {base}/{quote} rate: {e}"[:200]}
 
 
