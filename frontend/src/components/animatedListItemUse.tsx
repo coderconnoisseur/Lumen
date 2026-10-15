@@ -6,7 +6,7 @@ import { InvoiceEditDialog } from "@/components/invoiceEditDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { transactionApi } from "@/lib/api/client";
+import { clearApiCache, transactionApi } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
 
 import { logger } from "@/lib/logger";
@@ -99,6 +99,7 @@ export default function AnimatedListItemUse() {
 	};
 
 	const handleManualRefresh = async () => {
+		clearApiCache(); // a manual refresh must reach the server
 		await fetchInvoices();
 	};
 

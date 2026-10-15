@@ -191,4 +191,4 @@ def test_ask_lumen_gets_the_profile_once_onboarded(client):
     c = TestClient(app)
     c.put("/api/profile", headers=bearer(USER), json={"display_name": "Asha", "currency": "CHF", "complete": True})
     assert c.post("/api/agent/ask", headers=bearer(USER), json={"question": "hi"}).status_code == 200
-    assert "Amounts are in CHF." in seen[-1] and "Asha" in seen[-1]
+    assert "Amounts are in CHF unless" in seen[-1] and "Asha" in seen[-1]

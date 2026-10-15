@@ -50,6 +50,12 @@ def test_each_fault_is_caught_by_its_rule(over, rule):
     assert rule in _rules(_inv(**over))
 
 
+def test_tomorrow_is_not_the_future():
+    """The server runs on UTC; an Indian invoice dated today is often 'tomorrow' there (seen in production)."""
+    assert "bad_date" not in _rules(_inv(date="2026-07-01"))
+    assert "bad_date" in _rules(_inv(date="2026-07-02"))
+
+
 def test_rounding_within_one_percent_is_not_a_mismatch():
     assert validate(_inv(total_amount=126.5), CTX) == []
 

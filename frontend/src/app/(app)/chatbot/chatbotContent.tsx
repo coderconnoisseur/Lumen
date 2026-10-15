@@ -2,7 +2,7 @@
 
 // Ask Lumen: one chat with the agent. Every answer shows its sources, the steps behind it, and any change it proposes.
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { Paperclip, Plus } from "lucide-react";
 import { Answer } from "@/components/ask/answer";
 import { Button } from "@/components/ask/button";
 import { PromptBar } from "@/components/ask/prompt-bar";
@@ -80,7 +80,7 @@ export default function ChatbotContent() {
 		const started = Date.now();
 		setMessages((list) => [
 			...list.filter((m) => m.id !== replaceId),
-			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question }]),
+			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question, file }]),
 			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
 		try {
@@ -173,11 +173,15 @@ export default function ChatbotContent() {
 							<div className="mx-auto flex w-full max-w-3xl flex-col gap-9 px-4 pt-14 pb-8">
 								{messages.map((m) =>
 									m.role === "user" ? (
-										<div key={m.id} className="flex justify-end pl-14">
-											<div
-												className="rounded-[18px] bg-field px-4 py-2.5 text-[15px] leading-[1.5] whitespace-pre-wrap text-ink"
-												style={{ animation: "fade-up 300ms cubic-bezier(0.23,1,0.32,1) both" }}
-											>
+										<div key={m.id} className="flex flex-col items-end gap-1.5 pl-14"
+											style={{ animation: "fade-up 300ms cubic-bezier(0.23,1,0.32,1) both" }}>
+											{m.file && (
+												<div className="flex max-w-full items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-[13px] text-muted-foreground">
+													<Paperclip className="size-3.5 shrink-0" aria-hidden />
+													<span className="truncate">{m.file.name}</span>
+												</div>
+											)}
+											<div className="rounded-[18px] bg-field px-4 py-2.5 text-[15px] leading-[1.5] whitespace-pre-wrap text-ink">
 												{m.content}
 											</div>
 										</div>
