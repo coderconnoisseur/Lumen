@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import difflib
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Callable, Literal
 
+import requests
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -239,6 +241,31 @@ def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
             "note": "Filed for human review. Nothing has been changed."}
 
 
+class ExchangeRateArgs(BaseModel):
+    base: str = Field(description="ISO 4217 code to convert from, e.g. USD.")
+    quote: str = Field(description="ISO 4217 code to convert to, e.g. INR.")
+    date: str | None = Field(default=None, description="YYYY-MM-DD for a past rate; omit for the latest.")
+
+
+FRANKFURTER = "https://api.frankfurter.dev/v1"  # ECB reference rates, keyless
+
+
+def _exchange_rate(ctx: ToolContext, args: ExchangeRateArgs) -> dict:
+    base, quote = args.base.strip().upper(), args.quote.strip().upper()
+    if not (re.fullmatch(r"[A-Z]{3}", base) and re.fullmatch(r"[A-Z]{3}", quote)):
+        return {"error": "Use 3-letter currency codes like USD or INR."}
+    if args.date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.date):
+        return {"error": "Use a YYYY-MM-DD date."}
+    try:
+        r = requests.get(f"{FRANKFURTER}/{args.date or 'latest'}", params={"base": base, "symbols": quote}, timeout=8)
+        r.raise_for_status()
+        body = r.json()
+        return {"base": base, "quote": quote, "rate": body["rates"][quote], "date": body["date"],
+                "source": "ECB reference rate (Frankfurter)"}
+    except (requests.RequestException, KeyError, ValueError) as e:
+        return {"error": f"Couldn't get the {base}/{quote} rate: {e}"[:200]}
+
+
 TOOLS: dict[str, Tool] = {t.name: t for t in (
     Tool("get_schema", "The tables and columns you can query with run_sql, with notes on dates, amounts and today's date.",
          NoArgs, _get_schema),
@@ -254,6 +281,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
     Tool("forecast", "Project total spending for the coming months from the last 6 months' trend.", ForecastArgs, _forecast),
     Tool("propose_action", "Propose an action for a human to approve (never applied directly): flag an invoice, mark "
          "paid, change a category, or follow up with a vendor.", ProposeActionArgs, _propose_action),
+    Tool("exchange_rate", "Currency exchange rate (ECB reference rate) for a date or the latest; use to compare or "
+         "convert amounts in different currencies.", ExchangeRateArgs, _exchange_rate),
 )}
 
 

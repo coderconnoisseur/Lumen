@@ -37,6 +37,18 @@ class AgentState(TypedDict):
     llm_calls: int
 
 
+_NEXT = re.compile(r"^[ 	]*next:[ 	]*(.+?)[ 	]*$", re.IGNORECASE | re.MULTILINE)
+
+
+def split_follow_up(text: str) -> tuple[str, str | None]:
+    """The prompt asks for a last line "Next: <question>"; return (answer without it, the question or None)."""
+    matches = list(_NEXT.finditer(text or ""))
+    if not matches:
+        return text, None
+    m = matches[-1]
+    return (text[:m.start()] + text[m.end():]).strip(), m.group(1)
+
+
 def _summary(name: str, result: dict) -> str:
     if "error" in result:
         return f"error: {str(result['error'])[:120]}"
@@ -46,6 +58,8 @@ def _summary(name: str, result: dict) -> str:
         return f"{len(result.get('passages', []))} passage(s)"
     if name == "lookup_vendors":
         return ", ".join(v["vendor"] for v in result.get("vendors", [])[:3]) or "no match"
+    if name == "exchange_rate":
+        return f"{result.get('base')}/{result.get('quote')} {result.get('rate')}"
     if name == "propose_action":
         return f"proposal {result.get('status')}"
     return "ok"
@@ -127,10 +141,11 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
     final = graph.invoke(state, {"recursion_limit": 2 * max_tool_calls + 6})
     retrieved = {p["chunk_id"]: p for s in final["steps"] if s["tool"] == "search_documents"
                  for p in s["result"].get("passages", [])}
-    answer = final["answer"] or ""
+    answer, follow_up = split_follow_up(final["answer"] or "")
     citations = list(dict.fromkeys(c for c in _CITATION.findall(answer) if c in retrieved))
     return {
         "answer": answer,
+        "follow_up": follow_up,
         "citations": citations,
         "steps": [{k: v for k, v in s.items() if k != "result"} for s in final["steps"]],
         "sql": [s["args"].get("sql") for s in final["steps"] if s["tool"] == "run_sql" and isinstance(s["args"], dict)],

@@ -62,7 +62,7 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
     out = run_agent(question, ctx, complete=deps.complete, attachment=attachment)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.
-    return {"query": question, "query_type": "agent", "response": out["answer"],
+    return {"query": question, "query_type": "agent", "response": out["answer"], "follow_up": out["follow_up"],
             "row_count": len(out["rows"]) if out["rows"] is not None else None,
             "sources": [{**{k: s[k] for k in ("chunk_id", "title", "section", "text")},
                          "file_key": document_key(user_id, s["chunk_id"].split("#")[0])} for s in out["sources"]],

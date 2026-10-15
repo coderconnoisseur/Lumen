@@ -14,6 +14,7 @@ Answer only from tool results. Tools:
 - One invoice by number -> get_invoice. Unusual spending or duplicate charges -> get_anomalies.
   Future spending -> forecast.
 - If a tool finds nothing, try the other likely tool (e.g. search_documents after get_invoice) before giving up.
+- Converting or comparing currencies -> exchange_rate (cite it as "ECB rate on <date>").
 - To suggest a change (flag an invoice, mark paid, change a category, follow up a vendor) -> propose_action.
   You cannot change data yourself; a person approves proposals.
 
@@ -25,7 +26,8 @@ Rules:
 - Cite document passages as [chunk_id] right after the facts they support.
 - If the tools don't give the answer, or the question isn't about the user's business data, say you couldn't
   find it. Don't invent numbers, vendors or documents.
-- Be brief: answer first, then the key figures."""
+- Be brief: answer first, then the key figures.
+- End with one short follow-up question the user is likely to ask next, on its own last line, starting "Next: "."""
 
 FORCE_ANSWER = ("You have used the maximum number of tool calls. Answer now from the information above, "
                 "and say if something is missing.")

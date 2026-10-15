@@ -316,7 +316,7 @@ def test_chat_sources_carry_the_passage_and_the_original_file(authed_client, mon
     import routes.chat as chat
     from api import agent as agent_api
 
-    out = {"answer": "Notice is 30 days [doc-1#s02].", "rows": None, "sql": [], "stopped": "answered", "proposals": [],
+    out = {"answer": "Notice is 30 days [doc-1#s02].", "follow_up": None, "rows": None, "sql": [], "stopped": "answered", "proposals": [],
            "steps": [{"tool": "search_documents", "args": {}, "summary": "1 passage", "latency_ms": 12}],
            "sources": [{"chunk_id": "doc-1#s02", "title": "TechHub contract", "section": "Termination",
                         "text": "Either party may end this with 30 days' notice."}]}

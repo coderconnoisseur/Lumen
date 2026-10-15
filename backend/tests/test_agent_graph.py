@@ -116,3 +116,10 @@ def test_tool_results_are_truncated_before_going_back_to_the_model(ctx):
     run_agent("list vendors", ctx, complete=script)
     tool_msg = next(m for m in script.sent[1]["messages"] if m["role"] == "tool")
     assert len(tool_msg["content"]) <= MAX_TOOL_RESULT_CHARS
+
+
+def test_a_next_line_becomes_the_follow_up(ctx):
+    from agent.graph import run_agent
+
+    out = run_agent("hi", ctx, complete=Script(_reply("Answer.\nNext: Follow?")))
+    assert out["answer"] == "Answer." and out["follow_up"] == "Follow?"
