@@ -239,7 +239,7 @@ CI), 1 deselected; `pytest -m eval`: 1 passed.
   no vision. Bench (SQL dev): 29/28/28 of 32, tied; registry groq text = gpt-oss-120b → qwen → gpt-oss-20b, judge
   qwen. Local dev server runs `LUMEN_LLM_TIER=groq`.
 - **Owner's manual test** found the reranker-score abstention cut-off refusing short questions → removed (STORY 12).
-- **Agent:** tools (8, typed, user id from the JWT), LangGraph loop (6-call cap, truncated results), proposals +
+- **Agent:** tools (9, typed, user id from the JWT), LangGraph loop (6-call cap, truncated results), proposals +
   audit log, `/api/agent/*`. The first recording showed SQL rejections because the model can't write the user-id
   filter; the agent's `run_sql` now relies on server-side scoping (STORY 14).
 - **Demo data:** `scripts/seed_demo_data.py` seeded the owner's local account (235 transactions, 10 documents).
