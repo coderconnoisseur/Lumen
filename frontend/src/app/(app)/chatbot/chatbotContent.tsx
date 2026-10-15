@@ -19,6 +19,8 @@ type Message = {
 	content: string;
 	/** the question an assistant message answers, for "ask again" */
 	question?: string;
+	/** the invoice attached to that question, resent on retry */
+	file?: File;
 	/** evidence; only live answers have it (history stores the text) */
 	answer?: ChatAnswer;
 	elapsedMs?: number;
@@ -79,7 +81,7 @@ export default function ChatbotContent() {
 		setMessages((list) => [
 			...list.filter((m) => m.id !== replaceId),
 			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question }]),
-			{ id, role: "assistant", content: "", question, pending: true },
+			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
 		try {
 			const answer = await chatApi.sendMessage(question, file);
@@ -185,7 +187,7 @@ export default function ChatbotContent() {
 										<div key={m.id} className="flex items-center gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-ink">
 											<span className="flex-1">{m.content}</span>
 											{m.question && (
-												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, undefined, m.id)}>
+												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.file, m.id)}>
 													Try again
 												</Button>
 											)}
@@ -200,7 +202,7 @@ export default function ChatbotContent() {
 													!!m.answer && !m.answer.sources.length && !m.answer.steps.some((s) => DATA_TOOLS.has(s.tool))
 												}
 												attachment={m.answer?.attachment}
-												onRetry={m.question && !busy ? () => void ask(m.question!, undefined, m.id) : undefined}
+												onRetry={m.question && !busy ? () => void ask(m.question!, m.file, m.id) : undefined}
 											>
 												{proposalCards(proposals.filter((p) => m.answer?.proposals.includes(p.id)))}
 											</Answer>
