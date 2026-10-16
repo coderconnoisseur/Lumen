@@ -60,6 +60,9 @@ def _warm_retrieval():
 
         service = get_service()
         warm(service.embedder, service.reranker)
+        from scripts.seed_demo_data import demo_documents
+
+        demo_documents(service.embedder)  # so a demo visitor doesn't wait for the corpus to embed
     except Exception:  # a cold first question is the fallback, not a crash
         logging.getLogger(__name__).exception("Retrieval warm-up failed")
 

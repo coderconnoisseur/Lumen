@@ -122,20 +122,22 @@ def check_invoice(engine: Engine, user_id: str, invoice: dict) -> dict:
 
 
 def submit_invoice(engine: Engine, user_id: str, invoice: dict, email: str | None = None, *,
-                   on: date | None = None, adapt: bool = True) -> dict:
+                   on: date | None = None, adapt: bool = True, warnings_seen: bool = False) -> dict:
     """Check an extracted invoice; approve it at once if nothing is doubtful, otherwise queue it. Used by the
     upload routes (Flask) and `POST /api/review`. `on` and `adapt` are for the feedback eval (a simulated
-    timeline, and loop B switched off for the baseline)."""
+    timeline, and loop B switched off for the baseline). `warnings_seen`: the user saw the checks and chose to save
+    (Ask Lumen's card), so warnings like a new vendor don't hold it back; failures still go to review."""
     from models import ReviewItem
 
     with Session(engine) as session, session.begin():
         item = ReviewItem(id=str(uuid.uuid4()), user_id=user_id, invoice=json.dumps(invoice),
                           extracted=json.dumps(invoice), status="flagged")
         _check(session, item, user_id, on=on, adapt=adapt)
-        if item.confidence == "high":
+        if item.confidence == "high" or (warnings_seen and item.confidence == "medium"):
             item.status, item.decided_at = "approved", datetime.utcnow()
             item.transaction_id = _record(session, user_id, invoice, email)
-            _audit(session, user_id, "system", "review_auto_approved", item, transaction_id=item.transaction_id)
+            _audit(session, user_id, "user" if warnings_seen else "system", "review_auto_approved", item,
+                   transaction_id=item.transaction_id)
         else:
             _audit(session, user_id, "system", "review_flagged", item, flags=json.loads(item.flags))
         session.add(item)

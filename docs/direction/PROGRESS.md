@@ -356,4 +356,7 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    Attach an invoice in Ask Lumen built 2026-10-15 (branch `chat-tools`): paperclip, invoice card with checks, one-click
    Save (approves the `save_invoice` proposal). SPEC-CHAT-TOOLS done 2026-10-15: `exchange_rate` tool (ECB) and a
    follow-up chip per answer. The agent eval suites await the one re-record after SPEC-AGENT-TOOLS.
+   Demo realism built 2026-10-16 (branch `demo-realism`): the demo is a person's last 12 months ending yesterday with a
+   profile Ask Lumen can use; setup embeds documents once per server; three honesty rules in the prompt (can't remember
+   yet, general knowledge may be out of date, no invented features, say where data ends). Audit re-run pending.
 8. UI refactor (owner-led, last).

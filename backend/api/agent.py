@@ -123,7 +123,7 @@ def _save_invoice(proposal_id: str, user_id: str, deps: AgentDeps) -> dict | Non
             raise HTTPException(409, f"Proposal is already {p.status}")
         payload = json.loads(p.payload or "{}")
     try:
-        item = submit_invoice(deps.engine, user_id, payload)
+        item = submit_invoice(deps.engine, user_id, payload, warnings_seen=True)
     except Exception:
         with Session(deps.engine) as session, session.begin():
             session.execute(update(Proposal).where(Proposal.id == proposal_id).values(status="pending"))

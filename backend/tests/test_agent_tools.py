@@ -50,6 +50,7 @@ def test_schema_is_generated_from_the_models(db, world):
     out = run_tool(_ctx(db, world), "get_schema", "{}")
     assert "vendor_name" in out["tables"]["transactions"] and "item_name" in out["tables"]["transaction_items"]
     assert any("2026-06-30" in note for note in out["notes"])
+    assert any("SQLite" in note for note in out["notes"]) and not any("PostgreSQL" in note for note in out["notes"])
 
 
 def test_system_prompt_lists_every_queryable_column():
@@ -165,6 +166,17 @@ def test_system_prompt_without_a_profile_is_unchanged():
     assert system_prompt(date(2026, 10, 14)) == SYSTEM_PROMPT.format(today="2026-10-14", schema=_schema())
 
 
+def test_system_prompt_has_the_honesty_rules():
+    from datetime import date
+
+    from agent.prompts import system_prompt
+
+    text = system_prompt(date(2026, 10, 16))
+    assert "can't remember" in text and "may be out of date" in text
+    assert "where the user's data starts and ends" in text and "currency" not in text
+    assert "doesn't track account balances or savings pots yet" in text
+
+
 def test_system_prompt_with_a_profile_uses_its_currency_and_context():
     from datetime import date
 
@@ -212,6 +224,14 @@ def test_split_follow_up():
     assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
     assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
+    # seen in production: a bare "Next:", and Lumen asking the user (a chip would send its own question back to it)
+    assert split_follow_up("Which period?\nNext:") == ("Which period?", None)
+    assert split_follow_up("Here it is.\nNext: Would you like last month or the last three?") == (
+        "Here it is.\n\nWould you like last month or the last three?", None)
+    assert split_follow_up("Done.\nNext: Can I afford a trip in December?") == (
+        "Done.", "Can I afford a trip in December?")  # the user's own voice stays a chip
+    assert split_follow_up("Here.\n\nNext:\n\n*“Show the old regime too”*") == ("Here.", "Show the old regime too")
+    assert split_follow_up("Here.\nNext: “Show my phone spending”") == ("Here.", "Show my phone spending")
     # seen in production: the model put it on the answer's line
     assert split_follow_up("I don't have that information. Next: Which vendor?") == (
         "I don't have that information.", "Which vendor?")
@@ -244,3 +264,15 @@ def test_run_tool_turns_unexpected_errors_into_data_but_lets_llm_errors_through(
     monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(LLMError(LLMError.AUTH, "x"))))
     with pytest.raises(LLMError):
         run_tool(ctx, "lookup_vendors", {})
+
+
+def test_get_recurring_finds_the_users_bills_and_subscriptions_but_not_shopping(db, world):
+    from agent.tools import run_tool
+
+    out = run_tool(_ctx(db, world), "get_recurring", "{}")
+    by_vendor = {r["vendor"]: r for r in out["recurring"]}
+    assert by_vendor["City Power Ltd"]["kind"] == "bill" and by_vendor["City Power Ltd"]["cadence"] == "monthly"
+    assert by_vendor["City Power Ltd"]["next_due_date"] > "2026-06-30"
+    assert by_vendor["StreamFlix"]["kind"] == "subscription"
+    assert "Lotus Yoga Studio" not in by_vendor  # u2's vendor: the tool only sees the context user's rows
+    assert not any(r["category"] == "Groceries" for r in out["recurring"])

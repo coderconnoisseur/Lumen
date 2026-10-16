@@ -91,6 +91,12 @@ class ProposeActionArgs(BaseModel):
 
 # --- implementations -----------------------------------------------------------------------------------------
 
+def _dialect_note(dialect: str) -> str:
+    if dialect == "postgresql":
+        return "The database is PostgreSQL: no strftime(), julianday() or date('now'). Month: SUBSTR(date, 1, 7)."
+    return "The database is SQLite: strftime() and date('now') work. Month: SUBSTR(date, 1, 7)."
+
+
 def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
     """Generated from the models, so it can't drift from the real tables (builder finding 6b #13)."""
     from models import Transaction, TransactionItem
@@ -102,6 +108,7 @@ def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
         "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem)},
         "notes": [
             "transactions.date is TEXT 'YYYY-MM-DD'; compare as strings, e.g. date >= '2026-01-01'.",
+            _dialect_note(ctx.sql_agent.dialect),
             f"Amounts are in {(ctx.profile or {}).get('currency') or 'INR'}. category values are Title Case (Groceries, Utilities, Transport, ...).",
             "Vendor names are exact strings: use lookup_vendors to find the real name before filtering.",
             f"Today is {ctx.today.isoformat()}.",
@@ -232,6 +239,18 @@ def _forecast(ctx: ToolContext, args: ForecastArgs) -> dict:
             "method": "least-squares trend over the last 6 full months"}
 
 
+def _get_recurring(ctx: ToolContext, _: NoArgs) -> dict:
+    """Subscriptions, bills and other regular charges with their next due date (ai.recurring, no LLM)."""
+    from ai.recurring import find_recurring
+
+    with ctx.engine.connect() as conn:
+        txns = [dict(r) for r in conn.execute(text(
+            "SELECT vendor_name, date, total_amount, category FROM transactions WHERE user_id = :u"),
+            {"u": ctx.user_id}).mappings()]
+    found = find_recurring(txns, ctx.today)
+    return {"today": ctx.today.isoformat(), "recurring": found[:30], "truncated": len(found) > 30}
+
+
 def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
     from models import AuditEvent, Proposal
 
@@ -284,6 +303,9 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
     Tool("get_anomalies", "Unusual transactions in the last 90 days (statistical and rule checks), with reasons.",
          NoArgs, _get_anomalies),
     Tool("forecast", "Project total spending for the coming months from the last 6 months' trend.", ForecastArgs, _forecast),
+    Tool("get_recurring", "The user's recurring charges (subscriptions, bills like electricity or rent, other regular "
+         "payments) with cadence, typical amount, next due date, price changes and ones that look stopped.",
+         NoArgs, _get_recurring),
     Tool("propose_action", "Propose an action for a human to approve (never applied directly): flag an invoice, mark "
          "paid, change a category, or follow up with a vendor.", ProposeActionArgs, _propose_action),
     Tool("exchange_rate", "Currency exchange rate (ECB reference rate) for a date or the latest; use to compare or "

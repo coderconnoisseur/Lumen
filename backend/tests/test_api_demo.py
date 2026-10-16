@@ -116,5 +116,8 @@ def test_demo_documents_have_their_original_pdfs(app):
 
     client, _, store = app
     client.post("/api/demo/start", headers=bearer(VISITOR))
+    import threading
+
+    [t.join() for t in threading.enumerate() if t.name == "demo-uploads"]  # uploads run in the background
     docs = store.list_documents(VISITOR)
     assert docs and all(utils.files.get_store().get(utils.files.document_key(VISITOR, d["id"])) for d in docs)
