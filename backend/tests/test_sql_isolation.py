@@ -204,6 +204,12 @@ def test_model_sql_only_sees_the_users_own_rows(db_path, monkeypatch, sql, outco
         "SELECT table_to_xml('users', true, true, '') FROM transactions WHERE user_id = 'user-1'",
         "SELECT ts_stat('select to_tsvector(email) from users') FROM transactions WHERE user_id = 'user-1'",
         "SELECT dblink('host=x', 'select 1') FROM transactions WHERE user_id = 'user-1'",
+        "SELECT inet_server_addr() FROM transactions WHERE user_id = 'user-1'",
+        "SELECT inet_client_addr() FROM transactions WHERE user_id = 'user-1'",
+        "SELECT version() FROM transactions WHERE user_id = 'user-1'",
+        "SELECT current_database() FROM transactions WHERE user_id = 'user-1'",
+        "SELECT current_user FROM transactions WHERE user_id = 'user-1'",
+        "SELECT CURRENT_USER FROM transactions WHERE user_id = 'user-1'",
         "SELECT lo_import('/etc/passwd') FROM transactions WHERE user_id = 'user-1'",
         "SELECT net.http_get('http://example.com') FROM transactions WHERE user_id = 'user-1'",
         "SELECT * FROM generate_series(1, 3) WHERE 'user-1' = 'user-1'",
@@ -222,6 +228,20 @@ def test_validator_rejects_dangerous_sql(sql, dialect):
 
     with pytest.raises(SQLValidationError):
         _scope_to_user(sql, "user-1", dialect)
+
+
+def test_validator_rejects_session_user():
+    from ai.sql_agent import SQLValidationError, _scope_to_user
+
+    with pytest.raises(SQLValidationError):
+        _scope_to_user("SELECT session_user FROM transactions WHERE user_id = 'user-1'", "user-1", "postgresql")
+
+
+@pytest.mark.parametrize("dialect", ["postgresql", "sqlite"])
+def test_validator_allows_current_date(dialect):
+    from ai.sql_agent import _scope_to_user
+
+    _scope_to_user("SELECT CURRENT_DATE, CURRENT_TIMESTAMP FROM transactions WHERE user_id = 'user-1'", "user-1", dialect)
 
 
 def test_normal_aggregate(db_path, monkeypatch):
