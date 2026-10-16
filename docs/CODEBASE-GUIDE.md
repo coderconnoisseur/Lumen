@@ -227,7 +227,7 @@ The model writes its own search queries, so their embeddings are cached during `
 
 ## 7. Local demo data
 `python -m scripts.seed_demo_data --user-id <your Supabase user id>` copies the eval world's user u1 (a year of
-transactions, line items, 10 documents) into your local account, touching only the seeded rows. The same `seed()`
+transactions, line items, 11 documents with the lease) into your local account, touching only the seeded rows. The same `seed()`
 backs the live **Try the demo** links: the landing page sends them to `/demo` (`app/demo/page.tsx`), which signs the
 visitor in anonymously (Supabase), calls `POST /api/demo/start`, then opens the chat, so every visitor gets a private copy.
 The demo is one person's last 12 months ending yesterday: rent (Greenview Residency), phone (SkyTel Mobile, with a price

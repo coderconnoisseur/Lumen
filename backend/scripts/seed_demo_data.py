@@ -17,6 +17,7 @@ import argparse
 import functools
 import logging
 import random
+import re
 import sys
 import threading
 import time as clock
@@ -75,29 +76,32 @@ def _life_rows(user_id: str, yesterday: date, remap) -> list[dict]:
     rows = []
     for k in range(12):
         first = _months_back(yesterday, k).replace(day=1)
-        last = yesterday.day if k == 0 else 28  # never after yesterday
-        on = lambda day: first.replace(day=min(day, last))
+        on = lambda day: first.replace(day=day)
         ym = f"{first:%Y%m}"
-        rows += [row("Greenview Residency", on(rng.randint(1, 5)), 22000.0, "Housing", "UPI", f"GR-{ym}"),
+        month = [row("Greenview Residency", on(rng.randint(1, 5)), 22000.0, "Housing", "UPI", f"GR-{ym}"),
                  row("SkyTel Mobile", on(8), 649.0 if k < 3 else 499.0, "Utilities", "Debit Card", f"ST-{ym}", 0.18),
                  row("FitZone Gym", on(3), 1500.0, "Healthcare", "UPI", f"FZ-{ym}", 0.18)]
-        rows += [row("QuickBite", on(rng.randint(1, 28)), round(rng.uniform(250, 700), 2), "Restaurant", "UPI",
-                     f"QB-{ym}-{n + 1:02d}", 0.05, n) for n in range(rng.randint(3, 6))]
-        if k == 0:  # charged twice for one order
-            rows.append({**rows[-1], "id": remap(f"life-QuickBite-{ym}-dup"),
-                         "invoice_number": rows[-1]["invoice_number"] + "-2"})
+        orders = rng.randint(3, 6)  # this month's last order is by yesterday, so the double charge always exists
+        month += [row("QuickBite", on(rng.randint(1, yesterday.day if k == 0 and n == orders - 1 else 28)),
+                      round(rng.uniform(250, 700), 2), "Restaurant", "UPI", f"QB-{ym}-{n + 1:02d}", 0.05, n)
+                  for n in range(orders)]
+        if k == 0:  # this month: only what has happened by yesterday, and the last order charged twice
+            month = [r for r in month if r["date"] <= yesterday.isoformat()]
+            month.append({**month[-1], "id": remap(f"life-QuickBite-{ym}-dup"),
+                          "invoice_number": month[-1]["invoice_number"] + "-2"})
+        rows += month
     return rows
 
 
 def _rental_agreement(today: date) -> dict:
-    """The demo tenant's lease: 11 months that started 10 months ago, so it ends a month from now."""
-    start = _months_back(today, 10)
-    end = _months_back(start, -11)
+    """The demo tenant's lease: 12 months from the first rent month, so it ends within a month from now."""
+    start = _months_back(today - timedelta(days=1), 11).replace(day=1)
+    end = _months_back(start, -12)
     day = lambda d: f"{d.day} {d:%B %Y}"
     return {"title": "Rental agreement - Greenview Residency, Flat 304", "sections": [
         {"heading": "Parties", "text": "This agreement is between Ramesh Iyer (the landlord), owner of Flat 304, "
                                        "Greenview Residency, HSR Layout, Bengaluru, and the tenant."},
-        {"heading": "Term", "text": f"The tenancy runs for 11 months, from {day(start)} to {day(end)}. "
+        {"heading": "Term", "text": f"The tenancy runs for 12 months, from {day(start)} to {day(end)}. "
                                     "It can be renewed by both parties in writing."},
         {"heading": "Rent", "text": "Monthly rent is INR 22,000, due by the 5th of each month by UPI or bank transfer."},
         {"heading": "Security deposit", "text": "The tenant has paid a refundable security deposit of INR 66,000 "
@@ -155,8 +159,10 @@ def seed(engine, store, embedder, user_id: str, today: date | None = None) -> di
     txn_ids = {t["id"] for t in txns}
     today = today or date.today()
     shift = today - timedelta(days=1) - max(date.fromisoformat(t["date"]) for t in txns)  # whole days
-    rows = [{**t, "id": remap(t["id"]), "user_id": user_id, "date": (date.fromisoformat(t["date"]) + shift).isoformat(),
-             "created_at": datetime.fromisoformat(t["created_at"]) + shift} for t in txns]
+    rows = [{**t, "id": remap(t["id"]), "user_id": user_id, "date": new.isoformat(),
+             "created_at": datetime.fromisoformat(t["created_at"]) + shift,  # invoice month code follows the date
+             "invoice_number": re.sub(r"-\d{6}-", f"-{new:%Y%m}-", t["invoice_number"], count=1)}
+            for t in txns for new in [date.fromisoformat(t["date"]) + shift]]
     items = [{**i, "id": remap(i["id"]), "transaction_id": remap(i["transaction_id"])}
              for i in world["transaction_items"] if i["transaction_id"] in txn_ids]
     # The latest electricity bill jumps, so "why is my bill so high?" has something to find.
@@ -172,7 +178,7 @@ def seed(engine, store, embedder, user_id: str, today: date | None = None) -> di
     db.metadata.create_all(engine, tables=[tables[t] for t in ("users", "receipts", "transactions", "transaction_items",
                                                                 "purchase_orders")])
     pos = [{"id": remap(p["po_number"]), "user_id": user_id, "po_number": p["po_number"], "vendor_name": p["vendor_name"],
-            "issue_date": (date.fromisoformat(p["issue_date"]) + shift).isoformat(), "lines": json.dumps(p["lines"]), "currency": p["currency"]}
+            "issue_date": p["issue_date"], "lines": json.dumps(p["lines"]), "currency": p["currency"]}
            for p in world["purchase_orders"] if p["user_id"] == source["id"]]
     with engine.begin() as conn:
         if conn.execute(select(tables["users"].c.id).where(tables["users"].c.id == user_id)).first() is None:

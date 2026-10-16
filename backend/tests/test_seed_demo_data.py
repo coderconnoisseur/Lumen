@@ -81,9 +81,25 @@ def test_the_demo_year_ends_yesterday(seeded):
     created = row["created_at"] if isinstance(row["created_at"], datetime) else datetime.fromisoformat(row["created_at"])
     assert created - datetime.fromisoformat(src["created_at"]) == shift
     with engine.connect() as conn:
-        issued = [date.fromisoformat(d) for (d,) in conn.execute(
-            text("SELECT issue_date FROM purchase_orders WHERE user_id = :u"), {"u": uid})]
-    assert issued and max(issued) < TODAY
+        issued = conn.execute(text("SELECT issue_date FROM purchase_orders WHERE user_id = :u"), {"u": uid}).all()
+    assert issued  # kept as in the PO PDFs
+
+
+def test_invoice_numbers_carry_their_own_month(seeded):
+    import re
+
+    coded = [(r, m.group(1)) for r in seeded[-1] if (m := re.search(r"-(\d{6})-", r["invoice_number"] or ""))]
+    assert len(coded) > 200 and all(code == r["date"][:7].replace("-", "") for r, code in coded)
+
+
+def test_this_months_bills_land_on_their_own_days_up_to_yesterday():
+    from scripts.seed_demo_data import _life_rows
+
+    yesterday = date(2026, 10, 15)
+    rows = [r for r in _life_rows(str(uuid.uuid4()), yesterday, str) if r["date"][:7] == "2026-10"]
+    days = {r["vendor_name"]: _d(r).day for r in rows}
+    assert all(_d(r) <= yesterday for r in rows) and days["SkyTel Mobile"] == 8 and days["FitZone Gym"] == 3
+    assert sum(r["vendor_name"] == "QuickBite" and r["invoice_number"].endswith("-2") for r in rows) == 1
 
 
 def test_the_demo_has_a_persons_regular_bills(seeded):
@@ -128,8 +144,8 @@ def test_the_demo_has_a_rental_agreement(seeded):
     assert len(docs) == 1 and docs[0]["doc_type"] == "contract"
     assert counts["documents"] == again["documents"] == 11 == len(store.list_documents(uid))
     body = " ".join(f"{h} {t}" for _, title, h, t in store.user_chunks(uid) if title == docs[0]["title"])
-    for fact in ("1 December 2026", "22,000", "deposit", "30 days", "5%"):
-        assert fact in body, fact
+    for fact in ("1 November 2025 to 1 November 2026", "22,000", "deposit", "30 days", "5%"):
+        assert fact in body, fact  # starts on the first rent month (Nov 2025)
 
 
 def test_the_demo_account_has_a_profile_ask_lumen_can_read(seeded):
