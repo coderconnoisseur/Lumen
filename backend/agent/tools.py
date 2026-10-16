@@ -232,6 +232,18 @@ def _forecast(ctx: ToolContext, args: ForecastArgs) -> dict:
             "method": "least-squares trend over the last 6 full months"}
 
 
+def _get_recurring(ctx: ToolContext, _: NoArgs) -> dict:
+    """Subscriptions, bills and other regular charges with their next due date (ai.recurring, no LLM)."""
+    from ai.recurring import find_recurring
+
+    with ctx.engine.connect() as conn:
+        txns = [dict(r) for r in conn.execute(text(
+            "SELECT vendor_name, date, total_amount, category FROM transactions WHERE user_id = :u"),
+            {"u": ctx.user_id}).mappings()]
+    found = find_recurring(txns, ctx.today)
+    return {"today": ctx.today.isoformat(), "recurring": found[:30], "truncated": len(found) > 30}
+
+
 def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
     from models import AuditEvent, Proposal
 
@@ -284,6 +296,9 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
     Tool("get_anomalies", "Unusual transactions in the last 90 days (statistical and rule checks), with reasons.",
          NoArgs, _get_anomalies),
     Tool("forecast", "Project total spending for the coming months from the last 6 months' trend.", ForecastArgs, _forecast),
+    Tool("get_recurring", "The user's recurring charges (subscriptions, bills like electricity or rent, other regular "
+         "payments) with cadence, typical amount, next due date, price changes and ones that look stopped.",
+         NoArgs, _get_recurring),
     Tool("propose_action", "Propose an action for a human to approve (never applied directly): flag an invoice, mark "
          "paid, change a category, or follow up with a vendor.", ProposeActionArgs, _propose_action),
     Tool("exchange_rate", "Currency exchange rate (ECB reference rate) for a date or the latest; use to compare or "
