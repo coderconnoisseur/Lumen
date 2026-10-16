@@ -102,6 +102,7 @@ def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
         "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem)},
         "notes": [
             "transactions.date is TEXT 'YYYY-MM-DD'; compare as strings, e.g. date >= '2026-01-01'.",
+            "The database is PostgreSQL: no strftime(), julianday() or date('now'). Month: SUBSTR(date, 1, 7).",
             f"Amounts are in {(ctx.profile or {}).get('currency') or 'INR'}. category values are Title Case (Groceries, Utilities, Transport, ...).",
             "Vendor names are exact strings: use lookup_vendors to find the real name before filtering.",
             f"Today is {ctx.today.isoformat()}.",

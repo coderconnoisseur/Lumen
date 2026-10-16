@@ -77,12 +77,6 @@ _QUERY_START_RE = re.compile(
       | \bSELECT\b""",
     re.IGNORECASE | re.VERBOSE,
 )
-# Names the query defines as CTEs (`WITH name AS (`, `, name AS (`).
-_CTE_NAME_RE = re.compile(
-    r"""(?:\bWITH\s+(?:RECURSIVE\s+)?|,\s*) (\w+) \s* (?:\([^()]*\)\s*)?
-        AS \s* (?:NOT\s+)? (?:MATERIALIZED\s*)? \(""",
-    re.IGNORECASE | re.VERBOSE,
-)
 
 
 class SQLValidationError(ValueError):
@@ -124,16 +118,9 @@ def _validate_sql(sql: str, user_id: str, *, require_user_filter: bool = True) -
     if _FORBIDDEN.search(cleaned):
         raise SQLValidationError("Query contains forbidden SQL keywords")
 
-    # Only allow known tables and the query's own CTEs (rough check; blocks
-    # sqlite_master etc.). _scope_to_user checks every table properly.
+    # Tables are checked on the parsed query by _scope_to_user (a regex here
+    # read `SUBSTRING(date FROM 1 ...)` and `EXTRACT(MONTH FROM date)` as tables).
     lower = cleaned.lower()
-    allowed = _ALLOWED_TABLES | {name.lower() for name in _CTE_NAME_RE.findall(cleaned)}
-    for token in re.findall(r"\bFROM\b\s+(\w+)", cleaned, re.IGNORECASE):
-        if token.lower() not in allowed:
-            raise SQLValidationError(f"Table {token!r} is not allowed")
-    for token in re.findall(r"\bJOIN\b\s+(\w+)", cleaned, re.IGNORECASE):
-        if token.lower() not in allowed:
-            raise SQLValidationError(f"Table {token!r} is not allowed")
 
     uid = str(user_id)
 
@@ -267,6 +254,15 @@ def _scope_to_user(sql: str, user_id: str, dialect: str) -> str:
         _check_tables(tree, frozenset())
     except RecursionError as e:
         raise SQLValidationError("Query is nested too deeply") from e
+
+    if dialect == "postgresql":
+        # Postgres has no ROUND(double precision, integer), and the money
+        # columns are double precision: ROUND(SUM(total_amount), 2) failed.
+        # Cast back so results are plain numbers, as on SQLite.
+        for node in list(tree.find_all(exp.Round)):
+            if node.args.get("decimals") is not None:
+                node.set("this", exp.cast(node.this, "numeric"))
+                node.replace(exp.cast(node.copy(), "double"))
 
     # The model's query runs under two CTEs named after the real tables. A CTE
     # name wins over a table name, so every `transactions` / `transaction_items`
@@ -489,7 +485,14 @@ class SQLAgent:
 
         except Exception as e:
             logger.warning("SQL execution failed: %s", e)
-            return {"success": False, "error": "Query execution failed"}
+            failed = {"success": False, "error": "Query execution failed"}
+            # The database's own message (e.g. "function strftime(unknown, ...) does not exist"), so the agent can
+            # fix its query. First line only: the rest echoes our rewritten SQL. Postgres connection failures have
+            # no pgcode and stay hidden.
+            orig = getattr(e, "orig", None)
+            if orig is not None and (self.dialect == "sqlite" or getattr(orig, "pgcode", None)):
+                failed["reason"] = (str(orig).strip().splitlines() or [""])[0].replace(user_id, "<user>")[:300]
+            return failed
 
     def query(self, natural_language_query: str, user_id: str) -> Dict[str, Any]:
         """Full pipeline: NL → SQL → Results (SQL never returned to clients)."""
