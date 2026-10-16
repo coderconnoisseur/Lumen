@@ -79,3 +79,51 @@ general knowledge as fact (C23's problem); follow-up chips in Lumen's voice (fix
 3. Budgets, subscriptions, forecast: the landing-claim specs (TODO §1).
 
 Re-run this audit after step 1 and after step 2; append the counts here.
+
+## Re-run after phase 1 (release #84, 2026-10-16)
+
+Same 30 questions, live, two fresh demo accounts. Shipped since: #75 (chips in the user's voice, Save from chat),
+#82 (demo = a person's last 12 months ending yesterday, profile the agent sees, setup in seconds, honesty rules),
+#81 (SQL works on Postgres), #80 (recurring bills + `get_recurring`), #83 (prompt lines).
+
+**Result: 20 ✅ · 7 ⚠️ · 3 ❌** (was 5 · 10 · 15). Landing-page questions: **9 ✅ · 5 ⚠️ · 0 ❌** (was 1 · 4 · 9).
+**Demo setup: 8.2 s** live (was 65-72 s).
+
+| # | Grade now | Note |
+|---|---|---|
+| L1 | ✅ | September spending listed from real rows |
+| L2 | ⚠️ | still generic "cooking at home" estimates; didn't use the Restaurant spend it has |
+| L3 | ⚠️ | uses income and average spend, but says a ₹1.1-1.35 lakh month is "within your ₹70,000 budget" |
+| L4 | ✅ | October bill ₹3,439.53, 45% above September, invoice number matches the month |
+| L5 | ✅ | `get_recurring`; honest that usage isn't visible |
+| L6 | ✅ | ₹58,261 of ₹70,000 used this month |
+| L7 | ✅ | 1 Nov 2025 → 1 Nov 2026, cited from the rental agreement |
+| L8 | ⚠️ | honest, but could estimate monthly savings as income − spend |
+| L9 | ✅ | found the QuickBite double charge on 13 Oct |
+| L10 | ✅ | subscriptions with next due dates |
+| L11 | ✅ | month-by-month spend vs budget |
+| L12 | ⚠️ | no longer promises to remember, but "Got it" implies it (#85 tightens the rule) |
+| L13 | ✅ | says Lumen doesn't track balances instead of inventing idle cash |
+| L14 | ⚠️ | real forecast (₹51,247) but called next month "October" |
+| C15 | ✅ | food ₹29,424 vs ₹41,305 (−28%) |
+| C16 | ✅ | rent ₹22,000/month, next due 4 Nov |
+| C17 | ✅ | month so far vs budget, by category |
+| C18 | ✅ | savings rate ≈ 53% from income − spend |
+| C19 | ✅ | tax on invoices this year |
+| C20 | ❌ | its query returned 0 rows and it said "you have no transaction data" |
+| C21 | ✅ | (all rent rows; correct) |
+| C22 | ⚠️ | restaurant spend ≈ 5-6% of income, but cites a made-up source `【run_sql】` |
+| C23 | ❌ | tax on 12 lakh still uses 2023 slabs — needs the tax calculator / web search (SPEC-AGENT-TOOLS v2, #77) |
+| C24 | ✅ | EUR → INR at the ECB rate |
+| C25 | ⚠️ | good explanation, didn't use the user's numbers |
+| C26 | ✅ | September vs October by category |
+| C27 | ❌ | looked for a "phone" vendor and missed "SkyTel Mobile" |
+| C28 | ✅ | next bill AquaWorks on 24 Oct, then November bills |
+| C29 | ✅ | cuts from the user's own categories |
+| C30 | ✅ | declined politely |
+
+**Still open:** stale tax knowledge (C23 → #77 tax tool / web search); vendor lookup by kind ("phone" → SkyTel,
+C27 → `get_overview`/categories in #77); empty-result honesty (C20: "no data" when a query returns 0 rows); made-up
+citation format (C22); month labels (L14); arithmetic consistency (L3). The SUBSTR-on-DATE errors seen in this run are
+fixed in #85. **The API restarted once mid-run** (requests failed for ~1 minute, health then took 3.4 s) — check Render
+events for an out-of-memory restart; the boot warm-up now also holds the demo documents.
