@@ -41,6 +41,8 @@ _FORBIDDEN_FUNCTION_PREFIXES = (
     "pg_", "lo_", "dblink", "current_setting", "set_config",
     "ts_stat", "ts_rewrite", "crosstab", "connectby", "http",
     "load_extension", "fts3_tokenizer", "readfile", "writefile",
+    # Server identity: address, version, database and role names.
+    "inet_", "version", "currentversion", "current_database", "current_user", "session_user", "sessionuser",
 )
 
 # Nodes that change data or state; none belong anywhere in a read query.

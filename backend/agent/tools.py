@@ -91,6 +91,12 @@ class ProposeActionArgs(BaseModel):
 
 # --- implementations -----------------------------------------------------------------------------------------
 
+def _dialect_note(dialect: str) -> str:
+    if dialect == "postgresql":
+        return "The database is PostgreSQL: no strftime(), julianday() or date('now'). Month: SUBSTR(date, 1, 7)."
+    return "The database is SQLite: strftime() and date('now') work. Month: SUBSTR(date, 1, 7)."
+
+
 def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
     """Generated from the models, so it can't drift from the real tables (builder finding 6b #13)."""
     from models import Transaction, TransactionItem
@@ -102,7 +108,7 @@ def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
         "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem)},
         "notes": [
             "transactions.date is TEXT 'YYYY-MM-DD'; compare as strings, e.g. date >= '2026-01-01'.",
-            "The database is PostgreSQL: no strftime(), julianday() or date('now'). Month: SUBSTR(date, 1, 7).",
+            _dialect_note(ctx.sql_agent.dialect),
             f"Amounts are in {(ctx.profile or {}).get('currency') or 'INR'}. category values are Title Case (Groceries, Utilities, Transport, ...).",
             "Vendor names are exact strings: use lookup_vendors to find the real name before filtering.",
             f"Today is {ctx.today.isoformat()}.",

@@ -50,6 +50,7 @@ def test_schema_is_generated_from_the_models(db, world):
     out = run_tool(_ctx(db, world), "get_schema", "{}")
     assert "vendor_name" in out["tables"]["transactions"] and "item_name" in out["tables"]["transaction_items"]
     assert any("2026-06-30" in note for note in out["notes"])
+    assert any("SQLite" in note for note in out["notes"]) and not any("PostgreSQL" in note for note in out["notes"])
 
 
 def test_system_prompt_lists_every_queryable_column():
