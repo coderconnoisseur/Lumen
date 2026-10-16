@@ -226,6 +226,11 @@ def test_split_follow_up():
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
     # seen in production: a bare "Next:", and Lumen asking the user (a chip would send its own question back to it)
     assert split_follow_up("Which period?\nNext:") == ("Which period?", None)
+    # seen live after release #84: more ways Lumen talks to the user in a "Next:" line
+    for lumen in ("you could ask me to show duplicates", "tell me which subscription to cancel",
+                  "If you'd like a breakdown, ask", "You can ask for last month"):
+        assert split_follow_up(f"Done.\nNext: {lumen}")[1] is None
+    assert split_follow_up("Done.\nNext: Tell me my top vendors")[1] == "Tell me my top vendors"
     assert split_follow_up("Here it is.\nNext: Would you like last month or the last three?") == (
         "Here it is.\n\nWould you like last month or the last three?", None)
     assert split_follow_up("Done.\nNext: Can I afford a trip in December?") == (
