@@ -264,3 +264,15 @@ def test_run_tool_turns_unexpected_errors_into_data_but_lets_llm_errors_through(
     monkeypatch.setitem(tools.TOOLS, "lookup_vendors", replace(tools.TOOLS["lookup_vendors"], run=boom(LLMError(LLMError.AUTH, "x"))))
     with pytest.raises(LLMError):
         run_tool(ctx, "lookup_vendors", {})
+
+
+def test_get_recurring_finds_the_users_bills_and_subscriptions_but_not_shopping(db, world):
+    from agent.tools import run_tool
+
+    out = run_tool(_ctx(db, world), "get_recurring", "{}")
+    by_vendor = {r["vendor"]: r for r in out["recurring"]}
+    assert by_vendor["City Power Ltd"]["kind"] == "bill" and by_vendor["City Power Ltd"]["cadence"] == "monthly"
+    assert by_vendor["City Power Ltd"]["next_due_date"] > "2026-06-30"
+    assert by_vendor["StreamFlix"]["kind"] == "subscription"
+    assert "Lotus Yoga Studio" not in by_vendor  # u2's vendor: the tool only sees the context user's rows
+    assert not any(r["category"] == "Groceries" for r in out["recurring"])
