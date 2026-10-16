@@ -78,3 +78,25 @@ def test_cancelled_subscription_is_flagged_possibly_stopped():
     r = _one(_monthly("GymFlex", [999, 999, 999], "Subscriptions", start_month=1), "GymFlex")  # last 2026-03-05
     assert r["possibly_stopped"]
     assert find_recurring(_monthly("GymFlex", [999] * 3, "Subscriptions", start_month=4), TODAY)[0]["possibly_stopped"] is False
+
+
+def test_rent_with_one_missed_month_is_still_found_and_next_due_follows():
+    txns = [_t("Landlord", date(2026, m, 1), 15000, "Rent") for m in (1, 2, 3, 5, 6)]  # April missed
+    r = _one(txns, "Landlord")
+    assert r["cadence"] == "monthly" and r["next_due_date"] == "2026-07-01"
+
+
+def test_rent_with_one_extra_charge_is_still_found():
+    txns = [_t("Landlord", date(2026, m, 1), 15000, "Rent") for m in range(1, 7)]
+    txns.append(_t("Landlord", date(2026, 3, 16), 15000, "Rent"))
+    assert _one(txns, "Landlord")["cadence"] == "monthly"
+
+
+def test_weekly_groceries_at_varying_amounts_are_excluded():
+    txns = [_t("FreshMart", date(2026, 5, 1) + timedelta(days=7 * i), a, "Groceries")
+            for i, a in enumerate([820, 340, 1500, 610, 95, 2200])]
+    assert not [r for r in find_recurring(txns, TODAY) if r["vendor"] == "FreshMart"]
+
+
+def test_utility_usage_swing_is_not_a_price_change():
+    assert _one(_monthly("City Power", [2000, 2000, 2000, 2600], "Utilities"), "City Power")["price_change"] is None

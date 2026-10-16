@@ -51,7 +51,9 @@ def find_recurring(transactions: list[dict], today: date) -> list[dict]:
         charges.sort(key=lambda c: c[0])
         gaps = [(b[0] - a[0]).days for a, b in zip(charges, charges[1:])]
         cadence = next((c for c in _CADENCES if abs(median(gaps) - c[1]) <= c[2]), None)
-        if cadence is None or any(abs(g - cadence[1]) > cadence[2] for g in gaps):
+        # a gap fits if it is one period or two (a missed cycle); an odd extra charge may spoil a third of them
+        if cadence is None or sum(min(abs(g - cadence[1]), abs(g - 2 * cadence[1])) <= cadence[2]
+                                  for g in gaps) < len(gaps) * 2 / 3:
             continue  # irregular: shopping, not a recurring charge
         name, period, _, months = cadence
         last_date, last_amount, last = charges[-1]
@@ -74,7 +76,7 @@ def find_recurring(transactions: list[dict], today: date) -> list[dict]:
             "next_due_date": next_due.isoformat(),
             "charges_count": len(charges),
             "price_change": ({"previous": round(earlier, 2), "latest": round(last_amount, 2), "percent": percent}
-                             if abs(percent) >= 5 else None),
+                             if abs(percent) >= (50 if kind == "bill" else 5) else None),
             "kind": kind,
             "possibly_stopped": (today - last_date).days > 2 * period + cadence[2],
         })
