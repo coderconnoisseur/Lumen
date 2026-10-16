@@ -21,9 +21,9 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 Goal = Literal["save_more", "cut_subscriptions", "stay_on_budget", "pay_off_debt", "emergency_fund",
                "big_purchase", "business_expenses"]
-DEMO_PROFILE = {"display_name": "Demo visitor", "avatar_key": None, "currency": "INR", "monthly_income": None,
-                "monthly_budget": None, "use_case": "personal", "goals": ["save_more", "cut_subscriptions"],
-                "onboarded": True, "demo": True}
+DEMO_PROFILE = {"display_name": "Demo visitor", "avatar_key": None, "currency": "INR", "monthly_income": 120000,
+                "monthly_budget": 70000, "use_case": "personal",
+                "goals": ["save_more", "cut_subscriptions", "big_purchase"], "onboarded": True, "demo": True}
 
 
 @lru_cache(maxsize=1)

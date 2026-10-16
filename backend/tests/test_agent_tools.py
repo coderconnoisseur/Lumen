@@ -165,6 +165,17 @@ def test_system_prompt_without_a_profile_is_unchanged():
     assert system_prompt(date(2026, 10, 14)) == SYSTEM_PROMPT.format(today="2026-10-14", schema=_schema())
 
 
+def test_system_prompt_has_the_honesty_rules():
+    from datetime import date
+
+    from agent.prompts import system_prompt
+
+    text = system_prompt(date(2026, 10, 16))
+    assert "can't remember" in text and "may be out of date" in text
+    assert "where the user's data starts and ends" in text and "currency" not in text
+    assert "doesn't track account balances or savings pots yet" in text
+
+
 def test_system_prompt_with_a_profile_uses_its_currency_and_context():
     from datetime import date
 

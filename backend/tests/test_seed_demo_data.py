@@ -1,6 +1,8 @@
 """scripts/seed_demo_data.py touches only the seeded rows and can be re-run."""
 import uuid
+from datetime import date, datetime, timedelta
 
+import pytest
 from sqlalchemy import create_engine, text
 
 
@@ -27,6 +29,182 @@ def test_seeding_keeps_the_accounts_own_rows_and_is_repeatable(monkeypatch):
     first = counts()
     assert seed_demo_data.main(["--user-id", uid]) == 0
     assert counts() == first  # re-run: no duplicates
-    assert first[0] > 200 and first[1] == 10 and first[2] == "me@real.example"
+    assert first[0] > 200 and first[1] == 11 and first[2] == "me@real.example"
     with engine.connect() as conn:
         assert conn.execute(text("SELECT COUNT(*) FROM transactions WHERE id = 'mine-1'")).scalar() == 1
+
+
+TODAY = date(2026, 11, 1)
+
+
+@pytest.fixture(scope="module")
+def seeded(tmp_path_factory):
+    """A demo account seeded as if today were 1 Nov 2026 (seeded twice: re-seeding must be a no-op)."""
+    import models  # noqa: F401
+    from models.database import db
+    from rag.embed import FakeEmbedder
+    from rag.store import ChunkStore
+    from scripts.seed_demo_data import seed
+
+    engine = create_engine(f"sqlite:///{tmp_path_factory.mktemp('seed') / 'demo.db'}")
+    db.metadata.create_all(engine)
+    store = ChunkStore(engine)
+    uid = str(uuid.uuid4())
+    counts = seed(engine, store, FakeEmbedder(), uid, today=TODAY)
+    with engine.connect() as conn:
+        before = conn.execute(text("SELECT COUNT(*) FROM transactions WHERE user_id = :u"), {"u": uid}).scalar()
+    again = seed(engine, store, FakeEmbedder(), uid, today=TODAY)
+    with engine.connect() as conn:
+        rows = [dict(r._mapping) for r in conn.execute(
+            text("SELECT * FROM transactions WHERE user_id = :u"), {"u": uid})]
+    return engine, store, uid, counts, again, before, rows
+
+
+def _d(row):
+    return date.fromisoformat(row["date"])
+
+
+def test_the_demo_year_ends_yesterday(seeded):
+    from evals.generator.world import build_world
+
+    engine, _, uid, counts, _, _, rows = seeded
+    dates = [_d(r) for r in rows]
+    assert max(dates) == TODAY - timedelta(days=1)
+    assert min(dates) >= date(2025, 10, 1)  # within 13 months
+    assert counts["transactions"] == len(rows)
+    # One known world row: date and created_at move by the same number of days.
+    world = build_world(42)
+    src = next(t for t in world["transactions"] if t["invoice_number"] == "CP-202606-U10228")
+    row = next(r for r in rows if r["id"] == str(uuid.uuid5(uuid.UUID(uid), src["id"])))
+    shift = _d(row) - date.fromisoformat(src["date"])
+    assert shift.days > 0
+    created = row["created_at"] if isinstance(row["created_at"], datetime) else datetime.fromisoformat(row["created_at"])
+    assert created - datetime.fromisoformat(src["created_at"]) == shift
+    with engine.connect() as conn:
+        issued = conn.execute(text("SELECT issue_date FROM purchase_orders WHERE user_id = :u"), {"u": uid}).all()
+    assert issued  # kept as in the PO PDFs
+
+
+def test_invoice_numbers_carry_their_own_month(seeded):
+    import re
+
+    coded = [(r, m.group(1)) for r in seeded[-1] if (m := re.search(r"-(\d{6})-", r["invoice_number"] or ""))]
+    assert len(coded) > 200 and all(code == r["date"][:7].replace("-", "") for r, code in coded)
+
+
+def test_this_months_bills_land_on_their_own_days_up_to_yesterday():
+    from scripts.seed_demo_data import _life_rows
+
+    yesterday = date(2026, 10, 15)
+    rows = [r for r in _life_rows(str(uuid.uuid4()), yesterday, str) if r["date"][:7] == "2026-10"]
+    days = {r["vendor_name"]: _d(r).day for r in rows}
+    assert all(_d(r) <= yesterday for r in rows) and days["SkyTel Mobile"] == 8 and days["FitZone Gym"] == 3
+    assert sum(r["vendor_name"] == "QuickBite" and r["invoice_number"].endswith("-2") for r in rows) == 1
+
+
+def test_the_demo_has_a_persons_regular_bills(seeded):
+    rows = seeded[-1]
+    by = lambda vendor: sorted((r for r in rows if r["vendor_name"] == vendor), key=_d)
+    month = lambda r: r["date"][:7]
+
+    rent = by("Greenview Residency")
+    assert len(rent) == 12 and len({month(r) for r in rent}) == 12
+    assert all(r["category"] == "Housing" and r["total_amount"] == 22000 and _d(r).day <= 5 for r in rent)
+
+    phone = by("SkyTel Mobile")
+    assert len(phone) == 12 and all(r["category"] == "Utilities" for r in phone)
+    assert [r["total_amount"] for r in phone] == [499] * 9 + [649] * 3
+
+    gym = by("FitZone Gym")
+    assert len(gym) == 12 and all(r["category"] == "Healthcare" and r["total_amount"] == 1500 for r in gym)
+
+    food = by("QuickBite")
+    per_month = {}
+    for r in food:
+        per_month.setdefault(month(r), []).append(r)
+        assert r["category"] == "Restaurant" and 250 <= r["total_amount"] <= 700
+    current = (TODAY - timedelta(days=1)).isoformat()[:7]
+    assert len(per_month) == 12 and all(3 <= len(v) <= 6 for m, v in per_month.items() if m != current)
+    # Exactly one duplicate charge this month, and it's QuickBite.
+    seen = {}
+    for r in rows:
+        if month(r) == current:
+            key = (r["vendor_name"], r["total_amount"], r["date"])
+            seen[key] = seen.get(key, 0) + 1
+    assert [k[0] for k, n in seen.items() if n > 1] == ["QuickBite"] and max(seen.values()) == 2
+
+    power = by("City Power Ltd")
+    earlier = sorted(r["total_amount"] for r in power[:-1])
+    assert power[-1]["total_amount"] >= 1.3 * earlier[len(earlier) // 2]
+
+
+def test_the_demo_has_a_rental_agreement(seeded):
+    _, store, uid, counts, again, _, _ = seeded
+    docs = [d for d in store.list_documents(uid) if d["title"].lower().startswith("rental agreement")]
+    assert len(docs) == 1 and docs[0]["doc_type"] == "contract"
+    assert counts["documents"] == again["documents"] == 11 == len(store.list_documents(uid))
+    body = " ".join(f"{h} {t}" for _, title, h, t in store.user_chunks(uid) if title == docs[0]["title"])
+    for fact in ("1 November 2025 to 1 November 2026", "22,000", "deposit", "30 days", "5%"):
+        assert fact in body, fact  # starts on the first rent month (Nov 2025)
+
+
+def test_the_demo_account_has_a_profile_ask_lumen_can_read(seeded):
+    from api.profile import profile_for
+
+    engine, _, uid, *_ = seeded
+    profile = profile_for(engine, uid)
+    assert profile["monthly_income"] == 120000 and profile["monthly_budget"] == 70000
+    assert "big_purchase" in profile["goals"] and profile["onboarded"] and profile["currency"] == "INR"
+
+
+def test_reseeding_the_same_day_adds_nothing(seeded):
+    _, _, _, counts, again, before, rows = seeded
+    assert counts == again and before == len(rows)
+
+
+def _wait_for_uploads():
+    import threading
+
+    for t in threading.enumerate():
+        if t.name == "demo-uploads":
+            t.join()
+
+
+def test_two_visitors_share_one_embedding_of_the_demo_documents(tmp_path, monkeypatch):
+    """The corpus PDFs are parsed and embedded once per process; uploads run in the background and a storage
+    outage doesn't fail the seed; each visitor still searches only their own copy."""
+    import models  # noqa: F401
+    import utils.files
+    from models.database import db
+    from rag.embed import FakeEmbedder
+    from rag.store import ChunkStore
+    from scripts import seed_demo_data
+
+    class Counting(FakeEmbedder):
+        calls = {"corpus": 0, "rental": 0}
+
+        def embed_passages(self, texts):
+            self.calls["rental" if any("Greenview" in t for t in texts) else "corpus"] += 1
+            return super().embed_passages(texts)
+
+    def down(key, data):
+        raise RuntimeError("storage is down")
+
+    monkeypatch.setattr(utils.files, "keep", down)
+    seed_demo_data.demo_documents.cache_clear()
+    engine = create_engine(f"sqlite:///{tmp_path / 'demo.db'}")
+    db.metadata.create_all(engine)
+    store, embedder = ChunkStore(engine), Counting()
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    seed_demo_data.seed(engine, store, embedder, a, today=TODAY)
+    corpus_calls = embedder.calls["corpus"]
+    seed_demo_data.seed(engine, store, embedder, b, today=TODAY)
+    _wait_for_uploads()
+    assert corpus_calls > 0 and embedder.calls == {"corpus": corpus_calls, "rental": 2}
+    for uid in (a, b):
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM transactions WHERE user_id = :u"), {"u": uid}).scalar() > 200
+        assert len(store.list_documents(uid)) == 11
+        hits = store.dense_search(uid, embedder.embed_query("NetLink 90 days written notice terminate"), k=3)
+        assert hits and "NetLink" in hits[0].title
+        assert {h.doc_id for h in hits} <= {d["id"] for d in store.list_documents(uid)}
