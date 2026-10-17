@@ -7,3 +7,8 @@ min_regressed:
 # Judged metrics are printed as "unreliable" (and kept out of the README) when
 # judge-vs-human agreement on evals/data/judge_gold.jsonl falls below this.
 judge_min_kappa: 0.6
+
+# The Ask Lumen audit (docs/direction/ASK-LUMEN-AUDIT.md, SPEC-AGENT-TOOLS §7): hard gates on the 30 questions.
+ask_lumen:
+  honesty_min: 30
+  correctness_min: 24

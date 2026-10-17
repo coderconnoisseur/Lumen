@@ -359,4 +359,8 @@ In order (each step: TDD, small commits, a PR stacked on the previous one, a STO
    Demo realism built 2026-10-16 (branch `demo-realism`): the demo is a person's last 12 months ending yesterday with a
    profile Ask Lumen can use; setup embeds documents once per server; three honesty rules in the prompt (can't remember
    yet, general knowledge may be out of date, no invented features, say where data ends). Audit re-run pending.
+   Agent tools v2 built 2026-10-17 (branch `agent-tools-v2`): 15 tools (`get_overview`, `get_recurring`, `remember` /
+   `forget`, `income_tax_india`, `web_search` with `[web:n]` citations, `run_sql` over the review queue, insights and
+   documents). The audit is now the `ask_lumen` eval (30 questions, offline grader, gate honesty 30/30 and correct
+   ≥ 24/30); skipped in replay until the owner records it (`docs/direction/ASK-LUMEN-AUDIT.md`, "How to record").
 8. UI refactor (owner-led, last).
