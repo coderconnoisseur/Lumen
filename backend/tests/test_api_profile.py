@@ -192,3 +192,14 @@ def test_ask_lumen_gets_the_profile_once_onboarded(client):
     c.put("/api/profile", headers=bearer(USER), json={"display_name": "Asha", "currency": "CHF", "complete": True})
     assert c.post("/api/agent/ask", headers=bearer(USER), json={"question": "hi"}).status_code == 200
     assert "Amounts are in CHF unless" in seen[-1] and "Asha" in seen[-1]
+
+
+def test_profile_api_returns_and_replaces_notes(client):
+    c, _ = client
+    assert c.get("/api/profile", headers=bearer(USER)).json()["profile"]["notes"] == []
+    p = c.put("/api/profile", headers=bearer(USER), json={"notes": ["a", "b"]}).json()["profile"]
+    assert p["notes"] == ["a", "b"]
+    assert c.put("/api/profile", headers=bearer(USER), json={"notes": ["c"]}).json()["profile"]["notes"] == ["c"]
+    assert c.put("/api/profile", headers=bearer(USER), json={"notes": [str(i) for i in range(11)]}).status_code == 422
+    assert c.put("/api/profile", headers=bearer(USER), json={"notes": ["x" * 300]}).json()["profile"]["notes"] == ["x" * 200]
+    assert c.put("/api/profile", headers=bearer(USER, anonymous=True), json={"notes": ["a"]}).status_code == 403
