@@ -281,3 +281,74 @@ def test_get_recurring_finds_the_users_bills_and_subscriptions_but_not_shopping(
     assert by_vendor["StreamFlix"]["kind"] == "subscription"
     assert "Lotus Yoga Studio" not in by_vendor  # u2's vendor: the tool only sees the context user's rows
     assert not any(r["category"] == "Groceries" for r in out["recurring"])
+
+
+# --- get_overview: a fresh database per test, rows relative to a fixed today ---------------------------------
+
+def _overview(rows, profile=None, uid="me"):
+    """rows: (user_id, date, vendor, category, amount). Runs get_overview with today = 2026-10-17."""
+    from datetime import date
+
+    from agent.tools import ToolContext, run_tool
+    from models.database import db as flask_db
+
+    engine = create_engine("sqlite://")
+    flask_db.metadata.create_all(engine, tables=[flask_db.metadata.tables["transactions"]])
+    with engine.begin() as conn:
+        for i, (u, d, v, c, a) in enumerate(rows):
+            conn.execute(text("INSERT INTO transactions (id, user_id, date, vendor_name, category, total_amount) "
+                              "VALUES (:i, :u, :d, :v, :c, :a)"), {"i": str(i), "u": u, "d": d, "v": v, "c": c, "a": a})
+    ctx = ToolContext(user_id=uid, engine=engine, sql_agent=None, today=date(2026, 10, 17), profile=profile)
+    return run_tool(ctx, "get_overview", "{}")
+
+
+def test_overview_shows_empty_months_and_where_data_ends():
+    out = _overview([("me", "2026-05-03", "Shop", "Groceries", 100), ("me", "2026-07-20", "Shop", "Groceries", 200)])
+    months = out["months"]
+    assert [m["month"] for m in months] == ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]
+    assert [m["has_data"] for m in months] == [True, False, True, False, False, False]
+    assert months[2]["spend"] == 200 and months[2]["transactions"] == 1
+    assert out["data"]["last_date"] == "2026-07-20" and "2026-07-20" in out["data"]["note"]
+    assert out["missing"] == ["account balances (Lumen does not track them)"]
+
+
+def test_overview_savings_null_without_income():
+    rows = [("me", "2026-10-05", "Rent Co", "Rent", 50000)]
+    out = _overview(rows, profile={"monthly_budget": 60000})
+    assert out["income"] is None and all(m["savings"] is None for m in out["months"])
+    assert out["months"][-1]["budget_left"] == 10000
+    out = _overview(rows, profile={"monthly_income": 120000})
+    assert out["months"][-1]["savings"] == 70000 and "estimate" in out["income"]["source"]
+
+
+def test_overview_fits_the_tool_limit():
+    rows = [("me", f"2026-{m:02d}-{(v % 17) + 1:02d}", f"Vendor {v}", f"Category {v % 30}", 100 + v)
+            for m in range(1, 11) for v in range(60)]
+    out = _overview(rows, profile={"monthly_income": 120000, "monthly_budget": 60000})
+    assert len(json.dumps(out)) < 3000, len(json.dumps(out))
+    assert all(len(m["by_category"]) <= 6 for m in out["months"])
+    huge = [("me", f"2026-{m:02d}-{(v % 17) + 1:02d}", f"Vendor with a long long name {v}",
+             f"Category {v % 30} with a long long name", 1_000_000.5 + v * 137.3) for m in range(1, 11) for v in range(60)]
+    assert len(json.dumps(_overview(huge, profile={"monthly_income": 1200000.75, "monthly_budget": 600000.3}))) < 3000
+
+
+def test_overview_for_a_user_with_no_data():
+    out = _overview([])
+    assert out["data"]["transactions"] == 0 and out["data"]["first_date"] is None
+    assert len(out["months"]) == 6 and not any(m["has_data"] for m in out["months"])
+    assert out["this_month_vs_last"]["change_pct"] is None
+
+
+def test_overview_is_user_scoped():
+    mine = [("me", "2026-10-02", "Shop", "Groceries", 300)]
+    assert _overview(mine) == _overview(mine + [("other", "2026-10-03", "Shop", "Groceries", 999)])
+
+
+def test_system_prompt_honesty_rules_v2():
+    from datetime import date
+
+    from agent.prompts import system_prompt
+
+    text = system_prompt(date(2026, 10, 17))
+    assert "get_overview" in text and "Cite only" in text and "[web:n]" in text and "income you entered" in text
+    assert "currency" not in text

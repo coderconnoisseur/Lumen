@@ -72,6 +72,8 @@ def _summary(name: str, result: dict) -> str:
         return ", ".join(v["vendor"] for v in result.get("vendors", [])[:3]) or "no match"
     if name == "exchange_rate":
         return f"{result.get('base')}/{result.get('quote')} {result.get('rate')}"
+    if name == "get_overview":
+        return f"6 months, data to {result['data']['last_date'] or 'none'}"
     if name == "propose_action":
         return f"proposal {result.get('status')}"
     return "ok"

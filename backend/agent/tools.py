@@ -251,6 +251,76 @@ def _get_recurring(ctx: ToolContext, _: NoArgs) -> dict:
     return {"today": ctx.today.isoformat(), "recurring": found[:30], "truncated": len(found) > 30}
 
 
+def _get_overview(ctx: ToolContext, _: NoArgs) -> dict:
+    """Facts to start a broad question from: 6 calendar months of spend, profile income/budget, recurring bills."""
+    from ai.recurring import find_recurring
+
+    with ctx.engine.connect() as conn:
+        # all of one user's rows, grouped in Python: portable across SQLite TEXT and Postgres DATE columns
+        txns = [dict(r) for r in conn.execute(text(
+            "SELECT vendor_name, date, total_amount, category FROM transactions WHERE user_id = :u"),
+            {"u": ctx.user_id}).mappings()]
+    dates = sorted(str(t["date"])[:10] for t in txns if t["date"])
+    first, last = (dates[0], dates[-1]) if dates else (None, None)
+    profile = ctx.profile or {}
+    income, budget = profile.get("monthly_income") or None, profile.get("monthly_budget") or None
+    keys = [f"{y}-{m + 1:02d}" for y, m in (divmod(ctx.today.year * 12 + ctx.today.month - 1 - k, 12)
+                                             for k in range(5, -1, -1))]
+    spend = {k: {} for k in keys}  # month -> category -> total
+    count = dict.fromkeys(keys, 0)
+    for t in txns:
+        k = str(t["date"] or "")[:7]
+        if k in spend:
+            cat = t["category"] or "Uncategorized"
+            spend[k][cat] = spend[k].get(cat, 0) + (t["total_amount"] or 0)
+            count[k] += 1
+    months = []
+    for k in keys:
+        cats = sorted(spend[k].items(), key=lambda c: -c[1])
+        total, has = round(sum(spend[k].values())), count[k] > 0
+        by_cat = {c[:20]: round(v) for c, v in cats[:5]}  # names cut so the result fits MAX_TOOL_RESULT_CHARS
+        if cats[5:]:
+            by_cat["other"] = round(sum(v for _, v in cats[5:]))
+        months.append({"month": k, "spend": total, "transactions": count[k], "by_category": by_cat,
+                       # income and budget are the same every month: top level only, to stay under the size cap
+                       "savings": round(income - total) if income and has else None,
+                       "budget_left": round(budget - total) if budget and has else None,
+                       "has_data": has})
+    this, prev = months[-1]["spend"], months[-2]["spend"]
+    totals: dict[str, list[float]] = {}  # category -> [first 3 months, last 3 months]
+    for i, k in enumerate(keys):
+        for cat, v in spend[k].items():
+            totals.setdefault(cat, [0.0, 0.0])[i >= 3] += v
+
+    def trend(early: float, late: float) -> str:
+        return "flat" if abs(late - early) <= 0.1 * max(early, late) else "up" if late > early else "down"
+
+    top = sorted(totals.items(), key=lambda c: -sum(c[1]))[:5]
+    bills = [{"vendor": r["vendor"][:20], "kind": r["kind"], "typical_amount": round(r["typical_amount"]),
+              "next_due_date": r["next_due_date"]}
+             for r in sorted((r for r in find_recurring(txns, ctx.today) if not r["possibly_stopped"]),
+                             key=lambda r: r["next_due_date"])[:5]]
+    out = {
+        "today": ctx.today.isoformat(),
+        "data": {"first_date": first, "last_date": last, "transactions": len(txns),
+                 "note": f"The user's transactions run from {first} to {last}; later months have no data."
+                 if last else "The user has no transactions yet."},
+        "months": months,
+        "income": {"monthly": income, "source": "the user's own estimate from their profile"} if income else None,
+        "budget": budget,
+        "this_month_vs_last": {"this": this, "last": prev,
+                               "change_pct": round((this - prev) / prev * 100, 1) if prev else None},
+        "top_categories_6m": [{"category": c[:20], "spend": round(sum(v)), "trend": trend(*v)} for c, v in top],
+        "recurring_bills": bills,
+        "missing": ["account balances (Lumen does not track them)"],
+    }
+    from agent.graph import MAX_TOOL_RESULT_CHARS  # lazy: graph imports this module
+
+    while len(json.dumps(out)) >= MAX_TOOL_RESULT_CHARS and bills:
+        bills.pop()  # very long names or huge amounts: lose bills (get_recurring has them), never get cut mid-JSON
+    return out
+
+
 def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
     from models import AuditEvent, Proposal
 
@@ -291,6 +361,9 @@ def _exchange_rate(ctx: ToolContext, args: ExchangeRateArgs) -> dict:
 
 
 TOOLS: dict[str, Tool] = {t.name: t for t in (
+    Tool("get_overview", "Start here for broad or vague questions (how am I doing, where does my money go): 6 months "
+         "of spend by category, income and budget from the profile, savings, recurring bills, and where the data "
+         "starts and ends.", NoArgs, _get_overview),
     Tool("get_schema", "The tables and columns you can query with run_sql, with notes on dates, amounts and today's date.",
          NoArgs, _get_schema),
     Tool("lookup_vendors", "Find the user's real vendor names (with category, items bought and totals). Use before "
