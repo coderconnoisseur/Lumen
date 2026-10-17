@@ -45,6 +45,7 @@ class ToolContext:
     today: date = field(default_factory=date.today)
     profile: dict | None = None  # the onboarding answers (api.profile.load_profile), None before onboarding
     web_ids: int = 0  # web results handed out so far in this run, so [web:n] ids stay unique across searches
+    question: str = ""  # the user's own message; remember only saves when it asks to
 
 
 @dataclass(frozen=True)
@@ -360,9 +361,14 @@ def _edit_notes(ctx: ToolContext, change) -> dict:
     return {"notes": [{"n": i, **n} for i, n in enumerate(notes, 1)]}
 
 
+_REMEMBER_ASK = re.compile(r"remember|keep\b.{0,40}\bin mind|note that|don'?t forget", re.IGNORECASE)
+
+
 def _remember(ctx: ToolContext, args: RememberArgs) -> dict:
     from api.profile import MAX_NOTES, NOTE_CHARS, clean_note
 
+    if not _REMEMBER_ASK.search(ctx.question.replace("’", "'")):  # a document or web page can't ask for a note
+        return {"error": "Only save a note when the user's own message asks you to remember something."}
     text = clean_note(args.note)
     cut = len(" ".join(args.note.split())) > NOTE_CHARS
 
@@ -433,6 +439,7 @@ def _exchange_rate(ctx: ToolContext, args: ExchangeRateArgs) -> dict:
 
 TAVILY = "https://api.tavily.com/search"
 WEB_SEARCH_PER_DAY = 5  # per account; each search costs a Tavily credit
+WEB_SEARCH_GLOBAL_PER_DAY = 100  # all accounts together: demo accounts are free to mint
 # shortcut: in-process {user_id: (day, count)}; resets on restart and is per worker. Move to the DB or Redis
 # when the API runs more than one worker.
 _web_searches: dict[str, tuple[date, int]] = {}
@@ -452,22 +459,31 @@ def _post_tavily(body: dict, key: str) -> requests.Response:
 
 
 def _web_search(ctx: ToolContext, args: WebSearchArgs) -> dict:
-    day, used = _web_searches.get(ctx.user_id, (ctx.today, 0))
-    used = used if day == ctx.today else 0
-    if used >= WEB_SEARCH_PER_DAY:
+    def used(key: str) -> int:
+        day, n = _web_searches.get(key, (ctx.today, 0))
+        return n if day == ctx.today else 0
+    mine, everyone = used(ctx.user_id), used("*")  # "*": every account (user ids are uuids)
+    if mine >= WEB_SEARCH_PER_DAY:
         return {"error": f"The daily web-search limit ({WEB_SEARCH_PER_DAY}) is reached; answer without it and say so."}
-    _web_searches[ctx.user_id] = (ctx.today, used + 1)
+    if everyone >= WEB_SEARCH_GLOBAL_PER_DAY:
+        return {"error": "Lumen's daily web-search limit is reached; answer without it and say so."}
+    _web_searches[ctx.user_id], _web_searches["*"] = (ctx.today, mine + 1), (ctx.today, everyone + 1)
     try:
         r = _post_tavily({"query": args.query, "search_depth": "basic", "max_results": 5, "include_answer": False},
                          os.environ.get("TAVILY_API_KEY", ""))
         r.raise_for_status()
-        results = [{"id": f"web:{ctx.web_ids + i}", "title": str(x.get("title") or "")[:200], "url": x["url"],
+        results = [{"id": f"web:{ctx.web_ids + i}", "title": str(x.get("title") or "")[:120], "url": x["url"],
                     "site": urlparse(x["url"]).hostname or "", "published": x.get("published_date"),
-                    "snippet": str(x.get("content") or "")[:500]}
+                    "snippet": str(x.get("content") or "")[:300]}
                    for i, x in enumerate([x for x in r.json()["results"]  # untrusted: links must be http(s)
                                           if urlparse(x.get("url") or "").scheme in ("http", "https")][:5], 1)]
-        ctx.web_ids += len(results)
-        return {"results": [{k: v for k, v in x.items() if v is not None} for x in results], "source": "Tavily"}
+        out = {"results": [{k: v for k, v in x.items() if v is not None} for x in results], "source": "Tavily"}
+        from agent.graph import MAX_TOOL_RESULT_CHARS  # lazy: graph imports this module
+
+        while len(json.dumps(out, default=str)) >= MAX_TOOL_RESULT_CHARS:
+            out["results"].pop()  # long URLs: drop the last result, never cut mid-JSON (a cut one could be cited)
+        ctx.web_ids += len(out["results"])
+        return out
     except (requests.RequestException, KeyError, ValueError, TypeError, AttributeError) as e:
         status = getattr(getattr(e, "response", None), "status_code", None)
         return {"error": f"Web search failed ({status or type(e).__name__}); answer without it and say so."}

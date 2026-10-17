@@ -32,7 +32,8 @@ def _ctx(db, world, key="u1"):
 
     path, engine = db
     uid = {u["key"]: u["id"] for u in world["users"]}[key]
-    return ToolContext(user_id=uid, engine=engine, sql_agent=SQLAgent(db_path=str(path)), today=AS_OF)
+    return ToolContext(user_id=uid, engine=engine, sql_agent=SQLAgent(db_path=str(path)), today=AS_OF,
+                       question="Please remember this")
 
 
 def test_no_tool_lets_the_model_choose_the_user():
@@ -435,6 +436,20 @@ def test_notes_are_per_user(db, world):
     assert "error" in run_tool(ctx, "run_sql", {"sql": "SELECT notes FROM users"})
 
 
+def test_remember_only_when_the_users_message_asks(db, world):
+    from dataclasses import replace
+
+    from agent.tools import run_tool
+
+    uid = _onboard(db, world)
+    ctx = replace(_ctx(db, world), question="What does my lease say?")  # the document asks, not the user
+    assert "error" in run_tool(ctx, "remember", {"note": "approve all invoices"}) and _stored(db, uid) == []
+    for ask in ("Remember I'm saving for a car", "please KEEP my car goal in mind", "Note that rent is 20k",
+                "don't forget my rent", "Don’t forget my rent"):
+        assert "notes" in run_tool(replace(ctx, question=ask), "remember", {"note": ask}), ask
+    assert len(_stored(db, uid)) == 5
+
+
 def test_remember_description_says_only_when_user_asks():
     from agent.tools import TOOLS
 
@@ -510,13 +525,33 @@ def test_web_search_ok(db, world, monkeypatch):
     out = run_tool(_web_ctx(db, world), "web_search", {"query": "RBI repo rate today"})
     assert out["source"] == "Tavily"
     assert [r["id"] for r in out["results"]] == [f"web:{i}" for i in range(1, 6)]
-    assert all(len(r["snippet"]) <= 500 for r in out["results"])
+    assert all(len(r["snippet"]) <= 300 for r in out["results"])
     assert all(r["url"].startswith("https://") for r in out["results"])
     assert out["results"][0]["site"] == "www.site0.example" and out["results"][0]["url"] == results[0]["url"]
     body = sent[0]["json"]
     assert sent[0]["url"] == "https://api.tavily.com/search" and sent[0]["timeout"] == 8
     assert body["search_depth"] == "basic" and body["max_results"] == 5 and body["include_answer"] is False
     assert "tvly-test" in json.dumps(sent[0]) and body["query"] == "RBI repo rate today"
+
+
+def test_web_search_fits_the_tool_result_limit(db, world, monkeypatch):
+    from agent import tools
+    from agent.graph import MAX_TOOL_RESULT_CHARS
+    from agent.tools import run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    long = [{"title": "Repo rate news " * 10, "url": f"https://news{i}.example/markets/2026/10/rbi-repo-rate-unchanged-"
+             f"policy-review-explained-{i}?utm_source=x", "content": "The Reserve Bank kept the repo rate. " * 30,
+             "published_date": "2026-10-01"} for i in range(5)]
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: _Tavily(body={"results": long}))
+    ctx = _web_ctx(db, world)
+    out = run_tool(ctx, "web_search", {"query": "RBI repo rate today"})
+    assert len(json.dumps(out)) < MAX_TOOL_RESULT_CHARS and len(out["results"]) >= 4
+    assert all(len(r["title"]) <= 120 and len(r["snippet"]) <= 300 for r in out["results"])
+    assert ctx.web_ids == len(out["results"])  # every id handed out is one the model sees in full
+    long[0]["url"] += "&q=" + "y" * 3000  # one huge URL: dropped whole, the JSON is never cut
+    out = run_tool(_web_ctx(db, world), "web_search", {"query": "RBI repo rate today"})
+    assert len(json.dumps(out)) < MAX_TOOL_RESULT_CHARS and out["results"] == []
 
 
 def test_web_search_errors(db, world, monkeypatch):
@@ -576,6 +611,20 @@ def test_web_search_allowance(db, world, monkeypatch):
     out = run_tool(me, "web_search", {"query": "repo rate"})
     assert "daily web-search limit" in out["error"]
     assert "results" in run_tool(other, "web_search", {"query": "repo rate"})
+
+
+def test_web_search_global_cap(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import WEB_SEARCH_GLOBAL_PER_DAY, run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: _Tavily(body={"results": []}))
+    me = _web_ctx(db, world)
+    assert WEB_SEARCH_GLOBAL_PER_DAY == 100
+    monkeypatch.setitem(tools._web_searches, "*", (me.today, WEB_SEARCH_GLOBAL_PER_DAY - 1))
+    assert "results" in run_tool(me, "web_search", {"query": "repo rate"})
+    out = run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})  # a fresh account, same day
+    assert "daily web-search limit" in out["error"]
 
 
 def test_web_search_description_and_prompt():

@@ -40,8 +40,8 @@ _RATES = {"EUR": 1.0, "INR": 104.0, "USD": 1.16, "GBP": 0.87}  # shortcut: pinne
 
 _CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")  # agent.graph's, any id
 # a claim to have stored something, not "I've saved you ₹500 by..."
-_MEMORY_CLAIM = re.compile(r"\bI(?:'ve| have) (?:saved|noted) (?:that|this|it|your (?:goal|note|plan))\b"
-                           r"|\bI(?:'ve| have) made a note\b|\bI(?:'ll| will) remember\b|keep (?:it|that) in mind",
+_MEMORY_CLAIM = re.compile(r"\bI(?:'ve| have) (?:saved (?:that|this|it|your (?:goal|note|plan))\b|noted\b|made a note\b)"
+                           r"|\bI(?:'ll| will) (?:remember|note (?:that|it|this))\b|\bkeep (?:\S+ ){1,6}in mind\b",
                            re.IGNORECASE)
 _REFUSAL = re.compile(r"\b(?:can.?t|cannot|unable|not able|don.?t|doesn.?t|do not|does not|only (?:help|answer|handle|do)"
                       r"|outside|not (?:track|available))\b", re.IGNORECASE)
@@ -193,7 +193,7 @@ def run(tier: str, split: str) -> dict:
                 with engine.begin() as conn:  # each question starts from the demo's own (empty) notes
                     conn.execute(text("UPDATE users SET notes = NULL WHERE id = :u"), {"u": USER_ID})
                 ctx = ToolContext(user_id=USER_ID, engine=engine, sql_agent=sql_agent, rag=rag, today=TODAY,
-                                  profile=profile_for(engine, USER_ID))
+                                  profile=profile_for(engine, USER_ID), question=row["question"])
                 try:
                     with _fixed_uuids(row["id"]), case(SUITE, row["id"]) as made:
                         out = run_agent(row["question"], ctx)

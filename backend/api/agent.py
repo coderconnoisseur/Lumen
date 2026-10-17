@@ -82,7 +82,8 @@ def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = 
     from api.profile import profile_for
 
     ctx = ToolContext(user_id=claims["sub"], engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
-                      today=deps.today or date.today(), profile=profile_for(deps.engine, claims["sub"]))
+                      today=deps.today or date.today(), profile=profile_for(deps.engine, claims["sub"]),
+                      question=body.question)
     out = run_agent(body.question, ctx, complete=deps.complete)
     return {"success": True, **out}
 

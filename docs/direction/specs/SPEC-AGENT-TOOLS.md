@@ -165,7 +165,7 @@ rates, product facts ("fair price for this phone?", "current FD rates"). Not for
 - Results are already short, clean text with URLs: exactly what we cite. No SDK: one `requests.post` like
   `exchange_rate`.
 - **BYOK fit:** a `tavily` entry in `user_keys` (SPEC-BYOK); without a user key, the platform key with a small
-  allowance (start: 5 searches per account per day, a config value). When neither is available, the tool is not
+  allowance (start: 5 searches per account per day and 100 across all accounts, config values). When neither is available, the tool is not
   offered to the model at all (so it can't pretend to search). ponytail: one provider; a second one only if Tavily's
   quality or terms change.
 - Call: `search_depth="basic"`, `max_results=5`, `include_answer=false` (we want sources, not someone else's
@@ -173,7 +173,8 @@ rates, product facts ("fair price for this phone?", "current FD rates"). Not for
 
 ### Citing and safety
 - Each search returns at most 5 results: `{"id": "web:1", "title", "url", "site", "published"?, "snippet"}`, each
-  snippet cut to 500 characters (`MAX_TEXT`-style cap). Ids continue across searches in one answer (a second
+  title cut to 120 and snippet to 300 characters, and trailing results dropped until the whole result fits the
+  3,000-character tool-result limit (never cut mid-JSON). Ids continue across searches in one answer (a second
   search starts at `web:6`), so every `[web:n]` points at one result.
 - The agent cites web facts like document passages, right after the fact: `[web:1]`. The chat shows these as links
   (title + site), the same way it shows document chunks. A fact from the web without a citation is not allowed.

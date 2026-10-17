@@ -58,7 +58,7 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
 
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
-                      today=deps.today or date.today(), profile=profile_for(deps.engine, user_id))
+                      today=deps.today or date.today(), profile=profile_for(deps.engine, user_id), question=question)
     out = run_agent(question, ctx, complete=deps.complete, attachment=attachment)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.
