@@ -23,7 +23,7 @@ import tempfile
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -39,7 +39,9 @@ SKIP = "no recording yet; record it with a real key (docs/direction/ASK-LUMEN-AU
 _RATES = {"EUR": 1.0, "INR": 104.0, "USD": 1.16, "GBP": 0.87}  # shortcut: pinned per-EUR rates; add a currency here when a case needs it
 
 _CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")  # agent.graph's, any id
-_MEMORY_CLAIM = re.compile(r"\bI(?:'ve| have) (?:saved|noted)\b|\bI(?:'ll| will) remember\b|keep (?:it|that) in mind",
+# a claim to have stored something, not "I've saved you ₹500 by..."
+_MEMORY_CLAIM = re.compile(r"\bI(?:'ve| have) (?:saved|noted) (?:that|this|it|your (?:goal|note|plan))\b"
+                           r"|\bI(?:'ve| have) made a note\b|\bI(?:'ll| will) remember\b|keep (?:it|that) in mind",
                            re.IGNORECASE)
 _REFUSAL = re.compile(r"\b(?:can.?t|cannot|unable|not able|don.?t|doesn.?t|do not|does not|only (?:help|answer|handle|do)"
                       r"|outside|not (?:track|available))\b", re.IGNORECASE)
@@ -124,6 +126,29 @@ def _pinned_rates(real_get):
     return get
 
 
+def _pin_timestamps(engine) -> None:
+    """run_sql shows the views' timestamps, which default to the real clock at seed time: pin them to the day before
+    TODAY, one minute apart in id order (distinct, so `ORDER BY created_at` has no ties), so replays see the same rows."""
+    from sqlalchemy import DateTime, select, update
+
+    from ai.sql_agent import VIEW_COLUMNS
+    from models.database import db
+
+    base = datetime.combine(TODAY - timedelta(days=1), time(9))
+    with engine.begin() as conn:
+        for name, columns in VIEW_COLUMNS.items():
+            table = db.metadata.tables[name]
+            stamps = [c for c in columns if isinstance(table.c[c].type, DateTime)]
+            rows = conn.execute(select(table.c.id, *(table.c[c] for c in stamps))
+                                .where(table.c.user_id == USER_ID).order_by(table.c.id)).mappings().all()
+            for i, row in enumerate(rows):
+                at = base - timedelta(minutes=i)
+                conn.execute(update(table).where(table.c.id == row["id"]).values(
+                    {c: at for c in stamps if c == "created_at" or row[c] is not None}))
+        users = db.metadata.tables["users"]
+        conn.execute(update(users).where(users.c.id == USER_ID).values(onboarded_at=base))
+
+
 def _setup():
     import models  # noqa: F401
     from ai.sql_agent import SQLAgent
@@ -142,6 +167,7 @@ def _setup():
     with _fixed_uuids("seed"), mock.patch("utils.files.keep", lambda key, data: None):
         seed(engine, store, emb, USER_ID, today=TODAY)
         [t.join() for t in threading.enumerate() if t.name == "demo-uploads"]
+    _pin_timestamps(engine)
     return engine, SQLAgent(db_path=str(path)), RagService(store, emb, rer)
 
 
