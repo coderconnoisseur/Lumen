@@ -496,6 +496,7 @@ def test_web_search_ok(db, world, monkeypatch):
     results = [{"title": f"T{i}", "url": f"https://www.site{i}.example/a?b=1", "content": "x" * (900 if i == 0 else 20),
                 "published_date": "2026-10-01"} for i in range(7)]
     results.insert(1, {"title": "Bad", "url": "javascript:alert(1)", "content": "x"})
+    results.insert(2, {"title": "No link", "content": "x"})  # dropped, not a failed search
 
     def post(url, json=None, timeout=None, **k):
         sent.append({"url": url, "json": json, "timeout": timeout, **k})

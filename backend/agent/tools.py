@@ -44,6 +44,7 @@ class ToolContext:
     rag: Any = None  # rag.service.RagService, or None when document search is unavailable
     today: date = field(default_factory=date.today)
     profile: dict | None = None  # the onboarding answers (api.profile.load_profile), None before onboarding
+    web_ids: int = 0  # web results handed out so far in this run, so [web:n] ids stay unique across searches
 
 
 @dataclass(frozen=True)
@@ -451,11 +452,12 @@ def _web_search(ctx: ToolContext, args: WebSearchArgs) -> dict:
         r = _post_tavily({"query": args.query, "search_depth": "basic", "max_results": 5, "include_answer": False},
                          os.environ.get("TAVILY_API_KEY", ""))
         r.raise_for_status()
-        results = [{"id": f"web:{i}", "title": str(x.get("title") or "")[:200], "url": x["url"],
+        results = [{"id": f"web:{ctx.web_ids + i}", "title": str(x.get("title") or "")[:200], "url": x["url"],
                     "site": urlparse(x["url"]).hostname or "", "published": x.get("published_date"),
                     "snippet": str(x.get("content") or "")[:500]}
                    for i, x in enumerate([x for x in r.json()["results"]  # untrusted: links must be http(s)
-                                          if urlparse(x["url"]).scheme in ("http", "https")][:5], 1)]
+                                          if urlparse(x.get("url") or "").scheme in ("http", "https")][:5], 1)]
+        ctx.web_ids += len(results)
         return {"results": [{k: v for k, v in x.items() if v is not None} for x in results], "source": "Tavily"}
     except (requests.RequestException, KeyError, ValueError, TypeError, AttributeError) as e:
         status = getattr(getattr(e, "response", None), "status_code", None)

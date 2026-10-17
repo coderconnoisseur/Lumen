@@ -12,7 +12,7 @@ import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 // Same shape the agent cites with (backend agent/graph.py _CITATION).
-const CITATION = /[[【]\s*([^[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d)\s*[\]】]/g;
+const CITATION = /[[【]\s*([^[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]/g;
 const CITE_PREFIX = "#cite-";
 
 function openOriginal(key: string) {

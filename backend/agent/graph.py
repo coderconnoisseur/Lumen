@@ -25,7 +25,7 @@ from agent.tools import ToolContext, run_tool, tool_schemas
 MAX_TOOL_CALLS = 6
 MAX_TOOL_RESULT_CHARS = 3000
 # Models sometimes pad the id or use full-width brackets: "[ id#s04 ]", "【id#s04】".
-_CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d)\s*[\]】]")
+_CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")
 
 
 class AgentState(TypedDict):
@@ -161,7 +161,6 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
     final = graph.invoke(state, {"recursion_limit": 2 * max_tool_calls + 6})
     retrieved = {p["chunk_id"]: {k: p[k] for k in ("chunk_id", "title", "section", "text")}
                  for s in final["steps"] if s["tool"] == "search_documents" for p in s["result"].get("passages", [])}
-    # web ids restart at web:1 per search, so a later search's results win
     retrieved |= {w["id"]: {"chunk_id": w["id"], "title": w["title"], "url": w["url"], "site": w["site"],
                             "text": w["snippet"]}
                   for s in final["steps"] if s["tool"] == "web_search" for w in s["result"].get("results", [])}
