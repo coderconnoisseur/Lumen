@@ -115,14 +115,22 @@ def _dialect_note(dialect: str) -> str:
 
 def _get_schema(ctx: ToolContext, _: NoArgs) -> dict:
     """Generated from the models, so it can't drift from the real tables (builder finding 6b #13)."""
+    from ai.sql_agent import VIEW_COLUMNS
     from models import Transaction, TransactionItem
+    from models.database import db
 
     def columns(model):
         return {c.name: str(c.type) for c in model.__table__.columns}
 
+    views = {name: {c: str(db.metadata.tables[name].c[c].type) for c in cols} for name, cols in VIEW_COLUMNS.items()}
     return {
-        "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem)},
+        "tables": {"transactions": columns(Transaction), "transaction_items": columns(TransactionItem), **views},
         "notes": [
+            "review_items is the invoice review queue (status flagged|approved|rejected; flags is JSON text; "
+            "transaction_id links an approved one), e.g. 'How many invoices are waiting for review?'.",
+            "insights are the spending insights the app showed the user, e.g. 'Which insights haven't I read?'.",
+            "documents lists the user's uploaded documents (contents: search_documents), "
+            "e.g. 'Which contracts have I uploaded?'.",
             "transactions.date is TEXT 'YYYY-MM-DD'; compare as strings, e.g. date >= '2026-01-01'.",
             _dialect_note(ctx.sql_agent.dialect),
             f"Amounts are in {(ctx.profile or {}).get('currency') or 'INR'}. category values are Title Case (Groceries, Utilities, Transport, ...).",
@@ -170,7 +178,8 @@ def _run_sql(ctx: ToolContext, args: RunSqlArgs) -> dict:
     result = ctx.sql_agent.execute_sql(sql, ctx.user_id, require_user_filter=False)
     if not result.get("success"):
         return {"sql": args.sql, "error": result.get("reason") or result.get("error") or "query failed",
-                "hint": "One SELECT on transactions/transaction_items. Check column names with get_schema."}
+                "hint": "One SELECT on transactions, transaction_items, review_items, insights or documents. "
+                "Check column names with get_schema."}
     rows = result.get("data") or []
     return {"sql": args.sql, "row_count": len(rows), "rows": json.loads(json.dumps(rows[:MAX_ROWS], default=str)),
             "truncated": len(rows) > MAX_ROWS}
@@ -478,7 +487,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
          NoArgs, _get_schema),
     Tool("lookup_vendors", "Find the user's real vendor names (with category, items bought and totals). Use before "
          "filtering by vendor or by a kind of purchase like 'electricity'.", LookupVendorsArgs, _lookup_vendors),
-    Tool("run_sql", "Run one read-only SQL SELECT over the user's transactions and line items; returns rows.",
+    Tool("run_sql", "Run one read-only SQL SELECT over the user's transactions, line items, review queue, "
+         "insights and documents list; returns rows.",
          RunSqlArgs, _run_sql),
     Tool("search_documents", "Search the user's uploaded documents (contracts, purchase orders, policies) and return "
          "passages with ids to cite.", SearchDocumentsArgs, _search_documents),

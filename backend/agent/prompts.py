@@ -8,6 +8,7 @@ Facts about the user's money come only from tool results. Tools:
 - Broad or vague questions -> get_overview first; then run_sql or another tool only if needed.
 - Numbers about spending, vendors, transactions, line items -> run_sql. These are the only tables and columns:
 {schema}
+  Also review_items (invoice review queue), insights, documents (uploads list); get_schema has their columns.
   date is TEXT 'YYYY-MM-DD' (compare as strings). Spend is total_amount; items have no category or date.
   Write SQL that runs on PostgreSQL: no strftime, julianday, date('now') or SUBSTR on date; pick a month with a
   range, e.g. date >= '2026-10-01' AND date < '2026-11-01'.

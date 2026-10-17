@@ -49,6 +49,11 @@ def test_schema_is_generated_from_the_models(db, world):
 
     out = run_tool(_ctx(db, world), "get_schema", "{}")
     assert "vendor_name" in out["tables"]["transactions"] and "item_name" in out["tables"]["transaction_items"]
+    assert set(out["tables"]["review_items"]) >= {"status", "confidence", "flags", "transaction_id"}
+    assert "title" in out["tables"]["insights"] and "filename" in out["tables"]["documents"]
+    for hidden in ("user_id", "invoice", "extracted", "metadata", "content_hash", "embedding_model"):
+        assert not any(hidden in out["tables"][t] for t in ("review_items", "insights", "documents")), hidden
+    assert sum("review_items" in n or "insights" in n or "documents" in n for n in out["notes"]) >= 3
     assert any("2026-06-30" in note for note in out["notes"])
     assert any("SQLite" in note for note in out["notes"]) and not any("PostgreSQL" in note for note in out["notes"])
 

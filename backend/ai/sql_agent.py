@@ -18,7 +18,15 @@ _FORBIDDEN = re.compile(
     r"PRAGMA|VACUUM|REINDEX|GRANT|REVOKE|TRUNCATE)\b",
     re.IGNORECASE,
 )
-_ALLOWED_TABLES = frozenset({"transactions", "transaction_items"})
+# More of the user's own tables, readable through these columns only: review_items.invoice holds the upload's
+# file key, and user_id, hashes and metadata aren't answers.
+VIEW_COLUMNS = {
+    "review_items": ("id", "status", "confidence", "flags", "transaction_id", "created_at", "decided_at"),
+    "insights": ("id", "insight_type", "title", "description", "severity", "confidence_score", "is_actionable",
+                 "action_taken", "is_read", "expires_at", "created_at"),
+    "documents": ("id", "title", "doc_type", "filename", "created_at"),
+}
+_ALLOWED_TABLES = frozenset({"transactions", "transaction_items", *VIEW_COLUMNS})
 _MAX_ROWS = 100
 
 # Supabase user ids are UUIDs; tests use ids like "user-1". The id is written
@@ -199,8 +207,7 @@ def _check_nodes(tree: exp.Expression) -> None:
 
 
 def _check_tables(node: exp.Expression, ctes: frozenset) -> None:
-    """Every table must be transactions, transaction_items or a CTE visible
-    where it is used.
+    """Every table must be one of _ALLOWED_TABLES or a CTE visible where it is used.
 
     A CTE body sees only the CTEs defined before it: Postgres resolves a later
     (or its own) name to the real table of that name, and a CTE defined inside
@@ -236,7 +243,7 @@ def _scope_to_user(sql: str, user_id: str, dialect: str) -> str:
     """Check the model's query and return it rewritten to see one user's rows.
 
     Raises SQLValidationError unless `sql` is one SELECT (or a set operation of
-    SELECTs) that reads only transactions, transaction_items and its own CTEs
+    SELECTs) that reads only _ALLOWED_TABLES and its own CTEs
     and calls none of the forbidden functions. Parse errors are rejections.
     """
     if not _is_valid_user_id(user_id):
@@ -266,29 +273,32 @@ def _scope_to_user(sql: str, user_id: str, dialect: str) -> str:
                 node.set("this", exp.cast(node.this, "numeric"))
                 node.replace(exp.cast(node.copy(), "double"))
 
-    # The model's query runs under two CTEs named after the real tables. A CTE
-    # name wins over a table name, so every `transactions` / `transaction_items`
-    # it mentions (joins, subqueries, set operations, its own CTEs) reads only
-    # this user's rows, and a filter like `user_id = 'me' OR 1=1` can't widen
-    # that. The real tables are reachable only schema-qualified, which the
-    # checks above refuse in the model's SQL. On Postgres the CTEs are
-    # MATERIALIZED so the planner can't push the model's conditions below the
-    # user filter and evaluate them on other users' rows.
+    # The model's query runs under CTEs named after the real tables it reads. A CTE
+    # name wins over a table name, so every allowed table it mentions (joins, subqueries,
+    # set operations, its own CTEs) reads only this user's rows, and a filter like
+    # `user_id = 'me' OR 1=1` can't widen that. The real tables are reachable only
+    # schema-qualified, which the checks above refuse in the model's SQL. On Postgres
+    # the CTEs are MATERIALIZED so the planner can't push the model's conditions below
+    # the user filter and evaluate them on other users' rows. Only tables the query
+    # uses get one: `documents` doesn't exist where pgvector is missing.
     schema = _SCHEMAS[dialect]
     as_ = "AS MATERIALIZED" if dialect == "postgresql" else "AS"
-    scope = sqlglot.parse_one(
-        f"WITH transactions {as_} (SELECT * FROM {schema}.transactions "
-        f"WHERE user_id = '{user_id}'), "
-        f"transaction_items {as_} (SELECT ti.* FROM {schema}.transaction_items ti "
-        f"JOIN {schema}.transactions t ON t.id = ti.transaction_id "
-        f"WHERE t.user_id = '{user_id}') SELECT 1",
-        read=read,
-    ).args["with_"]
-    own = tree.args.get("with_")
-    if own is not None:
-        own.set("expressions", [*scope.expressions, *own.expressions])
-    else:
-        tree.set("with_", scope)
+    bodies = {
+        "transactions": f"SELECT * FROM {schema}.transactions WHERE user_id = '{user_id}'",
+        "transaction_items": f"SELECT ti.* FROM {schema}.transaction_items ti "
+                             f"JOIN {schema}.transactions t ON t.id = ti.transaction_id WHERE t.user_id = '{user_id}'",
+        **{name: f"SELECT {', '.join(cols)} FROM {schema}.{name} WHERE user_id = '{user_id}'"
+           for name, cols in VIEW_COLUMNS.items()},
+    }
+    used = {t.name for t in tree.find_all(exp.Table)}
+    ctes = ", ".join(f"{name} {as_} ({body})" for name, body in bodies.items() if name in used)
+    if ctes:
+        scope = sqlglot.parse_one(f"WITH {ctes} SELECT 1", read=read).args["with_"]
+        own = tree.args.get("with_")
+        if own is not None:
+            own.set("expressions", [*scope.expressions, *own.expressions])
+        else:
+            tree.set("with_", scope)
 
     # Also cap the rows the database sends; execute_sql caps what it fetches.
     limit = tree.args.get("limit")
