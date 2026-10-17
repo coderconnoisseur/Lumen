@@ -336,7 +336,7 @@ def _edit_notes(ctx: ToolContext, change) -> dict:
     with Session(ctx.engine) as session, session.begin():
         user = ensure_user(session, ctx.user_id, None)
         notes = json.loads(user.notes or "[]")
-        error = change(notes)
+        error = change(notes, user)
         if error:
             return error
         user.notes = json.dumps(notes)
@@ -344,22 +344,26 @@ def _edit_notes(ctx: ToolContext, change) -> dict:
 
 
 def _remember(ctx: ToolContext, args: RememberArgs) -> dict:
-    from api.profile import MAX_NOTES, NOTE_CHARS
+    from api.profile import MAX_NOTES, NOTE_CHARS, clean_note
 
-    text = args.note.strip()
-    cut = len(text) > NOTE_CHARS
+    text = clean_note(args.note)
+    cut = len(" ".join(args.note.split())) > NOTE_CHARS
 
-    def add(notes):
+    def add(notes, user):
+        if not text:
+            return {"error": "That note is empty."}
+        if user.onboarded_at is None:  # load_profile returns nothing before setup, so the note would never reach the prompt
+            return {"error": "Finish setting up your profile first; then I can keep notes."}
         if len(notes) >= MAX_NOTES:
             return {"error": f"You already have {MAX_NOTES} notes; ask which one to forget."}
-        notes.append({"text": text[:NOTE_CHARS], "saved_at": ctx.today.isoformat()})
+        notes.append({"text": text, "saved_at": ctx.today.isoformat()})
 
     out = _edit_notes(ctx, add)
     return out if "error" in out else {**out, "cut": cut}
 
 
 def _forget(ctx: ToolContext, args: ForgetArgs) -> dict:
-    def drop(notes):
+    def drop(notes, _):
         if not 1 <= args.number <= len(notes):
             return {"error": f"No note number {args.number}."}
         del notes[args.number - 1]

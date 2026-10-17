@@ -22,6 +22,11 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 Goal = Literal["save_more", "cut_subscriptions", "stay_on_budget", "pay_off_debt", "emergency_fund",
                "big_purchase", "business_expenses"]
 MAX_NOTES, NOTE_CHARS = 10, 200
+def clean_note(text: str) -> str:
+    """One line, no double quotes: notes are quoted as data in the system prompt."""
+    return " ".join(text.split()).replace('"', "'")[:NOTE_CHARS]
+
+
 DEMO_PROFILE = {"display_name": "Demo visitor", "avatar_key": None, "currency": "INR", "monthly_income": 120000,
                 "monthly_budget": 70000, "use_case": "personal",
                 "goals": ["save_more", "cut_subscriptions", "big_purchase"], "onboarded": True, "demo": True, "notes": []}
@@ -112,7 +117,7 @@ def put_profile(body: ProfileUpdate, claims: dict = Depends(current_user), engin
         if "notes" in body.model_fields_set:
             old = {n["text"]: n["saved_at"] for n in json.loads(user.notes or "[]")}
             today = datetime.utcnow().date().isoformat()
-            texts = [t.strip()[:NOTE_CHARS] for t in body.notes or [] if t.strip()]
+            texts = [t for t in map(clean_note, body.notes or []) if t]
             user.notes = json.dumps([{"text": t, "saved_at": old.get(t, today)} for t in texts])
         if body.complete and user.onboarded_at is None:
             user.onboarded_at = datetime.utcnow()

@@ -203,3 +203,9 @@ def test_profile_api_returns_and_replaces_notes(client):
     assert c.put("/api/profile", headers=bearer(USER), json={"notes": [str(i) for i in range(11)]}).status_code == 422
     assert c.put("/api/profile", headers=bearer(USER), json={"notes": ["x" * 300]}).json()["profile"]["notes"] == ["x" * 200]
     assert c.put("/api/profile", headers=bearer(USER, anonymous=True), json={"notes": ["a"]}).status_code == 403
+
+
+def test_profile_put_notes_are_one_line_and_blanks_dropped(client):
+    c, _ = client
+    p = c.put("/api/profile", headers=bearer(USER), json={"notes": ["a\n- b", "  "]}).json()["profile"]
+    assert p["notes"] == ["a - b"]
