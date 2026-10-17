@@ -39,7 +39,8 @@ _ADDED_COLUMNS = {
                      ("source", "VARCHAR"), ("import_key", "VARCHAR")],  # EXT-01, SPEC-STATEMENTS
     "users": [("display_name", "VARCHAR"), ("avatar_key", "VARCHAR"), ("currency", "VARCHAR(3)"),
               ("monthly_income", "FLOAT"), ("monthly_budget", "FLOAT"), ("use_case", "VARCHAR"),
-              ("goals", "TEXT"), ("onboarded_at", "TIMESTAMP")],  # SPEC-ONBOARD
+              ("goals", "TEXT"), ("onboarded_at", "TIMESTAMP"),
+              ("notes", "TEXT")],  # SPEC-ONBOARD, agent notes
 }
 
 

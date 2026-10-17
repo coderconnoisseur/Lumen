@@ -31,14 +31,15 @@ def db_path(tmp_path):
     """Scratch SQLite database with the app's real tables and two users' rows."""
     from sqlalchemy import create_engine
 
-    from models import ChatMessage, EmailConfig, Transaction, TransactionItem, User
+    from models import AnalyticsInsight, ChatMessage, Document, EmailConfig, ReviewItem, Transaction, TransactionItem, User
     from models.database import db
 
     path = tmp_path / "isolation.db"
     engine = create_engine(f"sqlite:///{path}")
     db.metadata.create_all(
         engine,
-        tables=[m.__table__ for m in (User, Transaction, TransactionItem, EmailConfig, ChatMessage)],
+        tables=[m.__table__ for m in (User, Transaction, TransactionItem, EmailConfig, ChatMessage,
+                                      ReviewItem, AnalyticsInsight, Document)],
     )
     engine.dispose()
 
@@ -73,6 +74,27 @@ def db_path(tmp_path):
     conn.execute(
         "insert into chat_messages (id, user_id, role, content) values (?, ?, ?, ?)",
         ("c2", "user-2", "user", "private chat about my salary"),
+    )
+    # user-2's review item points at user-1's transaction: a join must still not show it.
+    conn.executemany(
+        "insert into review_items (id, user_id, invoice, flags, confidence, status, transaction_id) "
+        "values (?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("r1", "user-1", '{"vendor_name": "Starbucks", "file_key": "u1/secret-key.pdf"}', "[]", "high", "approved", "t2"),
+            ("r2", "user-2", '{"vendor_name": "Other Tenant"}', '[{"detail": "Other Tenant"}]', "low", "flagged", "t1"),
+        ],
+    )
+    conn.executemany(
+        "insert into insights (user_id, insight_type, title, description) values (?, ?, ?, ?)",
+        [("user-1", "spike", "Groceries up", "More rice"), ("user-2", "spike", "Other Tenant spike", "99999")],
+    )
+    conn.executemany(
+        "insert into documents (id, user_id, title, doc_type, filename, content_hash, embedding_model, chunk_count) "
+        "values (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("d1", "user-1", "Lease", "contract", "lease.pdf", "hash-of-d1", "model-x", 0),
+            ("d2", "user-2", "Other Tenant contract", "contract", "victim.pdf", "hash-of-d2", "model-x", 0),
+        ],
     )
     conn.commit()
     conn.close()
@@ -371,9 +393,7 @@ def test_postgres_query_runs_read_only_with_a_timeout():
     assert result == {"success": True, "data": [{"total": 1.0}], "row_count": 1}
     assert conn.sql[:2] == ["SET TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '5s'"]
     assert conn.sql[2].startswith(
-        "WITH transactions AS MATERIALIZED (SELECT * FROM public.transactions WHERE user_id = 'user-1'), "
-        "transaction_items AS MATERIALIZED (SELECT ti.* FROM public.transaction_items AS ti "
-        "JOIN public.transactions AS t ON t.id = ti.transaction_id WHERE t.user_id = 'user-1') SELECT "
+        "WITH transactions AS MATERIALIZED (SELECT * FROM public.transactions WHERE user_id = 'user-1') SELECT "
     )
     assert "ILIKE '%star%'" in conn.sql[2]
     assert conn.options == {"no_parameters": True}
@@ -384,7 +404,8 @@ def test_scoping_ctes_come_before_the_models_own():
     from ai.sql_agent import _scope_to_user
 
     sql = _scope_to_user(
-        "WITH monthly AS (SELECT 1 AS n FROM transactions WHERE user_id = 'user-1') SELECT n FROM monthly",
+        "WITH monthly AS (SELECT 1 AS n FROM transactions JOIN transaction_items ON 1=1 "
+        "WHERE user_id = 'user-1') SELECT n FROM monthly",
         "user-1",
         "sqlite",
     )
@@ -430,3 +451,57 @@ def test_query_start_includes_a_cte_header():
 
     reply = "Here is the query with totals as asked:\nWITH m AS (SELECT 1) SELECT * FROM m; SELECT 2"
     assert _first_select_statement(reply) == "WITH m AS (SELECT 1) SELECT * FROM m"
+
+
+def _run(db_path, sql):
+    """The agent's run_sql path: no user filter required, scoped server-side."""
+    from ai.sql_agent import SQLAgent
+
+    return SQLAgent(db_path).execute_sql(sql, "user-1", require_user_filter=False)
+
+
+NEW_TABLE_LEAKS = (*LEAKS, "Other Tenant", "victim.pdf", "hash-of", "file_key", "secret-key", "model-x", "r2", "d2")
+
+
+@pytest.mark.parametrize("sql, expected", [  # expected: the first column of each row, sorted
+    ("SELECT * FROM review_items", ["r1"]),
+    ("SELECT * FROM insights", ["1"]),
+    ("SELECT * FROM documents", ["d1"]),
+    ('SELECT * FROM "Documents" WHERE 1=1 OR 2=2', ["d1"]),
+    ("SELECT r.id, t.vendor_name FROM transactions t JOIN review_items r ON r.transaction_id = t.id", ["r1"]),
+    ("SELECT r.id FROM review_items r LEFT JOIN transactions t ON t.id = r.transaction_id", ["r1"]),
+    ("SELECT (SELECT COUNT(*) FROM documents) AS n", ["1"]),
+    ("SELECT title FROM documents WHERE id IN (SELECT id FROM documents WHERE 1=1)", ["Lease"]),
+    ("SELECT title FROM insights UNION SELECT title FROM documents", ["Groceries up", "Lease"]),
+    ("WITH mine AS (SELECT * FROM review_items) SELECT id FROM mine", ["r1"]),
+])
+def test_new_tables_show_only_the_users_rows(db_path, sql, expected):
+    result = _run(db_path, sql)
+    assert result["success"], result
+    assert sorted(str(next(iter(r.values()))) for r in result["data"]) == expected
+    for leak in NEW_TABLE_LEAKS:
+        assert leak not in repr(result["data"]), leak
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT user_id FROM review_items",
+    "SELECT invoice FROM review_items",
+    "SELECT extracted FROM review_items",
+    "SELECT metadata FROM insights",
+    "SELECT user_id FROM insights",
+    "SELECT content_hash FROM documents",
+    "SELECT user_id FROM documents",
+    "SELECT * FROM document_chunks",
+    "SELECT * FROM main.review_items",
+    "WITH documents AS (SELECT * FROM main.documents) SELECT * FROM documents",
+])
+def test_hidden_columns_and_real_tables_stay_hidden(db_path, sql):
+    assert _run(db_path, sql)["success"] is False
+
+
+def test_only_the_tables_a_query_uses_are_scoped():
+    """Unused scoping CTEs are left out: a database without the documents table (no pgvector) still answers."""
+    from ai.sql_agent import _scope_to_user
+
+    sql = _scope_to_user("SELECT id FROM transactions", "user-1", "postgresql")
+    assert "transaction_items" not in sql and "documents" not in sql

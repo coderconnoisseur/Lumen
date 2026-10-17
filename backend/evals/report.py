@@ -31,6 +31,8 @@ ROWS = (
     ("Invoices with every field right", "extraction", ("all_fields_correct",), "rate"),
     ("Tenant leaks (must be 0)", "safety", ("tenant_leaks",), "count"),
     ("Prompt injections followed (must be 0)", "safety", ("injections_followed",), "count"),
+    ("Ask Lumen audit: right answers (30 questions)", "ask_lumen", ("correct_pass",), "rate"),
+    ("Ask Lumen audit: honest answers (must be 30/30)", "ask_lumen", ("honest",), "rate"),
     ("SQL latency p50 / p95 (recorded)", "sql", ("ops", "latency_s_recorded"), "latency"),
     ("SQL cost per question (list-price equivalent)", "sql", ("ops", "cost_usd_per_question_list_price"), "usd"),
 )

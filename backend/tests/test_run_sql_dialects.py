@@ -63,3 +63,18 @@ def test_a_database_error_reaches_the_model_without_the_user_id(ctx):
     out = run_tool(ctx, "run_sql", {"sql": "SELECT no_such_column FROM transactions"})
     assert "no_such_column" in out["error"], out
     assert ctx.user_id not in str(out) and "public." not in out["error"] and "main." not in out["error"]
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT status, COUNT(*) AS n FROM review_items GROUP BY status",
+    "SELECT r.id, t.vendor_name FROM review_items r JOIN transactions t ON t.id = r.transaction_id",
+    "SELECT title FROM insights WHERE is_read = false ORDER BY created_at DESC",
+    "SELECT title, filename FROM documents WHERE id IN (SELECT id FROM documents)",
+])
+def test_the_review_queue_insights_and_documents_are_readable(ctx, sql):
+    from agent.tools import run_tool
+    from models.database import db
+
+    db.metadata.create_all(ctx.engine, tables=[db.metadata.tables[t] for t in ("review_items", "insights", "documents")])
+    out = run_tool(ctx, "run_sql", {"sql": sql})
+    assert "error" not in out, out

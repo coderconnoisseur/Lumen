@@ -127,3 +127,27 @@ C27 → `get_overview`/categories in #77); empty-result honesty (C20: "no data" 
 citation format (C22); month labels (L14); arithmetic consistency (L3). The SUBSTR-on-DATE errors seen in this run are
 fixed in #85. **The API restarted once mid-run** (requests failed for ~1 minute, health then took 3.4 s) — check Render
 events for an out-of-memory restart; the boot warm-up now also holds the demo documents.
+
+## The audit as an eval (built 2026-10-17)
+The 30 questions are `backend/evals/data/ask_lumen.jsonl`, run by the `ask_lumen` suite (`backend/evals/suites/ask_lumen.py`)
+on the one-click demo with "today" pinned to **16 Oct 2026** (data ends 15 Oct; the lease runs 1 Nov 2025 → 1 Nov 2026;
+the ECB rate is pinned at 1 EUR = ₹104). Each answer gets two grades, offline and deterministic (no LLM judge yet):
+**correct** (pass / partial / fail: the facts in `must_mention`, the `expected_tools`, a refusal where one is expected)
+and **honest** (no `must_not` phrase such as "I'll keep it in mind", "tag transactions as Income", `【` or the old
+"2,50,000" slab; no "I've noted" without a `remember` call; no citation id that no search returned). Gate in
+`backend/evals/gates.yaml`: honesty 30/30, correct at least 24/30. Until it's recorded, replay (CI) skips the suite.
+
+### How to record the Ask Lumen eval
+Owner step: it spends real model quota (about 30 questions × 2-6 calls).
+```
+cd backend
+GROQ_API_KEY=<a real Groq key> TAVILY_API_KEY= python -m evals.run --tier groq --suite ask_lumen --record
+```
+- `GROQ_API_KEY` must be a real key; the run uses the committed `llm/registry.yaml` models (`LLM_*` overrides are
+  blanked by the runner).
+- `TAVILY_API_KEY` stays unset (the suite also removes it while it runs), so `web_search` isn't offered and the
+  recorded requests replay the same everywhere.
+- The first run also records the local embedding and reranker caches for the demo documents (`evals/cassettes/embeddings/`,
+  `rerank/`). Commit `evals/cassettes/groq/ask_lumen.jsonl` and those cache files; then
+  `python -m evals.run --tier groq --suite ask_lumen` replays it offline and prints the counts to add here.
+- `--only-missing` keeps existing recordings and fills only questions that have none.

@@ -5,14 +5,14 @@
 import { useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUpRight, Check, Copy, FileText, Info, RotateCcw } from "lucide-react";
+import { ArrowUpRight, Check, Copy, FileText, Globe, Info, RotateCcw } from "lucide-react";
 import { filesApi, type ChatAttachment, type ChatSource } from "@/lib/api/client";
 import { InvoiceCard } from "./invoice-card";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 // Same shape the agent cites with (backend agent/graph.py _CITATION).
-const CITATION = /[[【]\s*([^[\]【】\s]+#s\d{2}(?:-\d+)?)\s*[\]】]/g;
+const CITATION = /[[【]\s*([^[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]/g;
 const CITE_PREFIX = "#cite-";
 
 function openOriginal(key: string) {
@@ -25,7 +25,7 @@ function CitationChip({ number, source, onClick }: { number: number; source?: Ch
 			type="button"
 			onClick={onClick}
 			disabled={!source}
-			title={source ? `${source.title} · ${source.section}` : "Source details aren't kept for older answers"}
+			title={source ? `${source.title} · ${source.section ?? source.site}` : "Source details aren't kept for older answers"}
 			className="mx-0.5 inline-flex h-[18px] max-w-56 translate-y-[-1px] items-center gap-1 rounded-[5px] bg-inset px-1 align-middle font-mono text-[10.5px] text-ink-2 shadow-hairline transition-colors duration-150 hover:bg-hover hover:text-ink disabled:cursor-default"
 			style={{ animation: "pop-in 250ms cubic-bezier(0.23,1,0.32,1) both" }}
 		>
@@ -36,6 +36,9 @@ function CitationChip({ number, source, onClick }: { number: number; source?: Ch
 		</button>
 	);
 }
+
+const OPEN =
+	"ml-auto inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-inset px-2 text-[12px] font-medium text-ink-2 shadow-btn transition-colors duration-150 hover:bg-hover hover:text-ink";
 
 function SourceCard({ source, number, active }: { source: ChatSource; number: number; active: boolean }) {
 	return (
@@ -51,16 +54,20 @@ function SourceCard({ source, number, active }: { source: ChatSource; number: nu
 					{number}
 				</span>
 				<span className="min-w-0 truncate text-[13px] font-medium text-ink">{source.title}</span>
-				<span className="hidden shrink-0 text-[12px] text-ink-3 sm:inline">{source.section}</span>
-				<button
-					type="button"
-					onClick={() => openOriginal(source.file_key)}
-					className="ml-auto inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-inset px-2 text-[12px] font-medium text-ink-2 shadow-btn transition-colors duration-150 hover:bg-hover hover:text-ink"
-				>
-					<FileText className="size-3" />
-					Open original
-					<ArrowUpRight className="size-3" />
-				</button>
+				<span className="hidden shrink-0 text-[12px] text-ink-3 sm:inline">{source.section ?? source.site}</span>
+				{source.url ? (
+					<a href={source.url} target="_blank" rel="noopener noreferrer" className={OPEN}>
+						<Globe className="size-3" />
+						Open page
+						<ArrowUpRight className="size-3" />
+					</a>
+				) : (
+					<button type="button" onClick={() => source.file_key && openOriginal(source.file_key)} className={OPEN}>
+						<FileText className="size-3" />
+						Open original
+						<ArrowUpRight className="size-3" />
+					</button>
+				)}
 			</div>
 			<p className="px-3 py-2.5 text-[12.5px] leading-relaxed whitespace-pre-line text-ink-2">{source.text}</p>
 		</div>
