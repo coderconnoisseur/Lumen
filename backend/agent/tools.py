@@ -385,6 +385,10 @@ def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
             "note": "Filed for human review. Nothing has been changed."}
 
 
+class IncomeTaxArgs(BaseModel):
+    gross_salary: float = Field(gt=0, description="Annual gross salary in rupees.")
+
+
 class ExchangeRateArgs(BaseModel):
     base: str = Field(description="ISO 4217 code to convert from, e.g. USD.")
     quote: str = Field(description="ISO 4217 code to convert to, e.g. INR.")
@@ -408,6 +412,12 @@ def _exchange_rate(ctx: ToolContext, args: ExchangeRateArgs) -> dict:
                 "source": "ECB reference rate (Frankfurter)"}
     except (requests.RequestException, KeyError, ValueError, TypeError, AttributeError) as e:
         return {"error": f"Couldn't get the {base}/{quote} rate: {e}"[:200]}
+
+
+def _income_tax_india(ctx: ToolContext, args: IncomeTaxArgs) -> dict:
+    from ai.income_tax import income_tax_india
+
+    return income_tax_india(args.gross_salary)
 
 
 TOOLS: dict[str, Tool] = {t.name: t for t in (
@@ -437,6 +447,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
          "paid, change a category, or follow up with a vendor.", ProposeActionArgs, _propose_action),
     Tool("exchange_rate", "Currency exchange rate (ECB reference rate) for a date or the latest; use to compare or "
          "convert amounts in different currencies.", ExchangeRateArgs, _exchange_rate),
+    Tool("income_tax_india", "Income tax on a salary in India under the new regime for 2026-27 (resident, salaried). "
+         "Use for any Indian income-tax amount instead of your own knowledge.", IncomeTaxArgs, _income_tax_india),
 )}
 
 

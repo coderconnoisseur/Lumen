@@ -74,6 +74,8 @@ def _summary(name: str, result: dict) -> str:
         return f"{result.get('base')}/{result.get('quote')} {result.get('rate')}"
     if name == "get_overview":
         return f"6 months, data to {result['data']['last_date'] or 'none'}"
+    if name == "income_tax_india":
+        return f"₹{result['total_tax']:,.0f} total tax" if "total_tax" in result else "not supported"
     if name == "propose_action":
         return f"proposal {result.get('status')}"
     return "ok"
