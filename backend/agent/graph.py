@@ -42,7 +42,8 @@ _NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*\s*(.*?)[ \t*_]*
 # Lumen asking the user ("Would you like…?"): as a chip it would send Lumen's own question back to it, so it stays in
 # the answer as its closing question instead (owner report, 2026-10-16).
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
-                        r"anything else|let me know|how about i)\b", re.IGNORECASE)
+                        r"anything else|let me know|how about i|you could|you can|tell me (which|if|whether)|if you('d| would) like|"
+                        r"feel free)\b", re.IGNORECASE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:
