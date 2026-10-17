@@ -64,8 +64,8 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
     # The SQL stays server-side: it's an internal detail, not something to show users.
     return {"query": question, "query_type": "agent", "response": out["answer"], "follow_up": out["follow_up"],
             "row_count": len(out["rows"]) if out["rows"] is not None else None,
-            "sources": [{**{k: s[k] for k in ("chunk_id", "title", "section", "text")},
-                         "file_key": document_key(user_id, s["chunk_id"].split("#")[0])} for s in out["sources"]],
+            "sources": [s if "url" in s else {**s, "file_key": document_key(user_id, s["chunk_id"].split("#")[0])}
+                        for s in out["sources"]],  # web sources link out; documents open the stored file
             "steps": [{"tool": s["tool"], "summary": s.get("summary"), "latency_ms": s.get("latency_ms")}
                       for s in out["steps"]],
             "stopped": out["stopped"],

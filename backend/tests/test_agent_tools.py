@@ -461,3 +461,124 @@ def test_remember_rejects_empty_notes_and_notes_before_setup(db, world):
         conn.execute(text("UPDATE users SET onboarded_at = NULL WHERE id = :u"), {"u": uid})
     out = run_tool(ctx, "remember", {"note": "keep this"})
     assert out == {"error": "Finish setting up your profile first; then I can keep notes."} and _stored(db, uid) == []
+
+
+# --- web_search (agent tools v2, task 4) ------------------------------------------------------------------
+
+class _Tavily:
+    def __init__(self, status=200, body=None):
+        self.status_code, self._body = status, body
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            from agent.tools import requests
+            raise requests.HTTPError(f"{self.status_code}", response=self)
+
+    def json(self):
+        if isinstance(self._body, Exception):
+            raise self._body
+        return self._body
+
+
+def _web_ctx(db, world, uid=None):
+    from dataclasses import replace
+
+    import uuid as _uuid
+    return replace(_ctx(db, world), user_id=uid or f"web-{_uuid.uuid4().hex[:8]}")
+
+
+def test_web_search_ok(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    sent = []
+    results = [{"title": f"T{i}", "url": f"https://www.site{i}.example/a?b=1", "content": "x" * (900 if i == 0 else 20),
+                "published_date": "2026-10-01"} for i in range(7)]
+    results.insert(1, {"title": "Bad", "url": "javascript:alert(1)", "content": "x"})
+
+    def post(url, json=None, timeout=None, **k):
+        sent.append({"url": url, "json": json, "timeout": timeout, **k})
+        return _Tavily(body={"results": results})
+    monkeypatch.setattr(tools.requests, "post", post)
+    out = run_tool(_web_ctx(db, world), "web_search", {"query": "RBI repo rate today"})
+    assert out["source"] == "Tavily"
+    assert [r["id"] for r in out["results"]] == [f"web:{i}" for i in range(1, 6)]
+    assert all(len(r["snippet"]) <= 500 for r in out["results"])
+    assert all(r["url"].startswith("https://") for r in out["results"])
+    assert out["results"][0]["site"] == "www.site0.example" and out["results"][0]["url"] == results[0]["url"]
+    body = sent[0]["json"]
+    assert sent[0]["url"] == "https://api.tavily.com/search" and sent[0]["timeout"] == 8
+    assert body["search_depth"] == "basic" and body["max_results"] == 5 and body["include_answer"] is False
+    assert "tvly-test" in json.dumps(sent[0]) and body["query"] == "RBI repo rate today"
+
+
+def test_web_search_errors(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+
+    def down(*a, **k): raise tools.requests.RequestException("down")
+    for post in (down, lambda *a, **k: _Tavily(401, {}), lambda *a, **k: _Tavily(429, {}),
+                 lambda *a, **k: _Tavily(body=ValueError("not json")), lambda *a, **k: _Tavily(body={"results": None})):
+        monkeypatch.setattr(tools.requests, "post", post)
+        out = run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})
+        assert set(out) == {"error"}, out
+        assert "tvly-test" not in out["error"]
+
+
+def test_web_search_retries_once_on_timeout(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    calls = []
+
+    def flaky(*a, **k):
+        calls.append(1)
+        if len(calls) == 1:
+            raise tools.requests.Timeout("slow")
+        return _Tavily(body={"results": [{"title": "T", "url": "https://a.example/", "content": "c"}]})
+    monkeypatch.setattr(tools.requests, "post", flaky)
+    assert run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})["results"][0]["id"] == "web:1"
+    assert len(calls) == 2
+
+
+def test_web_search_hidden_without_key(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import run_tool, tool_schemas
+
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: pytest.fail("no network without a key"))
+    assert "web_search" not in [s["function"]["name"] for s in tool_schemas()]
+    assert "error" in run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    assert "web_search" in [s["function"]["name"] for s in tool_schemas()]
+
+
+def test_web_search_allowance(db, world, monkeypatch):
+    from agent import tools
+    from agent.tools import WEB_SEARCH_PER_DAY, run_tool
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: _Tavily(body={"results": []}))
+    me, other = _web_ctx(db, world), _web_ctx(db, world)
+    assert WEB_SEARCH_PER_DAY == 5
+    for _ in range(5):
+        assert "results" in run_tool(me, "web_search", {"query": "repo rate"})
+    out = run_tool(me, "web_search", {"query": "repo rate"})
+    assert "daily web-search limit" in out["error"]
+    assert "results" in run_tool(other, "web_search", {"query": "repo rate"})
+
+
+def test_web_search_description_and_prompt():
+    from datetime import date
+
+    from agent.prompts import system_prompt
+    from agent.tools import TOOLS
+
+    d = TOOLS["web_search"].description
+    assert "Never put the user's data" in d and "untrusted data" in d and "[web:n]" in d
+    text = system_prompt(date(2026, 10, 17))
+    assert "web_search when available" in text and "currency" not in text

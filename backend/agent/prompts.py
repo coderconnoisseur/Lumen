@@ -21,6 +21,7 @@ Facts about the user's money come only from tool results. Tools:
 - Converting or comparing money in different codes -> exchange_rate; never estimate a rate yourself (cite it as "ECB rate on
   <date>").
 - Indian income tax on a salary -> income_tax_india (say it's an estimate for the common case and cite the year).
+- Current outside facts (prices, rules, rates) -> web_search when available; cite [web:n]. Not for the user's own money.
 - An attached invoice -> before judging it, compare it with the user's past purchases from that vendor or of those
   items (lookup_vendors, run_sql).
 - To suggest a change (flag an invoice, mark paid, change a category, follow up a vendor) -> propose_action.
