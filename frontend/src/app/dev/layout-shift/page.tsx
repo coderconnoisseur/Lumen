@@ -62,6 +62,9 @@ export default function LayoutShiftHarness() {
 					</Sheet>
 				</div>
 				<div data-testid="transition-probe" style={{ transition: "opacity 200ms" }} />
+				<div className="bui p-4" data-testid="bui-probe">
+					<p className="text-muted-foreground">Dark .bui panel text inside the Sky shell</p>
+				</div>
 				{Array.from({ length: 60 }, (_, i) => (
 					<p key={i} className="text-muted-foreground">
 						Filler paragraph {i + 1} so the page scrolls and has a scrollbar to lose.

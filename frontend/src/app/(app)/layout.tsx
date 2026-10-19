@@ -12,11 +12,11 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 // pages (URLs are unchanged; "(app)" is a route group), so only the content area swaps, like tabs on X.
 export default function AppLayout({ children }: { children: ReactNode }) {
 	return (
+		// Sky (globals.css) wraps everything, auth loader included, so the first server paint is already light.
+		<div data-app-theme="sky" className="contents">
 		<Suspense>
 			<AuthGuard>
 				<ProfileProvider>
-				{/* turns on the Sky light theme (globals.css) for the whole signed-in app, portals included */}
-				<div data-app-theme="sky" className="contents">
 				<MotionConfig reducedMotion="user">
 				<SidebarProvider>
 					<AppSidebar />
@@ -32,9 +32,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 					</SidebarInset>
 				</SidebarProvider>
 				</MotionConfig>
-				</div>
 				</ProfileProvider>
 			</AuthGuard>
 		</Suspense>
+		</div>
 	);
 }

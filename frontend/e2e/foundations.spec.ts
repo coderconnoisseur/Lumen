@@ -93,3 +93,23 @@ test("reduced motion kills transitions", async ({ browser }) => {
 	expect(d).toBeLessThan(0.01);
 	await ctx.close();
 });
+
+test("app pages are sky from the first server paint (no dark auth loader)", async ({ request }) => {
+	// the `lumen_session` hint cookie gets past middleware, like a signed-in user's hard refresh
+	const html = await (await request.get("/dashboard", { headers: { cookie: "lumen_session=1" } })).text();
+	expect(html).toContain('data-app-theme="sky"');
+});
+
+test("dark .bui panels keep readable muted text inside sky", async ({ page }) => {
+	await page.goto("/dev/layout-shift");
+	const [fg, bg] = await page.getByTestId("bui-probe").evaluate((e) => [
+		getComputedStyle(e.querySelector("p")!).color,
+		getComputedStyle(e).backgroundColor,
+	]);
+	expect(ratio(await rgb(page, fg), await rgb(page, bg))).toBeGreaterThanOrEqual(4.5);
+});
+
+test("public pages reserve no scrollbar gutter", async ({ page }) => {
+	await page.goto("/login");
+	expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarGutter)).toBe("auto");
+});
