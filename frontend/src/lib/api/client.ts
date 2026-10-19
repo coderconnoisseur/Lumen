@@ -368,9 +368,12 @@ export const ocrApi = {
 export interface ChatSource {
 	chunk_id: string;
 	title: string;
-	section: string;
+	/** documents only; web sources (chunk_id "web:n") have url and site instead */
+	section?: string;
 	text: string;
-	file_key: string;
+	file_key?: string;
+	url?: string;
+	site?: string;
 }
 
 export interface ChatStep {

@@ -25,7 +25,7 @@ from agent.tools import ToolContext, run_tool, tool_schemas
 MAX_TOOL_CALLS = 6
 MAX_TOOL_RESULT_CHARS = 3000
 # Models sometimes pad the id or use full-width brackets: "[ id#s04 ]", "【id#s04】".
-_CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?)\s*[\]】]")
+_CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")
 
 
 class AgentState(TypedDict):
@@ -42,7 +42,8 @@ _NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*\s*(.*?)[ \t*_]*
 # Lumen asking the user ("Would you like…?"): as a chip it would send Lumen's own question back to it, so it stays in
 # the answer as its closing question instead (owner report, 2026-10-16).
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
-                        r"anything else|let me know|how about i)\b", re.IGNORECASE)
+                        r"anything else|let me know|how about i|you could|you can|tell me (which|if|whether)|if you('d| would) like|"
+                        r"feel free)\b", re.IGNORECASE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:
@@ -71,6 +72,12 @@ def _summary(name: str, result: dict) -> str:
         return ", ".join(v["vendor"] for v in result.get("vendors", [])[:3]) or "no match"
     if name == "exchange_rate":
         return f"{result.get('base')}/{result.get('quote')} {result.get('rate')}"
+    if name == "get_overview":
+        return f"6 months, data to {result['data']['last_date'] or 'none'}"
+    if name == "income_tax_india":
+        return f"₹{result['total_tax']:,.0f} total tax" if "total_tax" in result else "not supported"
+    if name == "web_search":
+        return f"{len(result.get('results', []))} web result(s)"
     if name == "propose_action":
         return f"proposal {result.get('status')}"
     return "ok"
@@ -152,8 +159,11 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
         "steps": [], "tool_calls": 0, "answer": None, "stopped": None, "llm_calls": 0,
     }
     final = graph.invoke(state, {"recursion_limit": 2 * max_tool_calls + 6})
-    retrieved = {p["chunk_id"]: p for s in final["steps"] if s["tool"] == "search_documents"
-                 for p in s["result"].get("passages", [])}
+    retrieved = {p["chunk_id"]: {k: p[k] for k in ("chunk_id", "title", "section", "text")}
+                 for s in final["steps"] if s["tool"] == "search_documents" for p in s["result"].get("passages", [])}
+    retrieved |= {w["id"]: {"chunk_id": w["id"], "title": w["title"], "url": w["url"], "site": w["site"],
+                            "text": w["snippet"]}
+                  for s in final["steps"] if s["tool"] == "web_search" for w in s["result"].get("results", [])}
     answer, follow_up = split_follow_up(final["answer"] or "")
     citations = list(dict.fromkeys(c for c in _CITATION.findall(answer) if c in retrieved))
     return {
@@ -164,8 +174,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
         "sql": [s["args"].get("sql") for s in final["steps"] if s["tool"] == "run_sql" and isinstance(s["args"], dict)],
         "proposals": [s["result"]["proposal_id"] for s in final["steps"]
                       if s["tool"] == "propose_action" and "proposal_id" in s["result"]],
-        "sources": [{"chunk_id": c, "title": retrieved[c]["title"], "section": retrieved[c]["section"],
-                     "text": retrieved[c]["text"]} for c in citations],
+        "sources": [retrieved[c] for c in citations],
         "rows": next((s["result"]["rows"] for s in reversed(final["steps"])
                       if s["tool"] == "run_sql" and "rows" in s["result"]), None),  # last successful query's rows
         "stopped": final["stopped"],

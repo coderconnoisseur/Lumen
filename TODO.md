@@ -53,6 +53,9 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 
 ## 5. AI engineering (see `docs/direction/PROGRESS.md` → Deferred)
 - [x] Live exchange-rate tool and follow-up suggestions in Ask Lumen (SPEC-CHAT-TOOLS, 2026-10-15).
+- [x] The Ask Lumen audit as a 30-question eval with an offline grader (`ask_lumen`, 2026-10-17).
+- [ ] **Owner: record the `ask_lumen` eval** with a real Groq key and `TAVILY_API_KEY` unset (command in
+  `docs/direction/ASK-LUMEN-AUDIT.md`), together with the deferred agent re-record; then add the counts to the audit.
 - [ ] Harder invoice test set; AI judge for written answers; `currency`/`po_number` in the agent schema at the next
   re-recording; citation format in `/api/documents/ask`.
 - [ ] **Chatbot limits audit, then web search** (owner, 2026-10-16): list the questions Ask Lumen can't answer today

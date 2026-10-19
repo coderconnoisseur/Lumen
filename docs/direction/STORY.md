@@ -261,3 +261,16 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   model actually read, 0 false flags on 34 clean invoices, injections kept as data and flagged, p50 3.8 s, $0.
   Reported as saturation, not victory: the synthetic set is too easy to show further gains, so a harder real-world
   set comes next. Story point: a perfect score is a signal to raise the bar.
+
+## 23. Auditing the product against its own landing page (Ask Lumen audit)
+- **S:** Before sharing Lumen, I asked production the 14 questions the landing page promises plus 16 a money assistant
+  should answer: 5 right, 10 partial, 15 wrong. It claimed to remember things it never saved, stated 2023 tax slabs as
+  fact, called past cash payments "idle cash", and found no data for "this month".
+- **T:** Find the root causes and fix the ones that don't need new features, then measure again on the live site.
+- **A:** Graded every answer with its cause: half came from the demo (a business's books that stopped in June, no
+  income or budget, a profile the agent never saw) and the rest from the prompt and SQL. Rebuilt the demo as a
+  person's 12 months ending yesterday, embedded its documents once per server, added honesty rules, fixed SQL that
+  failed on Postgres (ROUND, SQLite date functions, hidden errors), and added recurring-bill detection.
+- **R:** Re-run on production: 20 right, 7 partial, 3 wrong (landing questions 9 / 5 / 0, was 1 / 4 / 9); demo setup
+  8.2 s (was 65-72 s). The 3 left wrong are named with their fixes (tax tool or web search, vendor lookup by kind,
+  empty-result honesty). Story point: measure the product against its own marketing, not just against unit tests.

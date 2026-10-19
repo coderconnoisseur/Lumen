@@ -58,6 +58,7 @@ free tier). Delete it: open it → **Settings** → bottom of the page → **Del
    - `SUPABASE_SERVICE_ROLE_KEY` (1.4, the **service_role** key: server only, never in the frontend).
    - `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`: same values as your local `backend/.env`.
    - `SECRET_KEY` and `EMAIL_ENCRYPTION_KEY`: click **Generate** for each.
+   - `TAVILY_API_KEY` (optional): from app.tavily.com; without it Ask Lumen has no web search.
 
    → **Save, rebuild, and deploy**.
 2. **Settings**: Health Check Path = `/health`; Auto-Deploy = **After CI checks pass**; Build Command =

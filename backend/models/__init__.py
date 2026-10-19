@@ -21,6 +21,7 @@ class User(db.Model):
     use_case = db.Column(db.String)
     goals = db.Column(db.Text)  # JSON list of goal ids
     onboarded_at = db.Column(db.DateTime)
+    notes = db.Column(db.Text)  # JSON [{"text", "saved_at"}]: what the user asked Ask Lumen to keep
 
 
 class Receipt(db.Model):
