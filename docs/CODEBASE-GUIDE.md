@@ -378,17 +378,20 @@ embeds the demo documents once per server and uploads the files in the backgroun
 ## Model keys (BYOK, SPEC-BYOK)
 - Users add their own OpenAI / Anthropic / Gemini / Groq / OpenRouter key (and a Tavily key for web search) on
   `/settings`. `api/keys.py` validates it against the provider (`check_key`), encrypts it with
-  `KEYS_ENCRYPTION_KEY` (`utils/crypto.py`) into `user_keys`, and only ever returns the last 4. Test and Remove
+  `KEYS_ENCRYPTION_KEY` (`utils/crypto.py`; no `SECRET_KEY` fallback: unset = 503 `keys_unavailable`) into `user_keys`, and only ever returns the last 4. Test and Remove
   are on the same router; the key never appears in a response, log line or error (`keys.mask`).
 - Flow: `require_auth` calls `llm.keys.for_user(user, engine)` (a contextvar) -> `keys.user_chain(role)` builds the
-  models that user's keys allow, from the BYOK catalogue in `llm/registry.py` (the `agent` role exists only there) ->
-  `llm.client.complete` tries that chain. If the user has keys but none fits a role, or a key is rejected, it fails
-  with `key_rejected` (400); there is no silent fallback to the platform's models.
+  models that user's keys allow, from the BYOK catalogue in `llm/registry.yaml` (loaded by `llm/registry.py`; the
+  `agent` role exists only there) -> `llm.client.complete` tries that chain. A role none of the user's keys covers
+  (e.g. vision for a Groq-only user) uses the platform chain. `key_rejected` (400) is only for a failing user key;
+  then there is no silent fallback to the platform's models.
 - No key at all: the platform's chain, capped by the free allowance (`PLATFORM_QUESTIONS_PER_DAY` questions a day,
-  `PLATFORM_INVOICE_READS` invoice reads in total). Past it: `needs_key` (402). The chat, the documents question box
-  and the inbox status card then link to Settings.
-- Email poller (no request, so no contextvar): it enters `for_user` for each config's owner. A rejected key or a
-  used-up allowance stops the retries and is written to `last_error`, which the inbox card shows.
+  `PLATFORM_INVOICE_READS` invoice reads in total). `/chat`, `/api/agent/ask` and `/api/documents/ask` share the
+  question allowance. Past it: `needs_key` (402). The chat and the inbox status card link to Settings; the documents
+  question box appends a Settings hint (not a link).
+- Email poller (no request, so no contextvar): it enters `for_user` for each config's owner. A rejected key stops
+  that user's poll; a used-up allowance skips only the invoice email that needed it (retried next poll). Either is
+  written to `last_error`, which the inbox card shows.
 - `LUMEN_OPENAI_BASE_URL` / `LUMEN_ANTHROPIC_BASE_URL` move those providers to a test server (used by the tests).
 
 ## Statement import (SPEC-STATEMENTS)

@@ -157,8 +157,8 @@ def test_validation_is_rate_limited(client, monkeypatch):
 
 def test_no_encryption_key_refuses(client, monkeypatch):
     c, engine = client
-    monkeypatch.delenv("KEYS_ENCRYPTION_KEY")
-    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("KEYS_ENCRYPTION_KEY")  # SECRET_KEY stays set: it must not stand in
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-ci-only")
     r = c.put("/api/keys/openai", headers=bearer(USER), json={"key": KEY})
     assert r.status_code == 503 and r.json()["code"] == "keys_unavailable"
     assert rows(engine) == []

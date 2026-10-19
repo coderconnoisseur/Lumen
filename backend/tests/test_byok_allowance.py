@@ -87,7 +87,7 @@ def test_user_with_key_not_counted(flask_db, fake_ask, monkeypatch):
     assert [chat(flask_db).status_code for _ in range(5)] == [200] * 5
 
 
-def test_demo_user_same_allowance(tmp_path, monkeypatch):
+def _agent_client(tmp_path, monkeypatch):
     import models  # noqa: F401
     import utils.auth
     from ai.sql_agent import SQLAgent
@@ -101,7 +101,7 @@ def test_demo_user_same_allowance(tmp_path, monkeypatch):
     from utils.limiter import limiter
 
     monkeypatch.setattr(utils.auth, "verify_token", lambda t: jwt.decode(t, options={"verify_signature": False}))
-    monkeypatch.setattr(Config, "PLATFORM_QUESTIONS_PER_DAY", 2)
+    monkeypatch.setattr(limiter, "enabled", True)
     path = tmp_path / "a.db"
     engine = create_engine(f"sqlite:///{path}")
     flask_db.metadata.create_all(engine)
@@ -113,13 +113,42 @@ def test_demo_user_same_allowance(tmp_path, monkeypatch):
     app = create_app(agent_api.router)
     app.dependency_overrides[agent_api.get_agent_deps] = lambda: deps
     limiter.reset()
-    c = TestClient(app)
-    h = {"Authorization": "Bearer " + jwt.encode({"sub": "5b0c2d6e-0000-4000-8000-000000000001", "is_anonymous": True},
-                                                 "k" * 32, algorithm="HS256")}
+    return TestClient(app), engine
+
+
+def _bearer(sub, **claims):
+    return {"Authorization": "Bearer " + jwt.encode({"sub": sub, **claims}, "k" * 32, algorithm="HS256")}
+
+
+def test_demo_user_same_allowance(tmp_path, monkeypatch):
+    from config import Config
+
+    monkeypatch.setattr(Config, "PLATFORM_QUESTIONS_PER_DAY", 2)
+    c, _ = _agent_client(tmp_path, monkeypatch)
+    h = _bearer("5b0c2d6e-0000-4000-8000-000000000001", is_anonymous=True)
     ask = lambda: c.post("/api/agent/ask", headers=h, json={"question": "hi"})
     assert [ask().status_code for _ in range(2)] == [200, 200]
     r = ask()
-    assert r.status_code == 402 and "Add your own model key" in r.text
+    assert r.status_code == 402 and r.json()["code"] == "needs_key" and "Add your own model key" in r.text
+
+
+def test_fastapi_key_holder_not_counted(tmp_path, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    from config import Config
+    from llm import keys
+    from models import UserKey
+    from utils.crypto import encrypt_secret
+
+    monkeypatch.setattr(Config, "PLATFORM_QUESTIONS_PER_DAY", 1)
+    monkeypatch.setenv("KEYS_ENCRYPTION_KEY", "k" * 32)
+    c, engine = _agent_client(tmp_path, monkeypatch)
+    sub = "5b0c2d6e-0000-4000-8000-000000000002"
+    with Session(engine) as s:
+        s.add(UserKey(user_id=sub, provider="openai", key_enc=encrypt_secret("sk-test-1234567890", key_env=keys.KEY_ENV)))
+        s.commit()
+    assert [c.post("/api/agent/ask", headers=_bearer(sub), json={"question": "hi"}).status_code
+            for _ in range(3)] == [200] * 3
 
 
 def test_invoice_reads_capped_without_vision_key(flask_db, monkeypatch):

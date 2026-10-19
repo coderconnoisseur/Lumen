@@ -177,18 +177,21 @@ def test_poller_stops_on_user_key_error_and_resumes_after_fix(env, monkeypatch):
     assert env.db.session.query(UserKey).filter_by(user_id=U1).one().last_error is None
 
 
-def test_needs_key_stops_poll(env, monkeypatch):
+def test_needs_key_skips_only_that_email(env, monkeypatch):
     from models import ProcessedEmail
     from utils.errors import KEY_MESSAGES
     calls = []
 
     def parse(*a, **k):
         calls.append(1)
-        raise LLMError(LLMError.NEEDS_KEY, "allowance used")
+        if len(calls) == 1:
+            raise LLMError(LLMError.NEEDS_KEY, "allowance used")
+        return parsed()
     monkeypatch.setattr(env.poller, "parse_money_email", parse)
     env.services_[U1] = Fake([mail("<1>"), mail("<2>")])
-    env.poller.process_user_emails(env.config(U1))
-    assert len(calls) == 1 and ProcessedEmail.query.count() == 0
+    r = env.poller.process_user_emails(env.config(U1))
+    assert len(calls) == 2 and r["transactions_added"] == 1
+    assert [p.message_id for p in ProcessedEmail.query.all()] == ["<2>"]
     assert env.config(U1).last_error == KEY_MESSAGES["needs_key"]
     assert env.config(U1).last_poll_time is None
 

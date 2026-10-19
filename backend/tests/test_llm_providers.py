@@ -107,6 +107,14 @@ def test_key_check_reports_rejection(monkeypatch):
     assert not ok and "401" in summary
 
 
+def test_openrouter_user_key_rejection_hides_server_env_var(monkeypatch):
+    from llm import providers
+
+    monkeypatch.setattr(providers.requests, "get", lambda *a, **k: _Resp(401, {"error": {"message": "User not found."}}))
+    assert "OPENROUTER_API_KEY" not in providers.PROVIDERS["openrouter"].check_key(key="sk-or-user-1234")[1]
+    assert "OPENROUTER_API_KEY" in providers.PROVIDERS["openrouter"].check_key()[1]
+
+
 # --- registry ---------------------------------------------------------------------
 
 

@@ -14,7 +14,8 @@ _PREFIX = "enc:"
 
 
 def _fernet(key_env: str = "EMAIL_ENCRYPTION_KEY") -> Fernet | None:
-    raw = os.getenv(key_env) or os.getenv("SECRET_KEY")
+    # Users' model keys get their own key, never SECRET_KEY (SPEC-BYOK); IMAP passwords may fall back to it.
+    raw = os.getenv(key_env) or (None if key_env == "KEYS_ENCRYPTION_KEY" else os.getenv("SECRET_KEY"))
     if not raw:
         return None
     # Fernet needs a 32-byte url-safe base64 key; derive deterministically.

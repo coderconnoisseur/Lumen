@@ -126,7 +126,8 @@ class _OpenRouter(Provider):
         except requests.RequestException as e:
             return False, f"could not reach OpenRouter to verify the key ({type(e).__name__})."
         if resp.status_code != 200:
-            return False, f"OpenRouter rejected the key (HTTP {resp.status_code}: {_safe_message(resp)}).{self.auth_hint()}"
+            hint = self.auth_hint() if key is None else ""  # a user's key: never name the server's env var
+            return False, f"OpenRouter rejected the key (HTTP {resp.status_code}: {_safe_message(resp)}).{hint}"
         data = resp.json().get("data") or {}
         free = bool(data.get("is_free_tier"))
         # `limit_remaining` is the key's dollar credit, not a request count. The ~50/day cap on `:free` models

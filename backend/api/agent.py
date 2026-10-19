@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
 from llm import keys
-from utils.errors import KEY_MESSAGES
+from llm.errors import LLMError
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -63,7 +63,7 @@ def count_platform_question(claims: dict, authorization: str, client: str) -> bo
     from config import Config
     from utils.limiter import limiter, rate_limit_key
 
-    if keys.has_key("agent") or not limiter.enabled:
+    if not limiter.enabled or keys.has_key("agent"):
         return True
     return limiter.limiter.hit(parse(f"{Config.PLATFORM_QUESTIONS_PER_DAY} per day"),
                                rate_limit_key(authorization, client), "platform-questions")
@@ -81,7 +81,7 @@ def ask(body: Question, request: Request, claims: dict = Depends(current_user), 
     with keys.for_user(claims["sub"], deps.engine):
         if not count_platform_question(claims, request.headers.get("Authorization", ""),
                                        request.client.host if request.client else "127.0.0.1"):
-            raise HTTPException(402, KEY_MESSAGES["needs_key"])
+            raise LLMError(LLMError.NEEDS_KEY, "free question allowance used")  # 402 needs_key (api/errors.py)
         out = run_agent(body.question, ctx, complete=deps.complete)
     return {"success": True, **out}
 

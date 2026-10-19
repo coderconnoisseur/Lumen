@@ -2,12 +2,13 @@
 limits and error bodies come from api/deps.py and api/errors.py (API-01 parity)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from api.deps import current_user, rate_limit
 from config import Config
 from llm import keys
+from llm.errors import LLMError
 from rag.service import DOC_TYPES, RagService, get_service
 
 from utils import files
@@ -67,8 +68,13 @@ def search(body: Query, claims: dict = Depends(current_user), rag: RagService = 
 
 
 @router.post("/ask", dependencies=[Depends(rate_limit("10 per minute"))])
-def ask(body: Question, claims: dict = Depends(current_user), rag: RagService = Depends(get_service)):
+def ask(body: Question, request: Request, claims: dict = Depends(current_user), rag: RagService = Depends(get_service)):
+    from api.agent import count_platform_question
+
     with keys.for_user(claims["sub"], rag.store.engine):
+        if not count_platform_question(claims, request.headers.get("Authorization", ""),
+                                       request.client.host if request.client else "127.0.0.1"):
+            raise LLMError(LLMError.NEEDS_KEY, "free question allowance used")  # 402 needs_key (api/errors.py)
         out = rag.ask(claims["sub"], body.question)
     return {"success": True, "answer": out["answer"], "abstained": out["abstained"], "reason": out["reason"],
             "sources": out["sources"]}

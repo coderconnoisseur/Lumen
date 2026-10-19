@@ -81,7 +81,7 @@ def process_user_emails(config: EmailConfig) -> dict:
                 continue
 
             if email_data['has_invoice_attachment']:
-                llm_down = False
+                llm_down = stop = False
                 for attachment in email_data['attachments']:
                     try:
                         # saved by an earlier, partly failed pass over this email: don't submit it twice
@@ -102,14 +102,15 @@ def process_user_emails(config: EmailConfig) -> dict:
                     except LLMError as e:
                         logger.warning(f"Invoice read unavailable ({e.kind}); will retry next poll")
                         llm_down = True
-                        key_problem = _key_problem(e)
+                        key_problem = _key_problem(e) or key_problem
+                        stop = bool(e.user_key)  # a rejected key stops the poll; the allowance skips only this email
                         break
                     except Exception as e:
                         logger.error(f"Error processing attachment {attachment['filename']}: {e}")
                         error_count += 1
                 if llm_down:  # provider outage: leave it unprocessed so the next poll retries
                     retry = True
-                    if key_problem:
+                    if stop:
                         break
                     continue
             elif is_candidate(email_data['subject'], email_data['text'], False):
@@ -119,8 +120,8 @@ def process_user_emails(config: EmailConfig) -> dict:
                     # provider outage: leave it unprocessed so the next poll retries
                     logger.warning(f"Email parse unavailable ({e.kind}); will retry next poll")
                     retry = True
-                    key_problem = _key_problem(e)
-                    if key_problem:
+                    key_problem = _key_problem(e) or key_problem
+                    if e.user_key:  # a rejected key stops the poll; the allowance skips only this email
                         break
                     continue
                 outcome = "skipped"

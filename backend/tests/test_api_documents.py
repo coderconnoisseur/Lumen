@@ -46,7 +46,7 @@ def client(tmp_path, monkeypatch):
     app = create_app(documents.router)
     app.dependency_overrides[get_service] = lambda: rag
     c = TestClient(app)
-    c.prompts = prompts
+    c.prompts, c.engine = prompts, store.engine
     return c
 
 
@@ -87,6 +87,21 @@ def test_users_never_see_or_delete_each_others_documents(client):
     assert bob_asks["abstained"] is True and bob_asks["reason"] == "no_evidence" and client.prompts == []
     r = client.delete(f"/api/documents/{doc['id']}", headers=bearer("bob"))
     assert r.status_code == 404 and r.json()["code"] == "http_error"
+
+
+def test_ask_counts_against_the_question_allowance(client, monkeypatch):
+    from config import Config
+    from models.database import db as flask_db
+    from utils.limiter import limiter
+
+    flask_db.metadata.create_all(client.engine, tables=[flask_db.metadata.tables["user_keys"]])
+    monkeypatch.setattr(Config, "PLATFORM_QUESTIONS_PER_DAY", 1)
+    monkeypatch.setattr(limiter, "enabled", True)
+    limiter.reset()
+    ask = lambda: client.post("/api/documents/ask", headers=bearer("carol"), json={"question": "NetLink fee?"})
+    assert ask().status_code == 200
+    r = ask()
+    assert r.status_code == 402 and r.json()["code"] == "needs_key" and "Add your own model key" in r.json()["error"]
 
 
 def test_rejects_non_pdfs_bad_types_and_missing_auth(client):
