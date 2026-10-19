@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell, TrendingUp, Calendar } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useMoney } from "@/lib/format";

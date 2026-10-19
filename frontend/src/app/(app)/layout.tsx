@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
+import { MotionConfig } from "motion/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ProfileProvider } from "@/components/profile/profile-provider";
@@ -16,6 +17,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 				<ProfileProvider>
 				{/* turns on the Sky light theme (globals.css) for the whole signed-in app, portals included */}
 				<div data-app-theme="sky" className="contents">
+				<MotionConfig reducedMotion="user">
 				<SidebarProvider>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
@@ -29,6 +31,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 						{children}
 					</SidebarInset>
 				</SidebarProvider>
+				</MotionConfig>
 				</div>
 				</ProfileProvider>
 			</AuthGuard>

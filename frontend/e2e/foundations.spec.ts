@@ -82,3 +82,14 @@ test("dark: variants are off inside sky", async ({ page }) => {
 	const bg = await page.getByTestId("open-select").evaluate((e) => getComputedStyle(e).backgroundColor);
 	expect(bg).toBe("rgba(0, 0, 0, 0)");
 });
+
+test("reduced motion kills transitions", async ({ browser }) => {
+	const ctx = await browser.newContext({ reducedMotion: "reduce", baseURL: test.info().project.use.baseURL });
+	const page = await ctx.newPage();
+	await page.goto("/dev/layout-shift");
+	const d = await page
+		.getByTestId("transition-probe")
+		.evaluate((e) => parseFloat(getComputedStyle(e).transitionDuration));
+	expect(d).toBeLessThan(0.01);
+	await ctx.close();
+});
