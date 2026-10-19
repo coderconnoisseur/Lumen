@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from api.deps import AuthFailed
-from utils.errors import llm_error_status
+from utils.errors import llm_error_status, llm_message
 from utils.llm import LLMError
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def install(app: FastAPI) -> None:
     async def llm_error(request: Request, e: LLMError):
         status, code, key = llm_error_status(e)
         logger.error("%s: LLM %s: %s", request.url.path, e.kind, e.detail)
-        return _error(LLM_MESSAGES[key], status, code)
+        return _error(llm_message(e, key, LLM_MESSAGES), status, code)
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, e: Exception):

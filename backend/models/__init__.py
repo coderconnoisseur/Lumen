@@ -346,3 +346,19 @@ class ProcessedEmail(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("user_id", "message_id", name="u_processed_email"),)
+
+
+class UserKey(db.Model):
+    """SPEC-BYOK: a user's own model key for one provider, encrypted with KEYS_ENCRYPTION_KEY."""
+    __tablename__ = "user_keys"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    provider = db.Column(db.String, nullable=False)
+    key_enc = db.Column(Text, nullable=False)
+    models = db.Column(Text)  # JSON {role: model}: the user's "advanced" pick
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_ok_at = db.Column(db.DateTime)
+    last_error = db.Column(Text)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "provider", name="u_user_key"),)

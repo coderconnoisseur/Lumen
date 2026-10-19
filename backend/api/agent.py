@@ -19,6 +19,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
+from llm import keys
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -84,7 +85,8 @@ def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = 
     ctx = ToolContext(user_id=claims["sub"], engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today(), profile=profile_for(deps.engine, claims["sub"]),
                       question=body.question)
-    out = run_agent(body.question, ctx, complete=deps.complete)
+    with keys.for_user(claims["sub"], deps.engine):
+        out = run_agent(body.question, ctx, complete=deps.complete)
     return {"success": True, **out}
 
 

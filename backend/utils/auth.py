@@ -218,6 +218,10 @@ def require_auth(fn: Callable) -> Callable:
         g.user_id = claims["sub"]
         g.user_email = claims.get("email")
         g.jwt_claims = claims
-        return fn(*args, **kwargs)
+        from llm import keys
+        from models.database import db
+
+        with keys.for_user(claims["sub"], db.engine):
+            return fn(*args, **kwargs)
 
     return wrapper

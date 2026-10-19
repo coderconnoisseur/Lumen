@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import current_user, rate_limit
 from config import Config
+from llm import keys
 from rag.service import DOC_TYPES, RagService, get_service
 
 from utils import files
@@ -67,6 +68,7 @@ def search(body: Query, claims: dict = Depends(current_user), rag: RagService = 
 
 @router.post("/ask", dependencies=[Depends(rate_limit("10 per minute"))])
 def ask(body: Question, claims: dict = Depends(current_user), rag: RagService = Depends(get_service)):
-    out = rag.ask(claims["sub"], body.question)
+    with keys.for_user(claims["sub"], rag.store.engine):
+        out = rag.ask(claims["sub"], body.question)
     return {"success": True, "answer": out["answer"], "abstained": out["abstained"], "reason": out["reason"],
             "sources": out["sources"]}

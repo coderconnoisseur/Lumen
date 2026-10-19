@@ -93,8 +93,8 @@ def build_graph(ctx: ToolContext, *, complete: Callable[..., Any], max_tool_call
         out_of_calls = state["tool_calls"] >= max_tool_calls
         if out_of_calls:
             messages.append({"role": "user", "content": FORCE_ANSWER})
-        result = complete(messages, tools=None if out_of_calls else schemas, temperature=0, max_tokens=900,
-                          timeout=40, retries=1)
+        result = complete(messages, role="agent", tools=None if out_of_calls else schemas, temperature=0,
+                          max_tokens=900, timeout=40, retries=1)
         calls = [] if out_of_calls else (result.tool_calls or [])
         for call in calls:
             call.setdefault("id", f"call_{uuid.uuid4().hex[:12]}")
