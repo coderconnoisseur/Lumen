@@ -5,6 +5,7 @@ import os
 from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from config import Config
+from llm import keys
 from inbox.filter import is_candidate
 from inbox.gmail import GmailClient
 from inbox.parse import parse_money_email
@@ -36,6 +37,16 @@ def _readable(day) -> bool:
         return False
 
 
+def _key_problem(e: LLMError) -> str | None:
+    """A failure only the user can fix (their key, or the free allowance): stop retrying until they do."""
+    from llm.keys import PROVIDER_NAMES
+    from utils.errors import KEY_MESSAGES
+
+    if e.user_key:
+        return KEY_MESSAGES["key_rejected"].format(provider=PROVIDER_NAMES.get(e.user_key, e.user_key))
+    return KEY_MESSAGES["needs_key"] if e.kind == LLMError.NEEDS_KEY else None
+
+
 _COUNT = {'imported': 'transactions_added', 'credit': 'credits', 'duplicate': 'duplicates', 'matched': 'duplicates'}
 
 
@@ -59,6 +70,7 @@ def process_user_emails(config: EmailConfig) -> dict:
         # SINCE is day-granular, so re-scan 2 days back; Message-ID dedup makes that safe
         since_date = (config.last_poll_time - timedelta(days=2) if config.last_poll_time
                       else datetime.utcnow() - timedelta(days=30))
+        key_problem = None  # set when only the user can fix the failure: the poll stops and says why
         retry = False  # an email left for the next poll keeps last_poll_time where it was
         total = 0  # fetch_new_emails yields one message at a time
         for email_data in service.fetch_new_emails(since_date):
@@ -90,12 +102,15 @@ def process_user_emails(config: EmailConfig) -> dict:
                     except LLMError as e:
                         logger.warning(f"Invoice read unavailable ({e.kind}); will retry next poll")
                         llm_down = True
+                        key_problem = _key_problem(e)
                         break
                     except Exception as e:
                         logger.error(f"Error processing attachment {attachment['filename']}: {e}")
                         error_count += 1
                 if llm_down:  # provider outage: leave it unprocessed so the next poll retries
                     retry = True
+                    if key_problem:
+                        break
                     continue
             elif is_candidate(email_data['subject'], email_data['text'], False):
                 try:
@@ -104,6 +119,9 @@ def process_user_emails(config: EmailConfig) -> dict:
                     # provider outage: leave it unprocessed so the next poll retries
                     logger.warning(f"Email parse unavailable ({e.kind}); will retry next poll")
                     retry = True
+                    key_problem = _key_problem(e)
+                    if key_problem:
+                        break
                     continue
                 outcome = "skipped"
                 if parsed is not None:
@@ -141,7 +159,7 @@ def process_user_emails(config: EmailConfig) -> dict:
             config.last_poll_time = datetime.utcnow()
         config.last_successful_poll = datetime.utcnow()
         config.emails_processed = (config.emails_processed or 0) + processed_count + counts['transactions_added']
-        config.last_error = None
+        config.last_error = key_problem
         db.session.commit()
 
         logger.info(f"Polling complete: {processed_count} invoices, {counts}, {error_count} errors")
@@ -278,8 +296,12 @@ def poll_all_users():
 
     results = []
     for config in configs:
+        if keys.failing(db.engine, config.user_id):
+            logger.info(f"Skipping user {config.user_id}: user key needs attention")
+            continue
         try:
-            result = process_user_emails(config)
+            with keys.for_user(config.user_id, db.engine):
+                result = process_user_emails(config)
             results.append({
                 'user_id': config.user_id,
                 'email': config.email_address,
