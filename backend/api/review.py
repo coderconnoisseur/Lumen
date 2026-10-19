@@ -177,7 +177,19 @@ def read_with_feedback(engine: Engine, user_id: str, image_base64: str, media_ty
     """Read an invoice; if the user has corrected this vendor's invoices before, read it again with those
     corrections as hints (one extra call, only for vendors with a correction history). The hints used are kept on
     the invoice (`feedback_hints`) so the reviewer can see them."""
+    from sqlalchemy import func
+
+    from config import Config
     from extract import read
+    from llm import keys
+    from models import ReviewItem
+    from utils.llm import LLMError
+
+    if not keys.has_key("vision"):
+        with Session(engine) as session:
+            used = session.scalar(select(func.count()).select_from(ReviewItem).where(ReviewItem.user_id == user_id))
+        if used >= Config.PLATFORM_INVOICE_READS:
+            raise LLMError(LLMError.NEEDS_KEY, "free invoice reads used up")
 
     inv = read.read_invoice(image_base64, media_type)
     hints = corrections_for(engine, user_id, inv.get("vendor_name"))
