@@ -193,8 +193,8 @@ class _Anthropic(Provider):
 
 PROVIDERS: dict[str, Provider] = {
     # No platform key for these two: users supply them (SPEC-BYOK).
-    "openai": _OpenAI("openai", "https://api.openai.com/v1", "OPENAI_BASE_URL", None),
-    "anthropic": _Anthropic("anthropic", "https://api.anthropic.com/v1", "ANTHROPIC_BASE_URL", None),
+    "openai": _OpenAI("openai", "https://api.openai.com/v1", "LUMEN_OPENAI_BASE_URL", None),
+    "anthropic": _Anthropic("anthropic", "https://api.anthropic.com/v1", "LUMEN_ANTHROPIC_BASE_URL", None),
     "openrouter": _OpenRouter("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_BASE_URL", "OPENROUTER_API_KEY"),
     "groq": _Groq("groq", "https://api.groq.com/openai/v1", "GROQ_BASE_URL", "GROQ_API_KEY"),
     "ollama": _Ollama("ollama", "http://localhost:11434/v1", "OLLAMA_BASE_URL", None),
