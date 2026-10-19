@@ -125,6 +125,16 @@
 	body {
 		overflow-x: hidden;
 	}
+	html {
+		scrollbar-gutter: stable;
+	}
+	/* Radix modals lock scroll via react-remove-scroll, which adds margin/padding equal to the scrollbar width and
+	   shifts centred content. The gutter already reserves that space, so cancel the compensation (layered
+	   !important outranks the runtime-injected unlayered rule). */
+	html body[data-scroll-locked] {
+		margin-right: 0 !important;
+		padding-right: 0 !important;
+	}
 	body {
 		@apply bg-background text-foreground;
 		background-image:

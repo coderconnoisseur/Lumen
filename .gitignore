@@ -102,3 +102,5 @@ graphify-out/
 # Retrieval model files (rag/embed.py MODEL_CACHE), fetched at build time
 backend/.models/
 .superpowers/
+frontend/test-results/
+frontend/playwright-report/
