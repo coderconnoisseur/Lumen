@@ -7,7 +7,7 @@ from flask import Blueprint, g, request, jsonify
 from models import ChatMessage
 from models.database import db
 from utils.auth import require_auth
-from utils.errors import api_error, llm_api_error
+from utils.errors import KEY_MESSAGES, api_error, llm_api_error
 from utils.limiter import limiter
 from utils.llm import LLMError
 
@@ -109,11 +109,10 @@ def chat():
 
     user_id = str(g.user_id)
 
-    from api.agent import DEMO_QUESTIONS_PER_DAY, count_demo_question
+    from api.agent import count_platform_question
 
-    if not count_demo_question(g.jwt_claims, request.headers.get("Authorization", ""), request.remote_addr or ""):
-        return api_error(f"The demo allows {DEMO_QUESTIONS_PER_DAY} questions a day. Sign up to keep going.",
-                         status=429, code="demo_limit")
+    if not count_platform_question(g.jwt_claims, request.headers.get("Authorization", ""), request.remote_addr or ""):
+        return api_error(KEY_MESSAGES["needs_key"], status=402, code="needs_key")
 
     try:
         logger.info("Processing chat query for user=%s", user_id)

@@ -637,3 +637,57 @@ def test_web_search_description_and_prompt():
     assert "Never put the user's data" in d and "untrusted data" in d and "[web:n]" in d
     text = system_prompt(date(2026, 10, 17))
     assert "web_search when available" in text and "currency" not in text
+
+
+@pytest.fixture
+def tavily_user(tmp_path, monkeypatch):
+    """A user with their own Tavily key, inside keys.for_user, and no platform key."""
+    from llm import keys
+    from models import UserKey
+    from models.database import db as flask_db
+    from sqlalchemy.orm import Session
+    from utils.crypto import encrypt_secret
+
+    monkeypatch.setenv("KEYS_ENCRYPTION_KEY", "k" * 32)
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    engine = create_engine(f"sqlite:///{tmp_path / 'k.db'}")
+    flask_db.metadata.create_all(engine, tables=[flask_db.metadata.tables["user_keys"]])
+    key = "tvly-user-1234567890abcd"
+    with Session(engine) as s, s.begin():
+        s.add(UserKey(user_id="tav-user", provider="tavily", key_enc=encrypt_secret(key, key_env=keys.KEY_ENV)))
+    with keys.for_user("tav-user", engine):
+        yield key, engine
+
+
+def test_web_search_uses_user_tavily_key_without_caps(db, world, monkeypatch, tavily_user):
+    from agent import tools
+    from agent.tools import WEB_SEARCH_PER_DAY, run_tool, tool_schemas
+
+    key, _ = tavily_user
+    sent = []
+
+    def post(url, json=None, headers=None, timeout=None):
+        sent.append(headers)
+        return _Tavily(body={"results": []})
+    monkeypatch.setattr(tools.requests, "post", post)
+    assert "web_search" in [s["function"]["name"] for s in tool_schemas()]
+    me = _web_ctx(db, world)
+    for _ in range(WEB_SEARCH_PER_DAY + 2):
+        assert "results" in run_tool(me, "web_search", {"query": "repo rate"})
+    assert all(h == {"Authorization": f"Bearer {key}"} for h in sent) and len(sent) == WEB_SEARCH_PER_DAY + 2
+    assert me.user_id not in tools._web_searches
+
+
+def test_web_search_user_key_rejected(db, world, monkeypatch, tavily_user):
+    from agent import tools
+    from agent.tools import run_tool
+    from models import UserKey
+    from sqlalchemy.orm import Session
+
+    key, engine = tavily_user
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: _Tavily(401, {"detail": f"bad key {key}"}))
+    out = run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})
+    assert "Your Tavily key was rejected" in out["error"]
+    with Session(engine) as s:
+        err = s.query(UserKey).one().last_error
+    assert err == "Tavily rejected the key (HTTP 401)." and not any(key[i:i + 8] in err for i in range(len(key) - 7))

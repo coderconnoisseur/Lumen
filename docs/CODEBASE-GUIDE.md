@@ -375,6 +375,25 @@ embeds the demo documents once per server and uploads the files in the backgroun
   that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
   as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.
 
+## Model keys (BYOK, SPEC-BYOK)
+- Users add their own OpenAI / Anthropic / Gemini / Groq / OpenRouter key (and a Tavily key for web search) on
+  `/settings`. `api/keys.py` validates it against the provider (`check_key`), encrypts it with
+  `KEYS_ENCRYPTION_KEY` (`utils/crypto.py`; no `SECRET_KEY` fallback: unset = 503 `keys_unavailable`) into `user_keys`, and only ever returns the last 4. Test and Remove
+  are on the same router; the key never appears in a response, log line or error (`keys.mask`).
+- Flow: `require_auth` calls `llm.keys.for_user(user, engine)` (a contextvar) -> `keys.user_chain(role)` builds the
+  models that user's keys allow, from the BYOK catalogue in `llm/registry.yaml` (loaded by `llm/registry.py`; the
+  `agent` role exists only there) -> `llm.client.complete` tries that chain. A role none of the user's keys covers
+  (e.g. vision for a Groq-only user) uses the platform chain. `key_rejected` (400) is only for a failing user key;
+  then there is no silent fallback to the platform's models.
+- No key at all: the platform's chain, capped by the free allowance (`PLATFORM_QUESTIONS_PER_DAY` questions a day,
+  `PLATFORM_INVOICE_READS` invoice reads in total). `/chat`, `/api/agent/ask` and `/api/documents/ask` share the
+  question allowance. Past it: `needs_key` (402). The chat and the inbox status card link to Settings; the documents
+  question box appends a Settings hint (not a link).
+- Email poller (no request, so no contextvar): it enters `for_user` for each config's owner. A rejected key stops
+  that user's poll; a used-up allowance skips only the invoice email that needed it (retried next poll). Either is
+  written to `last_error`, which the inbox card shows.
+- `LUMEN_OPENAI_BASE_URL` / `LUMEN_ANTHROPIC_BASE_URL` move those providers to a test server (used by the tests).
+
 ## Statement import (SPEC-STATEMENTS)
 - `backend/statements/read.py`: decodes the CSV, finds the header row, guesses the column mapping (date,
   description, debit, credit, amount, Dr/Cr marker), parses lines with signs. `vendor.py` cleans bank descriptions

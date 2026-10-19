@@ -19,7 +19,7 @@ class _Resp:
 def test_providers_are_registered():
     from llm.providers import PROVIDERS
 
-    assert set(PROVIDERS) == {"openrouter", "groq", "ollama", "gemini"}
+    assert set(PROVIDERS) == {"openrouter", "groq", "ollama", "gemini", "openai", "anthropic"}
     assert PROVIDERS["groq"].base_url == "https://api.groq.com/openai/v1"
     assert PROVIDERS["ollama"].base_url == "http://localhost:11434/v1"
 
@@ -105,6 +105,14 @@ def test_key_check_reports_rejection(monkeypatch):
     monkeypatch.setattr(providers.requests, "get", lambda *a, **k: _Resp(401, {"error": {"message": "Invalid API Key"}}))
     ok, summary = providers.PROVIDERS["groq"].check_key()
     assert not ok and "401" in summary
+
+
+def test_openrouter_user_key_rejection_hides_server_env_var(monkeypatch):
+    from llm import providers
+
+    monkeypatch.setattr(providers.requests, "get", lambda *a, **k: _Resp(401, {"error": {"message": "User not found."}}))
+    assert "OPENROUTER_API_KEY" not in providers.PROVIDERS["openrouter"].check_key(key="sk-or-user-1234")[1]
+    assert "OPENROUTER_API_KEY" in providers.PROVIDERS["openrouter"].check_key()[1]
 
 
 # --- registry ---------------------------------------------------------------------

@@ -305,10 +305,10 @@ def test_chat_shares_the_demo_question_cap(authed_client, monkeypatch):
     import api.agent
     import routes.chat as chat
 
-    monkeypatch.setattr(api.agent, "count_demo_question", lambda *a: False)
+    monkeypatch.setattr(api.agent, "count_platform_question", lambda *a: False)
     monkeypatch.setattr(chat, "_ask", lambda *a: pytest.fail("the agent must not run past the cap"))
     resp = authed_client.post("/chat", json={"query": "hi"}, headers={"Authorization": "Bearer x.y.z"})
-    assert resp.status_code == 429 and resp.get_json()["code"] == "demo_limit"
+    assert resp.status_code == 402 and resp.get_json()["code"] == "needs_key"
 
 
 def test_chat_sources_carry_the_passage_and_the_original_file(authed_client, monkeypatch):

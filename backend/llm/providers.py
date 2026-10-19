@@ -65,9 +65,9 @@ class Provider:
     def api_key(self) -> str | None:
         return os.getenv(self.key_env) if self.key_env else None
 
-    def headers(self) -> dict:
+    def headers(self, key: str | None = None) -> dict:
         headers = {"Content-Type": "application/json"}
-        key = self.api_key()
+        key = key or self.api_key()
         if key:
             headers["Authorization"] = f"Bearer {key}"
         return headers
@@ -83,10 +83,14 @@ class Provider:
     def auth_hint(self) -> str:
         return f" Check {self.key_env} in backend/.env." if self.key_env else ""
 
-    def check_key(self, timeout: float = 8) -> tuple[bool, str]:
+    def adapt(self, payload: dict) -> dict:
+        """Drop or rename request fields this provider rejects. Default: unchanged."""
+        return payload
+
+    def check_key(self, timeout: float = 8, key: str | None = None) -> tuple[bool, str]:
         """Ask the provider whether the key works. Costs no generation quota."""
         try:
-            resp = requests.get(f"{self.base_url}/models", headers=self.headers(), timeout=timeout)
+            resp = requests.get(f"{self.base_url}/models", headers=self.headers(key), timeout=timeout)
         except requests.RequestException as e:
             return False, f"could not reach {self.name} ({type(e).__name__})."
         if resp.status_code != 200:
@@ -114,15 +118,16 @@ class _OpenRouter(Provider):
             )
         return " Check OPENROUTER_API_KEY in backend/.env."
 
-    def check_key(self, timeout: float = 8) -> tuple[bool, str]:
-        if not self.api_key():
+    def check_key(self, timeout: float = 8, key: str | None = None) -> tuple[bool, str]:
+        if not (key or self.api_key()):
             return False, "OPENROUTER_API_KEY is not set."
         try:
-            resp = requests.get(f"{self.base_url}/key", headers=self.headers(), timeout=timeout)
+            resp = requests.get(f"{self.base_url}/key", headers=self.headers(key), timeout=timeout)
         except requests.RequestException as e:
             return False, f"could not reach OpenRouter to verify the key ({type(e).__name__})."
         if resp.status_code != 200:
-            return False, f"OpenRouter rejected the key (HTTP {resp.status_code}: {_safe_message(resp)}).{self.auth_hint()}"
+            hint = self.auth_hint() if key is None else ""  # a user's key: never name the server's env var
+            return False, f"OpenRouter rejected the key (HTTP {resp.status_code}: {_safe_message(resp)}).{hint}"
         data = resp.json().get("data") or {}
         free = bool(data.get("is_free_tier"))
         # `limit_remaining` is the key's dollar credit, not a request count. The ~50/day cap on `:free` models
@@ -154,7 +159,43 @@ class _Ollama(Provider):
         return {"think": False} if reasoning == REASONING_OFF else {}
 
 
+class _OpenAI(Provider):
+    # GPT-5+ are reasoning models: temperature other than 1 and `max_tokens` are rejected (checked 2026-10-16).
+    def adapt(self, payload):
+        payload.pop("temperature", None)
+        payload["max_completion_tokens"] = payload.pop("max_tokens")
+        return payload
+
+    def reasoning_params(self, model, reasoning):
+        return {"reasoning_effort": "low"} if reasoning == REASONING_OFF else {}
+
+
+class _Anthropic(Provider):
+    # OpenAI-compatibility layer: temperature < 1 is a 400 on Claude 4.7+; seed/response_format are ignored.
+    def adapt(self, payload):
+        payload.pop("temperature", None)
+        payload.pop("seed", None)
+        return payload
+
+    def reasoning_params(self, model, reasoning):
+        always_on = "opus" in model or "fable" in model
+        return {"thinking": {"type": "disabled"}} if reasoning == REASONING_OFF and not always_on else {}
+
+    def check_key(self, timeout: float = 8, key: str | None = None) -> tuple[bool, str]:
+        try:
+            resp = requests.get(f"{self.base_url}/models", timeout=timeout,
+                                headers={"x-api-key": key or "", "anthropic-version": "2023-06-01"})
+        except requests.RequestException as e:
+            return False, f"could not reach anthropic ({type(e).__name__})."
+        if resp.status_code != 200:
+            return False, f"anthropic rejected the key (HTTP {resp.status_code})."
+        return True, f"anthropic key OK ({len((resp.json() or {}).get('data') or [])} models available)."
+
+
 PROVIDERS: dict[str, Provider] = {
+    # No platform key for these two: users supply them (SPEC-BYOK).
+    "openai": _OpenAI("openai", "https://api.openai.com/v1", "LUMEN_OPENAI_BASE_URL", None),
+    "anthropic": _Anthropic("anthropic", "https://api.anthropic.com/v1", "LUMEN_ANTHROPIC_BASE_URL", None),
     "openrouter": _OpenRouter("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_BASE_URL", "OPENROUTER_API_KEY"),
     "groq": _Groq("groq", "https://api.groq.com/openai/v1", "GROQ_BASE_URL", "GROQ_API_KEY"),
     "ollama": _Ollama("ollama", "http://localhost:11434/v1", "OLLAMA_BASE_URL", None),

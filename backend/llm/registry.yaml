@@ -41,3 +41,28 @@ ollama:
     - {model: "qwen2.5:3b", family: qwen}
   vision: []
   judge: []
+
+# BYOK catalogue (SPEC-BYOK): the only models a user's key may run, per role, best first. Users pick a provider;
+# Lumen takes the first model (or the user's pick, if it is still listed). Ids checked 2026-10-16 against each
+# provider's model docs and OpenRouter's /models. A retired id: delete the line.
+byok:
+  openai:
+    agent: [gpt-6.1-sol, gpt-5.6-sol]
+    text: [gpt-6-luna, gpt-5.4-mini]
+    vision: [gpt-6-luna, gpt-5.4-mini]
+  anthropic:
+    agent: [claude-sonnet-5-5, claude-opus-5-5]  # Sonnet first: its thinking can be switched off (Opus is always on)
+    text: [claude-haiku-5-5]
+    vision: [claude-haiku-5-5, claude-sonnet-5-5]
+  gemini:
+    agent: [gemini-4-argon, gemini-3.8-flash]
+    text: [gemini-3.5-flash-lite, gemini-3.8-flash]
+    vision: [gemini-3.1-flash-lite, gemini-3.8-flash]
+  groq:
+    agent: [openai/gpt-oss-120b]
+    text: [openai/gpt-oss-120b, openai/gpt-oss-20b]
+    vision: []  # no production vision model on Groq: vision falls back to another key, else the platform
+  openrouter:
+    agent: [anthropic/claude-sonnet-5.5, openai/gpt-6.1-sol]
+    text: [google/gemini-3.5-flash-lite, openai/gpt-oss-120b]
+    vision: [google/gemini-3.1-flash-lite, anthropic/claude-haiku-5.5]

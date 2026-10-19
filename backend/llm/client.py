@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 
 import requests
 
-from llm import cassette
+from llm import cassette, keys
 from llm.deadline import MARGIN_SECONDS, MIN_CALL_SECONDS, call_timeout, remaining, run_capped
 from llm.errors import LLMError
 from llm.providers import PROVIDERS, REASONING_OFF, error_message
@@ -89,13 +89,17 @@ def complete(
     reasoning: dict | None = REASONING_OFF,
     seed: int | None = None,
 ) -> LLMResult:
-    entries = chain if chain is not None else registry().chain(tier(), role)
+    if chain is not None:
+        entries = chain
+    else:
+        entries = keys.user_chain(role) or registry().chain(tier(), "text" if role == "agent" else role)
     if not entries:
         raise LLMError(LLMError.CONFIG, f"no models configured for role {role!r} in tier {tier()!r}")
     request = dict(tools=tools, response_format=response_format, temperature=temperature,
                    max_tokens=max_tokens, reasoning=reasoning, seed=seed)
     dead_providers: set[str] = set()
     last: LLMError | None = None
+    last_entry: Entry | None = None
     first_miss: cassette.CassetteMiss | None = None
     if cassette.mode() == "record":
         index = _recorded_entry(entries, messages, request)
@@ -107,13 +111,18 @@ def complete(
         if entry.provider in dead_providers:
             continue
         try:
+            if entry.key == keys.UNREADABLE:
+                raise LLMError(LLMError.AUTH, keys.UNREADABLE_DETAIL)
             result = _complete_entry(entry, messages, request, timeout, retries)
         except cassette.CassetteMiss as miss:
             # While recording, this entry may have failed over to the next one: look there too.
             first_miss = first_miss or miss
             continue
         except LLMError as e:
-            last = e
+            if entry.key:
+                e.detail = keys.mask(e.detail, entry.key)
+                e.args = (e.detail,)
+            last, last_entry = e, entry
             if e.kind in (LLMError.DEADLINE, LLMError.BAD_RESPONSE):
                 raise
             if e.kind in (LLMError.AUTH, LLMError.CREDITS):
@@ -123,7 +132,12 @@ def complete(
         calls = _collector.get()
         if calls is not None:
             calls.append(result)
+        if entry.key:
+            keys.note_ok(entry.provider)
         return result
+    if last is not None and last_entry.key and keys.is_key_error(last):
+        last.user_key = last_entry.provider
+        keys.mark_failed(last_entry.provider, last.detail)
     raise first_miss or last
 
 
@@ -214,12 +228,13 @@ def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0, key: 
         if request[name] is not None:
             payload[name] = request[name]
     payload.update(provider.reasoning_params(entry.model, request["reasoning"]))
+    payload = provider.adapt(payload)
 
     slice_s = call_timeout(timeout)
     start = time.monotonic()
     try:
         resp = run_capped(
-            lambda: requests.post(provider.chat_url, headers=provider.headers(), json=payload, timeout=slice_s),
+            lambda: requests.post(provider.chat_url, headers=provider.headers(entry.key), json=payload, timeout=slice_s),
             seconds=slice_s,
         )
     except requests.Timeout as e:
@@ -256,7 +271,8 @@ def _parse(provider, entry: Entry, resp, latency: float, max_tokens: int) -> LLM
         kind = provider.kind_for_status(status)
         detail = f"{provider.name} HTTP {status} (model={entry.model}): {error_message(body) or resp.text[:200]}"
         if kind == LLMError.AUTH:
-            detail += provider.auth_hint()
+            detail += provider.auth_hint() if entry.key is None else " Check your key in Settings."
+        detail = keys.mask(detail, entry.key or "")
         logger.error("LLM call failed [%s]: %s after %.1fs", kind, detail, latency)
         err = LLMError(kind, detail, status=status)
         err.retry_after = _retry_after(resp)

@@ -207,6 +207,10 @@ class Config:
     MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "10"))
     MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
+    # === Free allowance on the platform key, for users without their own key (BYOK) ===
+    PLATFORM_QUESTIONS_PER_DAY = int(os.getenv("PLATFORM_QUESTIONS_PER_DAY", "20"))
+    PLATFORM_INVOICE_READS = int(os.getenv("PLATFORM_INVOICE_READS", "20"))
+
     # === Localization ===
     DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "INR")
 

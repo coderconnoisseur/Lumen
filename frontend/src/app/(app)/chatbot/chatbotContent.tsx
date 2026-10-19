@@ -2,6 +2,7 @@
 
 // Ask Lumen: one chat with the agent. Every answer shows its sources, the steps behind it, and any change it proposes.
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Paperclip, Plus } from "lucide-react";
 import { Answer } from "@/components/ask/answer";
 import { Button } from "@/components/ask/button";
@@ -26,6 +27,8 @@ type Message = {
 	elapsedMs?: number;
 	pending?: boolean;
 	error?: boolean;
+	/** the free allowance ran out, or the user's key was rejected: point at Settings */
+	keyIssue?: boolean;
 };
 
 // Tools whose results are the user's own data; an answer built on them has evidence even without a cited passage.
@@ -34,6 +37,12 @@ const DATA_TOOLS = new Set(["run_sql", "get_invoice", "get_anomalies", "forecast
 function greeting() {
 	const hour = new Date().getHours();
 	return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+}
+
+const KEY_CODES = ["needs_key", "key_rejected"];
+
+function errorCode(error: unknown): string | undefined {
+	return (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
 }
 
 function errorMessage(error: unknown): string {
@@ -95,7 +104,7 @@ export default function ChatbotContent() {
 			);
 		} catch (error) {
 			setMessages((list) =>
-				list.map((m) => (m.id === id ? { ...m, content: errorMessage(error), pending: false, error: true } : m))
+				list.map((m) => (m.id === id ? { ...m, content: errorMessage(error), pending: false, error: true, keyIssue: KEY_CODES.includes(errorCode(error) ?? "") } : m))
 			);
 		}
 	}
@@ -190,6 +199,11 @@ export default function ChatbotContent() {
 									) : m.error ? (
 										<div key={m.id} className="flex items-center gap-3 rounded-2xl bg-red-tint px-4 py-3 text-[14px] text-ink">
 											<span className="flex-1">{m.content}</span>
+											{m.keyIssue && (
+												<Link href="/settings" className="underline underline-offset-2">
+													Open Settings
+												</Link>
+											)}
 											{m.question && (
 												<Button variant="secondary" size="xs" onClick={() => void ask(m.question!, m.file, m.id)}>
 													Try again

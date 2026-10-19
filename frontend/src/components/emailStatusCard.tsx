@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -173,6 +174,14 @@ export function EmailStatusCard() {
               <span className="shrink-0">Last error:</span>
               <span className="font-medium text-right break-words min-w-0">
                 {status.last_error}
+                {/key|allowance/i.test(status.last_error) && (
+                  <>
+                    {" "}
+                    <Link href="/settings" className="underline underline-offset-2">
+                      Open Settings
+                    </Link>
+                  </>
+                )}
               </span>
             </div>
           )}

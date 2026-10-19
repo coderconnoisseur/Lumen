@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
 
 import yaml
 
-ROLES = ("text", "vision", "judge")
+ROLES = ("text", "vision", "judge", "agent")  # agent rows exist only under byok; the platform agent is `text`
+BYOK_PROVIDERS = ("openai", "anthropic", "gemini", "groq", "openrouter")
 TIERS = ("openrouter", "groq", "ollama")
 _DEFAULT_PATH = Path(__file__).with_name("registry.yaml")
 
@@ -28,6 +29,7 @@ class Entry:
     provider: str
     model: str
     family: str
+    key: str | None = field(default=None, repr=False, compare=False)  # a user's key (SPEC-BYOK); None = platform env key
 
 
 def guess_family(model: str) -> str:
@@ -74,6 +76,11 @@ class Registry:
                 unique.append(entry)
         return unique
 
+    def byok(self, provider: str, role: str) -> list[Entry]:
+        rows = ((self._data.get("byok") or {}).get(provider) or {}).get(role) or []
+        models = [r if isinstance(r, str) else r["model"] for r in rows]
+        return [Entry(provider, m, guess_family(m)) for m in models]
+
     def check(self, tier: str, env: Mapping[str, str] | None = None) -> list[str]:
         """Raise on a judge that shares the text model's family; return warnings."""
         env = os.environ if env is None else env
@@ -85,7 +92,7 @@ class Registry:
                 f"{text[0].model!r}; a model must not grade its own family"
             )
         warnings = []
-        for role in ROLES:
+        for role in ("text", "vision", "judge"):
             for entry in self.chain(tier, role, env):
                 if entry.model == "openrouter/free":
                     warnings.append(

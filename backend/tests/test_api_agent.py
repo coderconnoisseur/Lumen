@@ -33,7 +33,7 @@ def setup(tmp_path, monkeypatch):
     path = tmp_path / "w.db"
     engine = create_engine(f"sqlite:///{path}")
     load_world(engine, world)
-    flask_db.metadata.create_all(engine, tables=[flask_db.metadata.tables[t] for t in ("proposals", "audit_events")])
+    flask_db.metadata.create_all(engine, tables=[flask_db.metadata.tables[t] for t in ("proposals", "audit_events", "user_keys")])
     u1, u2 = (u["id"] for u in world["users"])
     invoice = next(t for t in world["transactions"] if t["user_id"] == u1 and t["category"] == "Groceries")
 

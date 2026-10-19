@@ -71,15 +71,14 @@ def test_real_accounts_never_get_demo_data(app):
     assert _count(engine, MEMBER) == 0
 
 
-def test_visitors_have_a_daily_question_cap_members_do_not(app, monkeypatch):
-    from api import agent as agent_api
+def test_keyless_users_have_a_daily_question_cap(app, monkeypatch):
+    from config import Config
 
-    assert agent_api.DEMO_QUESTIONS_PER_DAY == 20
-    monkeypatch.setattr(agent_api, "DEMO_QUESTIONS_PER_DAY", 3)  # stay under the 10-per-minute limit
+    assert Config.PLATFORM_QUESTIONS_PER_DAY == 20
+    monkeypatch.setattr(Config, "PLATFORM_QUESTIONS_PER_DAY", 3)  # stay under the 10-per-minute limit
     client, _, _ = app
     ask = lambda who, anon: client.post("/api/agent/ask", headers=bearer(who, anon), json={"question": "hi"}).status_code
-    assert [ask(VISITOR, True) for _ in range(4)] == [200, 200, 200, 429]
-    assert [ask(MEMBER, False) for _ in range(5)] == [200] * 5
+    assert [ask(VISITOR, True) for _ in range(4)] == [200, 200, 200, 402]
 
 
 @pytest.mark.skipif(not os.getenv("LUMEN_TEST_POSTGRES_URL"),
