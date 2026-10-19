@@ -19,7 +19,7 @@ class _Resp:
 def test_providers_are_registered():
     from llm.providers import PROVIDERS
 
-    assert set(PROVIDERS) == {"openrouter", "groq", "ollama", "gemini"}
+    assert set(PROVIDERS) == {"openrouter", "groq", "ollama", "gemini", "openai", "anthropic"}
     assert PROVIDERS["groq"].base_url == "https://api.groq.com/openai/v1"
     assert PROVIDERS["ollama"].base_url == "http://localhost:11434/v1"
 

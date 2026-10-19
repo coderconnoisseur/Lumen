@@ -214,12 +214,13 @@ def _call_once(entry: Entry, messages, request, timeout, attempt: int = 0, key: 
         if request[name] is not None:
             payload[name] = request[name]
     payload.update(provider.reasoning_params(entry.model, request["reasoning"]))
+    payload = provider.adapt(payload)
 
     slice_s = call_timeout(timeout)
     start = time.monotonic()
     try:
         resp = run_capped(
-            lambda: requests.post(provider.chat_url, headers=provider.headers(), json=payload, timeout=slice_s),
+            lambda: requests.post(provider.chat_url, headers=provider.headers(entry.key), json=payload, timeout=slice_s),
             seconds=slice_s,
         )
     except requests.Timeout as e:
@@ -256,7 +257,7 @@ def _parse(provider, entry: Entry, resp, latency: float, max_tokens: int) -> LLM
         kind = provider.kind_for_status(status)
         detail = f"{provider.name} HTTP {status} (model={entry.model}): {error_message(body) or resp.text[:200]}"
         if kind == LLMError.AUTH:
-            detail += provider.auth_hint()
+            detail += provider.auth_hint() if entry.key is None else " Check your key in Settings."
         logger.error("LLM call failed [%s]: %s after %.1fs", kind, detail, latency)
         err = LLMError(kind, detail, status=status)
         err.retry_after = _retry_after(resp)
