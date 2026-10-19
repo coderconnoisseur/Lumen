@@ -198,3 +198,14 @@ def test_require_auth_sets_context(monkeypatch):
     resp = app.test_client().get("/who", headers={"Authorization": "Bearer t"})
     assert resp.get_data(as_text=True) == U
     assert keys.current() is None
+
+
+def test_failing_ignores_a_broken_tavily_key(engine):
+    add_key(engine, U, "tavily", "tvly-user-1234567890")
+    with keys.for_user(U, engine):
+        keys.mark_failed("tavily", "Tavily rejected the key (HTTP 401).")
+    assert row(engine, "tavily").last_error and keys.failing(engine, U) == []
+    add_key(engine, U, "openai", "sk-user-1234567890")
+    with keys.for_user(U, engine):
+        keys.mark_failed("openai", "bad")
+    assert [r.provider for r in keys.failing(engine, U)] == ["openai"]

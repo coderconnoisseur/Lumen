@@ -19,7 +19,7 @@ KEY_ENV = "KEYS_ENCRYPTION_KEY"
 UNREADABLE = "<unreadable stored key>"  # stands in for a stored key that can't be decrypted: never sent anywhere
 UNREADABLE_DETAIL = "Stored key can't be decrypted; re-enter it in Settings."
 PROVIDER_NAMES = {"openai": "OpenAI", "anthropic": "Anthropic", "gemini": "Gemini", "groq": "Groq",
-                  "openrouter": "OpenRouter"}
+                  "openrouter": "OpenRouter", "tavily": "Tavily"}
 _ctx: contextvars.ContextVar[dict | None] = contextvars.ContextVar("llm_user", default=None)
 
 
@@ -69,6 +69,11 @@ def user_chain(role: str) -> list[Entry]:
         listed.sort(key=lambda e: e.model != pick)  # the user's pick first, if it is still listed
         chain += [replace(e, key=key) for e in listed]
     return chain
+
+
+def user_key(provider: str) -> str | None:
+    """The current user's key for a non-model service (Tavily), or None; UNREADABLE if it can't be decrypted."""
+    return next((key for p, key, _ in _rows() if p == provider), None)
 
 
 def is_key_error(e: LLMError) -> bool:
@@ -121,7 +126,9 @@ def note_ok(provider: str) -> None:
 
 
 def failing(engine, user_id: str):
+    """Model keys with an error. A broken Tavily key never stops the email poller."""
     from models import UserKey
 
     with Session(engine) as s:
-        return s.scalars(select(UserKey).where(UserKey.user_id == user_id, UserKey.last_error.is_not(None))).all()
+        return s.scalars(select(UserKey).where(UserKey.user_id == user_id, UserKey.last_error.is_not(None),
+                                        UserKey.provider.in_(BYOK_PROVIDERS))).all()

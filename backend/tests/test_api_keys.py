@@ -194,3 +194,35 @@ def test_chat_with_rejected_key_says_so(authed_client, monkeypatch):
         with app.app_context():
             db.session.query(UserKey).filter_by(user_id="user-1").delete()
             db.session.commit()
+
+
+def test_tavily_key_put_test_delete(client, monkeypatch):
+    from agent import tools
+
+    c, engine = client
+    seen, code = [], {"n": 200}
+
+    def post(url, json=None, headers=None, timeout=None):
+        seen.append({"url": url, "json": json, "headers": headers, "timeout": timeout})
+        return _Resp(code["n"], {"detail": {"error": f"Unauthorized: {KEY}"}} if code["n"] != 200 else {"results": []})
+    monkeypatch.setattr(tools.requests, "post", post)
+    r = c.put("/api/keys/tavily", headers=bearer(USER), json={"key": KEY})
+    assert r.status_code == 200 and r.json()["key"]["last4"] == "abcd"
+    assert seen[0] == {"url": "https://api.tavily.com/search", "headers": {"Authorization": f"Bearer {KEY}"},
+                       "json": {"query": "test", "search_depth": "basic", "max_results": 1, "include_answer": False},
+                       "timeout": 8}
+    g = c.get("/api/keys", headers=bearer(USER)).json()
+    tavily = next(p for p in g["providers"] if p["provider"] == "tavily")
+    assert tavily["name"] == "Tavily" and tavily["models"] == {} and tavily["key"]["last4"] == "abcd"
+    assert all("tavily" not in v for v in g["in_use"].values())
+    r = c.put("/api/keys/tavily", headers=bearer(USER), json={"key": KEY, "models": {"agent": "x"}})
+    assert r.status_code == 422
+    assert c.post("/api/keys/tavily/test", headers=bearer(USER)).json()["success"] is True
+    c.delete("/api/keys/tavily", headers=bearer(USER))
+    code["n"] = 401
+    r = c.put("/api/keys/tavily", headers=bearer(USER), json={"key": KEY})
+    assert r.status_code == 400 and r.json()["code"] == "key_invalid" and "1234567890" not in r.text
+    assert "Tavily rejected the key (HTTP 401)" in r.json()["error"] and rows(engine) == []
+    code["n"] = 200
+    c.put("/api/keys/tavily", headers=bearer(USER), json={"key": KEY})
+    assert c.delete("/api/keys/tavily", headers=bearer(USER)).json() == {"success": True} and rows(engine) == []
