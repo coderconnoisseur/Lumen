@@ -16,7 +16,8 @@ from llm.registry import BYOK_PROVIDERS, Entry
 
 logger = logging.getLogger(__name__)
 KEY_ENV = "KEYS_ENCRYPTION_KEY"
-KEY_ERRORS = frozenset({LLMError.AUTH, LLMError.CREDITS, LLMError.CONFIG})
+UNREADABLE = "<unreadable stored key>"  # stands in for a stored key that can't be decrypted: never sent anywhere
+UNREADABLE_DETAIL = "Stored key can't be decrypted; re-enter it in Settings."
 PROVIDER_NAMES = {"openai": "OpenAI", "anthropic": "Anthropic", "gemini": "Gemini", "groq": "Groq",
                   "openrouter": "OpenRouter"}
 _ctx: contextvars.ContextVar[dict | None] = contextvars.ContextVar("llm_user", default=None)
@@ -50,9 +51,9 @@ def _rows() -> list[tuple[str, str, dict]]:
             out = []
             for r in rows:
                 key = decrypt_secret(r.key_enc, key_env=KEY_ENV)
-                if key.startswith("enc:"):  # encryption key changed: unusable, say so instead of sending it
+                if key.startswith("enc:"):  # encryption key changed: still the user's provider, but never sent
                     logger.error("Stored %s key for a user can't be decrypted", r.provider)
-                    continue
+                    key = UNREADABLE
                 out.append((r.provider, key, json.loads(r.models or "{}")))
         c["rows"] = sorted(out, key=lambda t: BYOK_PROVIDERS.index(t[0]) if t[0] in BYOK_PROVIDERS else 99)
     return c["rows"]
@@ -70,6 +71,11 @@ def user_chain(role: str) -> list[Entry]:
     return chain
 
 
+def is_key_error(e: LLMError) -> bool:
+    """The user's key itself is at fault. A CONFIG error counts only on 403: other 400/404s are request problems."""
+    return e.kind in (LLMError.AUTH, LLMError.CREDITS) or (e.kind == LLMError.CONFIG and e.status == 403)
+
+
 def has_key(role: str) -> bool:
     return bool(user_chain(role))
 
@@ -79,7 +85,7 @@ def last4(key: str) -> str:
 
 
 def mask(text: str, key: str) -> str:
-    if not text or not key:
+    if not text or not key or key == UNREADABLE:
         return text
     text = text.replace(key, f"****{last4(key)}")
     # ponytail: O(n²) substring scan in the key length (keys are under 200 chars); use a regex if keys grow.

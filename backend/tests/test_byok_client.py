@@ -119,6 +119,32 @@ def test_user_key_auth_error_is_flagged_and_not_failed_over(engine, posts):
     assert r.last_error and r.last_ok_at is None
 
 
+def test_undecryptable_key_fails_without_sending_anything(engine, posts, monkeypatch):
+    calls, script = posts
+    script.append(_Resp(200, OK))
+    monkeypatch.setenv("KEYS_ENCRYPTION_KEY", "other" * 8)
+    add_key(engine, U, "openai", "sk-user-openai")
+    monkeypatch.setenv("KEYS_ENCRYPTION_KEY", "k" * 32)
+    with keys.for_user(U, engine), pytest.raises(LLMError) as err:
+        assert keys.has_key("agent")
+        client.complete(MSGS, role="agent")
+    assert calls == []
+    assert err.value.kind == "auth" and err.value.user_key == "openai"
+    assert row(engine, "openai").last_error == keys.UNREADABLE_DETAIL
+
+
+@pytest.mark.parametrize("status, flagged", [(400, False), (403, True)])
+def test_only_a_403_config_error_blames_the_key(engine, posts, status, flagged):
+    calls, script = posts
+    script.append(_Resp(status, {"error": {"message": "nope"}}))
+    add_key(engine, U, "openai", "sk-user-openai")
+    with keys.for_user(U, engine), pytest.raises(LLMError) as err:
+        client.complete(MSGS, role="agent")
+    assert err.value.kind == "config"
+    assert (err.value.user_key == "openai") is flagged
+    assert (row(engine, "openai").last_error is not None) is flagged
+
+
 def test_failed_call_detail_is_masked(engine, posts, caplog):
     calls, script = posts
     secret = "sk-live-ABCDEFGH1234"

@@ -111,6 +111,8 @@ def complete(
         if entry.provider in dead_providers:
             continue
         try:
+            if entry.key == keys.UNREADABLE:
+                raise LLMError(LLMError.AUTH, keys.UNREADABLE_DETAIL)
             result = _complete_entry(entry, messages, request, timeout, retries)
         except cassette.CassetteMiss as miss:
             # While recording, this entry may have failed over to the next one: look there too.
@@ -133,7 +135,7 @@ def complete(
         if entry.key:
             keys.note_ok(entry.provider)
         return result
-    if last is not None and last_entry.key and last.kind in keys.KEY_ERRORS:
+    if last is not None and last_entry.key and keys.is_key_error(last):
         last.user_key = last_entry.provider
         keys.mark_failed(last_entry.provider, last.detail)
     raise first_miss or last
