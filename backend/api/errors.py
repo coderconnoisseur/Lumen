@@ -37,7 +37,7 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, e: RequestValidationError):
-        logger.info("invalid request: %s", e.errors())
+        logger.info("invalid request: %s", [{k: v for k, v in err.items() if k != "input"} for err in e.errors()])  # input may be a secret
         return _error("Invalid request", 422, "invalid_request")
 
     @app.exception_handler(LLMError)
