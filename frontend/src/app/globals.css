@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "./beautiful-ui.css";
 
-@custom-variant dark (&:is(.dark *));
+/* <html> is always `.dark` (public pages), but it doesn't count while the Sky app shell is mounted. */
+@custom-variant dark (&:is(.dark:not(:has([data-app-theme="sky"])) *));
 
 :root {
 	--background: oklch(0.17 0.01 264);
@@ -74,7 +75,54 @@
 	--sidebar-ring: oklch(0.68 0.11 244);
 }
 
+/* Sky: the signed-in app's light theme. Applied to <html> whenever the app shell ([data-app-theme="sky"]) is mounted,
+   so portaled menus and dialogs get it too; landing/login/onboarding keep the forced dark theme above.
+   Values: docs/superpowers/specs/2026-10-20-ui-revamp-design.md section 5 (muted darkened to #6b6963 for AA). */
+:root:has([data-app-theme="sky"]) {
+	color-scheme: light !important;
+	--background: oklch(0.964 0.005 95);
+	--foreground: oklch(0.222 0.002 107);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.222 0.002 107);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.222 0.002 107);
+	--primary: oklch(0.564 0.185 261);
+	--primary-foreground: oklch(1 0 0);
+	--secondary: oklch(0.939 0.007 97);
+	--secondary-foreground: oklch(0.222 0.002 107);
+	--muted: oklch(0.939 0.007 97);
+	--muted-foreground: #6b6963;
+	--accent: oklch(0.939 0.007 97);
+	--accent-foreground: oklch(0.222 0.002 107);
+	--destructive: oklch(0.588 0.15 40);
+	--border: oklch(0.919 0.008 91);
+	--input: oklch(0.939 0.007 97);
+	--ring: oklch(0.564 0.185 261);
+	--chart-1: oklch(0.564 0.185 261);
+	--sidebar: oklch(0.948 0.007 97);
+	--sidebar-foreground: oklch(0.222 0.002 107);
+	--sidebar-primary: oklch(0.564 0.185 261);
+	--sidebar-primary-foreground: oklch(1 0 0);
+	--sidebar-accent: oklch(0.939 0.007 97);
+	--sidebar-accent-foreground: oklch(0.222 0.002 107);
+	--sidebar-border: oklch(0.919 0.008 91);
+	--sidebar-ring: oklch(0.564 0.185 261);
+	--accent-soft: oklch(0.932 0.027 262);
+	--good: oklch(0.569 0.119 155);
+	--bad: oklch(0.588 0.15 40);
+	--band: linear-gradient(180deg, #cfe2fb 0%, #e9f1fb 55%, #f4f3ef 100%);
+}
+:root:has([data-app-theme="sky"]) body {
+	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+	background-image: none;
+}
+
 @theme inline {
+	--color-good: var(--good);
+	--color-bad: var(--bad);
+	--color-accent-soft: var(--accent-soft);
+	--font-serif: var(--font-newsreader), Georgia, serif;
+	--font-label: var(--font-plex-mono), ui-monospace, monospace;
 	--font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, monospace;
 	--font-script: "Dancing Script", cursive;
@@ -179,6 +227,14 @@
 
 	.slide-out-to-right-full {
 		animation: slide-out-to-right-full 0.2s ease-in;
+	}
+
+	.label-mono {
+		font-family: var(--font-plex-mono), ui-monospace, monospace;
+		font-size: 10.5px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		font-weight: 500;
 	}
 
 	.scrollbar-hide {

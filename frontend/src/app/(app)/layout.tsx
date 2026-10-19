@@ -14,6 +14,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 		<Suspense>
 			<AuthGuard>
 				<ProfileProvider>
+				{/* turns on the Sky light theme (globals.css) for the whole signed-in app, portals included */}
+				<div data-app-theme="sky" className="contents">
 				<SidebarProvider>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
@@ -27,6 +29,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 						{children}
 					</SidebarInset>
 				</SidebarProvider>
+				</div>
 				</ProfileProvider>
 			</AuthGuard>
 		</Suspense>
