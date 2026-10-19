@@ -57,7 +57,10 @@ free tier). Delete it: open it → **Settings** → bottom of the page → **Del
      `5432`, user `postgres.<project ref>`). Not the "Direct connection" one.
    - `SUPABASE_SERVICE_ROLE_KEY` (1.4, the **service_role** key: server only, never in the frontend).
    - `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`: same values as your local `backend/.env`.
-   - `SECRET_KEY` and `EMAIL_ENCRYPTION_KEY`: click **Generate** for each.
+   - `SECRET_KEY`, `EMAIL_ENCRYPTION_KEY` and `KEYS_ENCRYPTION_KEY`: click **Generate** for each. The last one
+     encrypts users' own model keys; changing it later makes stored keys unreadable and users must re-add them.
+   - `PLATFORM_QUESTIONS_PER_DAY` and `PLATFORM_INVOICE_READS` (optional, both default to 20): the free allowance
+     for users without their own key.
    - `TAVILY_API_KEY` (optional): from app.tavily.com; without it Ask Lumen has no web search.
 
    → **Save, rebuild, and deploy**.

@@ -437,6 +437,33 @@ export const chatApi = {
 	},
 };
 
+/** A user's own model / search keys (SPEC-BYOK). The key itself never comes back, only its last 4. */
+export interface ProviderKey {
+	provider: string;
+	name: string;
+	/** role -> models this provider offers for it; empty for Tavily */
+	models: Record<string, string[]>;
+	key: {
+		last4: string;
+		created_at: string;
+		last_ok_at: string | null;
+		last_error: string | null;
+		models: Record<string, string>;
+	} | null;
+}
+
+export const keysApi = {
+	list: async (): Promise<{ providers: ProviderKey[]; in_use: Record<string, string> }> =>
+		(await apiClient.get("/api/keys")).data,
+	save: async (provider: string, key: string, models?: Record<string, string>): Promise<ProviderKey["key"]> =>
+		(await apiClient.put(`/api/keys/${provider}`, { key, models })).data.key,
+	test: async (provider: string): Promise<{ success: boolean; message: string }> =>
+		(await apiClient.post(`/api/keys/${provider}/test`)).data,
+	remove: async (provider: string): Promise<void> => {
+		await apiClient.delete(`/api/keys/${provider}`);
+	},
+};
+
 /** Analytics — backend derives user from JWT. */
 export const analyticsApi = {
 	getTimeRangeAnalytics: async (

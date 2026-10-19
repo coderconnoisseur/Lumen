@@ -52,6 +52,7 @@ What `/` promises today (`frontend/src/app/page.tsx`) that the app can't do yet:
 - [ ] Suggested questions ignore `use_case`; no test that another user can't fetch your avatar.
 
 ## 5. AI engineering (see `docs/direction/PROGRESS.md` → Deferred)
+- [x] Bring your own model keys: Settings page, encrypted per-user keys, free allowance on the platform key (SPEC-BYOK, 2026-10-20).
 - [x] Live exchange-rate tool and follow-up suggestions in Ask Lumen (SPEC-CHAT-TOOLS, 2026-10-15).
 - [x] The Ask Lumen audit as a 30-question eval with an offline grader (`ask_lumen`, 2026-10-17).
 - [ ] **Owner: record the `ask_lumen` eval** with a real Groq key and `TAVILY_API_KEY` unset (command in

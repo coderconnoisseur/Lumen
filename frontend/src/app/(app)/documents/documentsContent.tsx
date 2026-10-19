@@ -83,7 +83,9 @@ export default function DocumentsContent() {
 		try {
 			setAnswer(await documentsApi.ask(question.trim()));
 		} catch (error) {
-			toast.error(errorMessage(error, "Couldn't answer right now."));
+			const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+			const hint = code === "needs_key" || code === "key_rejected" ? " Add or fix your key in Settings." : "";
+			toast.error(errorMessage(error, "Couldn't answer right now.") + hint);
 		} finally {
 			setAsking(false);
 		}

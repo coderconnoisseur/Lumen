@@ -375,6 +375,22 @@ embeds the demo documents once per server and uploads the files in the backgroun
   that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
   as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.
 
+## Model keys (BYOK, SPEC-BYOK)
+- Users add their own OpenAI / Anthropic / Gemini / Groq / OpenRouter key (and a Tavily key for web search) on
+  `/settings`. `api/keys.py` validates it against the provider (`check_key`), encrypts it with
+  `KEYS_ENCRYPTION_KEY` (`utils/crypto.py`) into `user_keys`, and only ever returns the last 4. Test and Remove
+  are on the same router; the key never appears in a response, log line or error (`keys.mask`).
+- Flow: `require_auth` calls `llm.keys.for_user(user, engine)` (a contextvar) -> `keys.user_chain(role)` builds the
+  models that user's keys allow, from the BYOK catalogue in `llm/registry.py` (the `agent` role exists only there) ->
+  `llm.client.complete` tries that chain. If the user has keys but none fits a role, or a key is rejected, it fails
+  with `key_rejected` (400); there is no silent fallback to the platform's models.
+- No key at all: the platform's chain, capped by the free allowance (`PLATFORM_QUESTIONS_PER_DAY` questions a day,
+  `PLATFORM_INVOICE_READS` invoice reads in total). Past it: `needs_key` (402). The chat, the documents question box
+  and the inbox status card then link to Settings.
+- Email poller (no request, so no contextvar): it enters `for_user` for each config's owner. A rejected key or a
+  used-up allowance stops the retries and is written to `last_error`, which the inbox card shows.
+- `LUMEN_OPENAI_BASE_URL` / `LUMEN_ANTHROPIC_BASE_URL` move those providers to a test server (used by the tests).
+
 ## Statement import (SPEC-STATEMENTS)
 - `backend/statements/read.py`: decodes the CSV, finds the header row, guesses the column mapping (date,
   description, debit, credit, amount, Dr/Cr marker), parses lines with signs. `vendor.py` cleans bank descriptions

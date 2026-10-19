@@ -274,3 +274,16 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** Re-run on production: 20 right, 7 partial, 3 wrong (landing questions 9 / 5 / 0, was 1 / 4 / 9); demo setup
   8.2 s (was 65-72 s). The 3 left wrong are named with their fixes (tax tool or web search, vendor lookup by kind,
   empty-result honesty). Story point: measure the product against its own marketing, not just against unit tests.
+
+## 24. Letting users bring their own model keys (BYOK)
+- **S:** Every visitor shared Lumen's free model keys, so quotas ran out for everyone and the app could not be
+  promoted without paying for all of them.
+- **T:** Let each user use their own provider key, without silently falling back to weak free models and without
+  ever exposing a key.
+- **A:** A catalogue of models per provider, keys encrypted at rest and shown as the last 4 only, a contextvar that
+  builds each request's model chain from that user's keys, and a hard error (never a silent fallback) when a key is
+  rejected. Users with no key get a small daily allowance on the platform key. Settings page, plus prompts in chat
+  and the inbox card. A Tavily key covers web search the same way.
+- **R:** Backend suite 857 -> 898 passed. Zero-leak tests (log capture and responses) in `test_api_keys.py` and
+  `test_byok_client.py` show no key, or part of one, reaches a log line or response. Story point: failing loudly
+  on a bad key beats quietly answering with a worse model.
