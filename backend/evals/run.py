@@ -164,4 +164,5 @@ def _print_suite(name: str, result: dict) -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(errors="replace")  # a Windows cp1252 console can't print every metric (e.g. "【")
     sys.exit(main())
