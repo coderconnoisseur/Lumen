@@ -284,11 +284,21 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   builds each request's model chain from that user's keys, and a hard error (never a silent fallback) when a key is
   rejected. Users with no key get a small daily allowance on the platform key. Settings page, plus prompts in chat
   and the inbox card. A Tavily key covers web search the same way.
-- **R:** Backend suite 857 -> 898 passed. Zero-leak tests (log capture and responses) in `test_api_keys.py` and
+- **R:** Backend suite 857 -> 901 passed. Zero-leak tests (log capture and responses) in `test_api_keys.py` and
   `test_byok_client.py` show no key, or part of one, reaches a log line or response. Story point: failing loudly
   on a bad key beats quietly answering with a worse model.
 
-## 25. Stopping overlays from nudging the page (UI revamp, Phase 0)
+## 25. First recorded run of the Ask Lumen eval (30 audit questions, Groq gpt-oss-120b)
+- **S:** The 30-question audit was graded by hand; a prompt or tool change could quietly undo it.
+- **T:** Record the audit once as a replayable eval so every later change is measured against it offline.
+- **A:** Recorded all 30 questions against the real model (63 calls, rate-limit waits retried), then replayed from
+  the cassette with no key. Fixed the runner crashing on a Windows console that can't print "【".
+- **R:** Baseline: **21/30 correct, 5 partial, 28/30 honest**; p50 2.4 s and p95 4.0 s per model call;
+  ~5.5K tokens per question. Both "dishonest" answers are the model's native `【…】` citation markers (one of
+  them cited the right document with the right date), so a citation-format fix should move honesty to 30/30.
+  The gates (30 honest, 24 correct) fail for now, which is the point: the next fixes have a number to beat.
+
+## 26. Stopping overlays from nudging the page (UI revamp, Phase 0)
 - **S:** Opening the profile menu shifted the Ask Lumen chat column sideways. Every menu, dialog, select and sheet in
   the app did the same, because Radix's scroll lock adds a margin equal to the scrollbar width.
 - **T:** Fix it once for the whole app, prove it stays fixed, and lay the light "Sky" theme over the signed-in app
