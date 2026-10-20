@@ -1087,3 +1087,23 @@ def test_require_auth_routes_are_all_registered_as_views():
 
     missing = decorated_names - registered_names
     assert not missing, f"@require_auth handlers not registered as routes: {missing}"
+
+
+@pytest.mark.parametrize("query, expected", [("", True), ("&insights=0", False)])
+def test_forecast_route_can_skip_llm_insights(authed_client, monkeypatch, query, expected):
+    """Home asks for the forecast numbers only (?insights=0): no LLM call per page load. Default keeps insights."""
+    import routes.ai_analytics as route
+
+    seen = {}
+
+    class FakeOrchestrator:
+        def get_forecast(self, user_id, days_ahead, use_llm=True):
+            seen["use_llm"] = use_llm
+            return {"success": True, "forecast": {"dates": [], "values": []}}
+
+    monkeypatch.setattr(route, "init_analytics", lambda: None)
+    monkeypatch.setattr(route, "orchestrator", FakeOrchestrator())
+    resp = authed_client.get(f"/api/analytics/forecast?days_ahead=31{query}", headers={"Authorization": "Bearer t"})
+
+    assert resp.status_code == 200
+    assert seen["use_llm"] is expected

@@ -10,6 +10,7 @@ export type HomeFixture = {
 	reminders?: { id: string; vendor: string; amount: number; date: string; type: string; category?: string }[];
 	forecast?: { dates: string[]; values: number[] } | "fail";
 	delayMs?: number;
+	forecastDelayMs?: number;
 };
 
 export async function signIn(page: Page, opts: { reviewCount?: number; home?: HomeFixture } = {}): Promise<void> {
@@ -47,12 +48,17 @@ export async function signIn(page: Page, opts: { reviewCount?: number; home?: Ho
 		if (path === "/transactions") {
 			const from = url.searchParams.get("date_from") ?? "0000";
 			const to = url.searchParams.get("date_to") ?? "9999";
-			const data = (home.txns ?? []).filter((t) => t.date >= from && t.date <= to);
-			return route.fulfill({ json: { success: true, data, pagination: {} } });
+			const all = (home.txns ?? []).filter((t) => t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+			// like the real API: at most 100 rows per page
+			const size = Math.min(Number(url.searchParams.get("page_size") ?? 10), 100);
+			const page = Number(url.searchParams.get("page") ?? 1);
+			const data = all.slice((page - 1) * size, page * size);
+			return route.fulfill({ json: { success: true, data, pagination: { page, has_next: page * size < all.length, total_items: all.length } } });
 		}
 		if (path === "/api/analytics/reminders")
 			return route.fulfill({ json: { success: true, reminders: home.reminders ?? [], count: 0 } });
 		if (path === "/api/analytics/forecast") {
+			if (home.forecastDelayMs) await new Promise((r) => setTimeout(r, home.forecastDelayMs));
 			if (home.forecast === "fail") return route.fulfill({ status: 500, json: { error: "boom" } });
 			const f = home.forecast;
 			return route.fulfill({ json: { success: true, forecast: f ? { success: true, forecast: f } : { success: false } } });

@@ -117,3 +117,10 @@ test("relativeTime", () => {
 	expect(relativeTime(ago(3 * 86_400_000), now)).toBe("3d ago");
 	expect(relativeTime(ago(10 * 86_400_000), now)).toBe("10 Oct");
 });
+
+test("relativeTime treats offset-less backend timestamps as UTC", () => {
+	const now = new Date(Date.UTC(2026, 9, 20, 12, 0, 0));
+	expect(relativeTime("2026-10-20T10:00:00", now)).toBe("2h ago"); // backend: datetime.utcnow().isoformat()
+	expect(relativeTime("2026-10-20T10:00:00Z", now)).toBe("2h ago");
+	expect(relativeTime("2026-10-20T15:30:00+05:30", now)).toBe("2h ago");
+});

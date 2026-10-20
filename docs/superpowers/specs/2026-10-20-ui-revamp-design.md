@@ -223,4 +223,9 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [ ] **Phase 3.** Replace Home's interim parts: the brief (summary endpoint), Lumen found (subscriptions, spikes, duplicates), Activity (a real feed, including statement imports dated earlier than this month), and wire up Budget and the draft-budget promo. *(Phase 2)*
 - [ ] **Later.** Home sub-tabs (Overview / This month / Year). The chart's range chips cover this for now. *(Phase 2 decision)*
 - [ ] **Phase 5.** The Export and Upload buttons on Home still use the old loud blue `Button` and the dark upload dialog. Restyle them with the dialogs. *(Phase 2)*
+- [ ] **Phase 3.** The calendar's `kShort` hardcodes `₹`; use the user's currency symbol like `useMoney`. *(Phase 2 review)*
+- [ ] **Phase 3.** `sameDayDelta` only guards a zero previous total. A refund-heavy start of month (negative running total) flips the brief's "lighter"/"heavier". Use `then <= 0`. *(Phase 2 review)*
+- [ ] **Phase 6.** `CountUp` paints the final number for one frame before counting from 0. Start at 0 when it will animate. *(Phase 2 review)*
+- [ ] **Phase 6.** Measure each Home card's real content height against its `skeletonHeight` (the spend card's is estimated at about 270px vs 262px); the CLS test threshold of 0.01 can hide a small shift. *(Phase 2 review)*
+- [ ] **Phase 3.** Confirm statement imports write rows before the POST returns. Otherwise a Home visit in that window caches stale totals for 5 minutes. *(Phase 2 review)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*

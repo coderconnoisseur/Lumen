@@ -64,13 +64,18 @@ export function SpendCard({
 	const fc: number[] = [];
 	if (range === "1M" && forecast?.dates?.length) {
 		let run = total;
+		let matched = 0;
 		for (let i = t + 1; i < period.days; i++) {
 			const day = new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i);
 			const k = forecast.dates.findIndex((d) => parseDay(d).getTime() === day.getTime());
+			if (k >= 0) matched++;
 			run += k >= 0 ? (forecast.values[k] ?? 0) : 0;
 			fc.push(run);
 		}
+		// the backend forecasts from the last transaction's date; if none of its days land in this month, draw nothing
+		if (!matched) fc.length = 0;
 	}
+	const empty = total === 0 && !prev.some((v) => v > 0);
 	const max = Math.max(total, prev[prev.length - 1] ?? 0, fc[fc.length - 1] ?? 0, 1);
 	const x = (i: number) => (period.days > 1 ? (i / (period.days - 1)) * W : 0);
 	const y = (v: number) => H - (v / max) * (H - 20);
@@ -111,6 +116,15 @@ export function SpendCard({
 				</div>
 			</div>
 
+			{empty ? (
+				<div className="mt-2 flex h-[170px] items-center justify-center text-center">
+					<p className="max-w-sm font-serif text-[17px] text-muted-foreground">
+						Nothing spent yet this {range === "1W" ? "week" : range === "1M" ? "month" : range === "3M" ? "quarter" : "year"}.
+						Upload a receipt or import a statement and your spending will show up here.
+					</p>
+				</div>
+			) : (
+			<>
 			<div className="relative mt-2 h-[150px]">
 				<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 					<defs>
@@ -150,6 +164,8 @@ export function SpendCard({
 					</span>
 				))}
 			</div>
+			</>
+			)}
 			<div className="mt-3 flex justify-center gap-1.5">
 				{RANGES.map((r) => (
 					<button

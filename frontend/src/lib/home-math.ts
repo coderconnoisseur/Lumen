@@ -109,7 +109,8 @@ export function heat(amount: number, max: number): number {
 }
 
 export function relativeTime(iso: string, now: Date): string {
-	const at = new Date(iso);
+	// the backend writes datetime.utcnow().isoformat(): UTC but with no offset, which JS would read as local time
+	const at = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
 	const s = Math.max(0, (now.getTime() - at.getTime()) / 1000);
 	if (s < 60) return "just now";
 	if (s < 3600) return `${Math.floor(s / 60)}m ago`;

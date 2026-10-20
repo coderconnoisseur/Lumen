@@ -27,7 +27,7 @@ export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: P
 								key={day}
 								data-testid={`cal-day-${day}`}
 								className="h-[34px] overflow-hidden rounded-md border border-border px-1 py-0.5 font-mono text-[10px] leading-tight text-muted-foreground"
-								style={h ? { background: `rgb(from var(--primary) r g b / ${h})`, color: h > 0.5 ? "#fff" : undefined } : undefined}
+								style={h ? { background: `color-mix(in srgb, var(--primary) ${Math.round(h * 100)}%, transparent)`, color: h > 0.5 ? "#fff" : undefined } : undefined}
 							>
 								{day}
 								{amount > 0 && <b className="block font-medium text-inherit">{kShort(amount)}</b>}

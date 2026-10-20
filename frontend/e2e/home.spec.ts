@@ -196,3 +196,33 @@ test("sky band is drawn behind the greeting", async ({ page }) => {
 	const bg = await page.getByTestId("sky-band").evaluate((e) => getComputedStyle(e).backgroundImage);
 	expect(bg).toContain("linear-gradient");
 });
+
+test("totals include every transaction, not just the first page", async ({ page }) => {
+	const many = Array.from({ length: 140 }, (_, i) => tx(`m${i}`, "Kirana", thisMonth(1), 100));
+	await openHome(page, { txns: many });
+	await expect(spend(page).getByText("₹14,000", { exact: true })).toBeVisible();
+});
+
+test("a slow forecast never holds up the rest of Home", async ({ page }) => {
+	const forecastReq = page.waitForRequest((r) => r.url().includes("/api/analytics/forecast"));
+	await openHome(page, { ...typical, forecastDelayMs: 6000 });
+	await expect(page.getByTestId("brief")).toContainText("lighter than", { timeout: 2500 });
+	expect((await forecastReq).url()).toContain("insights=0");
+});
+
+test("calendar shading works without relative colour syntax", async ({ page }) => {
+	await openHome(page, { txns: [tx("c", "Croma", thisMonth(4), 2210)] });
+	expect(await page.getByTestId("cal-day-4").getAttribute("style")).toContain("color-mix");
+});
+
+test("spend card has a real empty state for a new user", async ({ page }) => {
+	await openHome(page, {});
+	await expect(spend(page)).toContainText("Nothing spent yet this month");
+	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(0);
+});
+
+test("a forecast with no matching days draws no line", async ({ page }) => {
+	await openHome(page, { ...typical, forecast: { dates: [lastMonth(2), lastMonth(3)], values: [500, 500] } });
+	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(1);
+	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
+});

@@ -147,6 +147,7 @@ def get_forecast():
 
     Query Params:
     - days_ahead: Forecast period (default: 30)
+    - insights: 0 to skip the LLM-written insight text (Home only needs the numbers)
     """
     try:
         init_analytics()  # Ensure orchestrator is initialized
@@ -154,7 +155,8 @@ def get_forecast():
         user_id = g.user_id
         days_ahead = request.args.get('days_ahead', 30, type=int)
 
-        forecast = orchestrator.get_forecast(user_id, days_ahead)
+        use_llm = request.args.get('insights', '1') != '0'
+        forecast = orchestrator.get_forecast(user_id, days_ahead, use_llm=use_llm)
         
         return jsonify({
             'success': forecast.get('success', True),
