@@ -1,0 +1,77 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useProfile } from "@/components/profile/profile-provider";
+import { DialogDemo } from "@/components/uploadDialog";
+import { ExportDialog } from "@/components/exportDialog";
+import { useMoney } from "@/lib/format";
+import { briefSentence, cumulative, dayIndex, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
+import { Brief } from "./_components/brief";
+import { useHomeData, type Reminder } from "./use-home-data";
+
+const partOfDay = (h: number) => (h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
+const monthName = (d: Date) => d.toLocaleString("en-IN", { month: "long" });
+
+export function nextBill(reminders: Reminder[], today: Date) {
+	return reminders
+		.filter((r) => r.type === "upcoming" && parseDay(r.date) >= today)
+		.sort((a, b) => a.date.localeCompare(b.date))[0];
+}
+
+// Home (UI revamp spec §4): brief, then the money cards. Data is today's endpoints; see use-home-data.ts.
+export default function HomeContent() {
+	const openUpload = useSearchParams().get("upload") === "1";
+	const { profile } = useProfile();
+	const money = useMoney();
+	const [range] = useState<Range>("1M");
+	const today = useMemo(() => {
+		const n = new Date();
+		return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+	}, []);
+	const data = useHomeData(range, today);
+
+	const month = periods("1M", today);
+	const monthCur = cumulative(data.monthTxns, month.current);
+	const monthPrev = cumulative(data.prevTxns, month.previous);
+	const todayIdx = dayIndex(month.current, today);
+	const bill = nextBill(data.reminders, today);
+	const brief =
+		data.status === "loading"
+			? null
+			: briefSentence({
+					monthName: monthName(today),
+					prevMonthName: monthName(month.previous.start),
+					spent: monthCur[todayIdx] ?? 0,
+					delta: range === "1M" ? sameDayDelta(monthCur, monthPrev, todayIdx) : null,
+					nextBill: bill ? { vendor: bill.vendor, date: parseDay(bill.date) } : undefined,
+					money: (n) => money(n),
+					today,
+				});
+
+	const firstName = profile?.display_name?.split(" ")[0];
+
+	return (
+		<div className="relative flex-1">
+			<div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-(--band)" />
+			<div className="relative px-4 py-6 sm:px-6 lg:px-8">
+				<div className="flex flex-wrap items-center gap-3">
+					<h1 className="text-2xl font-medium tracking-tight">
+						{firstName ? `Good ${partOfDay(new Date().getHours())}, ${firstName}` : "Welcome back"}
+					</h1>
+					<div className="ml-auto flex gap-2">
+						<ExportDialog />
+						<DialogDemo defaultOpen={openUpload} />
+					</div>
+				</div>
+				<div className="mt-4">
+					<Brief text={brief} />
+				</div>
+				<div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_330px]">
+					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-main" />
+					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side" />
+				</div>
+			</div>
+		</div>
+	);
+}
