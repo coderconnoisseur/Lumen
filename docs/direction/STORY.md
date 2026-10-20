@@ -313,7 +313,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   reduced motion. framer-motion was removed. Story point: reproduce in a test first. Here the test environment
   was hiding the very bug.
 
-## 26. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
+## 27. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
 - **S:** The sidebar still had the November-2025 tabs ("Workspace", "Compare", a test link), so its labels no longer
   matched what the app does. The Phase 0 fix had also left Ask Lumen shifting 15 px once in about four runs.
 - **T:** Ship the new navigation (Home · Track · Receipts · Ask) with old URLs still working. Collapse to an icon
