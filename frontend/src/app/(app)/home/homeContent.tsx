@@ -8,6 +8,9 @@ import { ExportDialog } from "@/components/exportDialog";
 import { useMoney } from "@/lib/format";
 import { briefSentence, cumulative, dayIndex, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
 import { Brief } from "./_components/brief";
+import { BillsCard } from "./_components/bills-card";
+import { CalendarCard } from "./_components/calendar-card";
+import { LumenFound } from "./_components/lumen-found";
 import { SpendCard } from "./_components/spend-card";
 import { useHomeData, type Reminder } from "./use-home-data";
 
@@ -83,8 +86,12 @@ export default function HomeContent() {
 							today={today}
 							loading={data.status === "loading"}
 						/>
+						<LumenFound toReview={data.toReview} loading={data.status === "loading"} />
+						<CalendarCard txns={data.monthTxns} period={month.current} loading={data.status === "loading"} />
 					</div>
-					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side" />
+					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side">
+						<BillsCard reminders={data.reminders} today={today} loading={data.status === "loading"} />
+					</div>
 				</div>
 			</div>
 		</div>

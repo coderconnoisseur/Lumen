@@ -123,3 +123,48 @@ test("changing the chart range never blanks other cards", async ({ page }) => {
 	await expect(page.getByTestId("brief")).toContainText("lighter than");
 	await expect(spend(page).locator('[data-slot="skeleton"]')).toHaveCount(0);
 });
+
+const inDays = (n: number) => ymd(Y, M, now.getDate() + n);
+
+test("lumen found links to review", async ({ page }) => {
+	await openHome(page, typical, 2);
+	const found = page.getByTestId("lumen-found");
+	await expect(found.getByText("2 receipts need a glance")).toBeVisible();
+	await expect(found.getByRole("link", { name: /review/i })).toHaveAttribute("href", "/receipts?tab=review");
+});
+
+test("lumen found is honest when there is nothing", async ({ page }) => {
+	await openHome(page, typical, 0);
+	await expect(page.getByTestId("lumen-found")).toContainText("Nothing needs you right now.");
+});
+
+test("calendar shows amounts by day", async ({ page }) => {
+	await openHome(page, { txns: [tx("c", "Croma", thisMonth(4), 2210)] });
+	await expect(page.getByTestId("cal-day-4")).toContainText("₹2.2k");
+});
+
+test("recent transactions list newest first", async ({ page }) => {
+	await openHome(page, { txns: [tx("o", "Older", thisMonth(1), 100), tx("n", "Swiggy", thisMonth(2), 200)] });
+	await expect(page.getByTestId("recent-row").first()).toContainText("Swiggy");
+});
+
+test("long names truncate", async ({ page }) => {
+	await openHome(page, {
+		txns: [
+			tx("l", "Bharat Sanchar Nigam Limited Postpaid Services India", thisMonth(2), 1_500_000, "Bills"),
+			tx("s", "Uber", thisMonth(1), 312, "Travel"),
+		],
+	});
+	const rows = page.getByTestId("recent-row");
+	await expect(rows).toHaveCount(2);
+	const [a, b] = [await rows.nth(0).boundingBox(), await rows.nth(1).boundingBox()];
+	expect(Math.abs(a!.height - b!.height)).toBeLessThanOrEqual(1);
+});
+
+test("bills card lists next three", async ({ page }) => {
+	const r = (id: string, vendor: string, n: number) => ({ id, vendor, amount: 100, date: inDays(n), type: "upcoming" });
+	await openHome(page, { ...typical, reminders: [r("4", "Rent", 9), r("1", "Netflix", 1), r("3", "Gym", 6), r("2", "Spotify", 3)] });
+	const rows = page.getByTestId("bill-row");
+	await expect(rows).toHaveCount(3);
+	await expect(rows.first()).toContainText("Netflix");
+});
