@@ -126,3 +126,37 @@ test("shortcuts ignore text fields", async ({ page }) => {
 	await expect(page).toHaveURL(/\/ask$/);
 	expect(await railWidth(page)).toBe(before);
 });
+
+const accountButton = (page: import("@playwright/test").Page) => page.getByRole("button", { name: "Account menu" });
+
+test("avatar menu has account actions", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await accountButton(page).click();
+	await expect(page.getByRole("menuitem")).toHaveText(["Settings", "API keys", "Log out"]);
+	await expect(sidebar(page).getByText("e2e@lumen.test")).toHaveCount(0);
+});
+
+test("avatar menu does not move the page", async ({ page }) => {
+	await signIn(page);
+	for (const p of ["/ask", "/home"]) {
+		await page.goto(p);
+		const main = page.locator("#main");
+		await expect(accountButton(page)).toBeVisible();
+		const before = await main.boundingBox();
+		await accountButton(page).click();
+		await expect(page.getByRole("menu")).toBeVisible();
+		const after = await main.boundingBox();
+		expect(after!.x, p).toBeCloseTo(before!.x, 0);
+		expect(after!.width, p).toBeCloseTo(before!.width, 0);
+		await page.keyboard.press("Escape");
+	}
+});
+
+test("log out returns to the landing page", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await accountButton(page).click();
+	await page.getByRole("menuitem", { name: "Log out" }).click();
+	await expect(page).toHaveURL(/localhost:3100\/$/);
+});
