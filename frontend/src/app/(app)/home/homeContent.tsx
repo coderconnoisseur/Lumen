@@ -8,6 +8,7 @@ import { ExportDialog } from "@/components/exportDialog";
 import { useMoney } from "@/lib/format";
 import { briefSentence, cumulative, dayIndex, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
 import { Brief } from "./_components/brief";
+import { SpendCard } from "./_components/spend-card";
 import { useHomeData, type Reminder } from "./use-home-data";
 
 const partOfDay = (h: number) => (h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
@@ -24,7 +25,7 @@ export default function HomeContent() {
 	const openUpload = useSearchParams().get("upload") === "1";
 	const { profile } = useProfile();
 	const money = useMoney();
-	const [range] = useState<Range>("1M");
+	const [range, setRange] = useState<Range>("1M");
 	const today = useMemo(() => {
 		const n = new Date();
 		return new Date(n.getFullYear(), n.getMonth(), n.getDate());
@@ -33,7 +34,7 @@ export default function HomeContent() {
 
 	const month = periods("1M", today);
 	const monthCur = cumulative(data.monthTxns, month.current);
-	const monthPrev = cumulative(data.prevTxns, month.previous);
+	const monthPrev = cumulative(data.prevMonthTxns, month.previous);
 	const todayIdx = dayIndex(month.current, today);
 	const bill = nextBill(data.reminders, today);
 	const brief =
@@ -43,13 +44,14 @@ export default function HomeContent() {
 					monthName: monthName(today),
 					prevMonthName: monthName(month.previous.start),
 					spent: monthCur[todayIdx] ?? 0,
-					delta: range === "1M" ? sameDayDelta(monthCur, monthPrev, todayIdx) : null,
+					delta: sameDayDelta(monthCur, monthPrev, todayIdx),
 					nextBill: bill ? { vendor: bill.vendor, date: parseDay(bill.date) } : undefined,
 					money: (n) => money(n),
 					today,
 				});
 
 	const firstName = profile?.display_name?.split(" ")[0];
+	const chart = periods(range, today);
 
 	return (
 		<div className="relative flex-1">
@@ -68,7 +70,20 @@ export default function HomeContent() {
 					<Brief text={brief} />
 				</div>
 				<div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_330px]">
-					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-main" />
+					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-main">
+						<SpendCard
+							range={range}
+							onRange={setRange}
+							period={chart.current}
+							previous={chart.previous}
+							cur={cumulative(data.txns, chart.current)}
+							prev={cumulative(data.prevTxns, chart.previous)}
+							forecast={data.forecast}
+							reminders={data.reminders}
+							today={today}
+							loading={data.status === "loading"}
+						/>
+					</div>
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side" />
 				</div>
 			</div>

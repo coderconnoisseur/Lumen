@@ -11,6 +11,7 @@ export type HomeData = {
 	txns: Txn[];
 	prevTxns: Txn[];
 	monthTxns: Txn[];
+	prevMonthTxns: Txn[];
 	reminders: Reminder[];
 	forecast: Forecast;
 	toReview: number;
@@ -32,6 +33,7 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		txns: [],
 		prevTxns: [],
 		monthTxns: [],
+		prevMonthTxns: [],
 		reminders: [],
 		forecast: null,
 		toReview: 0,
@@ -40,12 +42,15 @@ export function useHomeData(range: Range, today: Date): HomeData {
 	useEffect(() => {
 		let live = true;
 		const { current, previous } = periods(range, today);
-		const month = periods("1M", today).current; // the calendar always shows this month
-		setData((d) => ({ ...d, status: "loading" }));
+		// the brief and calendar are always about this calendar month, whatever range the chart shows
+		const month = periods("1M", today);
+		// skeletons only on the first load; a range change keeps the old numbers until the new ones arrive
+		// (a click on the chart must not blank the brief or any other card)
 		Promise.allSettled([
 			fetchTxns(current.start, current.end),
 			fetchTxns(previous.start, previous.end),
-			range === "1M" ? Promise.resolve(null) : fetchTxns(month.start, month.end),
+			range === "1M" ? Promise.resolve(null) : fetchTxns(month.current.start, month.current.end),
+			range === "1M" ? Promise.resolve(null) : fetchTxns(month.previous.start, month.previous.end),
 			aiAnalyticsApi.getReminders(31).then((r: { reminders?: Reminder[] }) => r.reminders ?? []),
 			aiAnalyticsApi
 				.getForecast(31)
@@ -53,14 +58,16 @@ export function useHomeData(range: Range, today: Date): HomeData {
 					r.forecast?.success === false ? null : (r.forecast?.forecast ?? null),
 				),
 			reviewApi.list().then((items) => items.length),
-		]).then(([cur, prev, month, reminders, forecast, toReview]) => {
+		]).then(([cur, prev, monthCur, monthPrev, reminders, forecast, toReview]) => {
 			if (!live) return;
 			const txns = value(cur, []);
+			const prevTxns = value(prev, []);
 			setData({
 				status: "ready",
 				txns,
-				prevTxns: value(prev, []),
-				monthTxns: value(month, null) ?? txns,
+				prevTxns,
+				monthTxns: value(monthCur, null) ?? txns,
+				prevMonthTxns: value(monthPrev, null) ?? prevTxns,
 				reminders: value(reminders, []),
 				forecast: value(forecast, null),
 				toReview: value(toReview, 0),

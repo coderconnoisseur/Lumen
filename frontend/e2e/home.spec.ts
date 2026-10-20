@@ -66,3 +66,60 @@ test("old dashboard is gone", async ({ page }) => {
 	await expect(page.getByText("Financial Overview")).toHaveCount(0);
 	await expect(page.getByText("What to watch")).toHaveCount(0);
 });
+
+const spend = (page: Page) => page.getByTestId("spend-card");
+const prevShort = new Date(Y, M - 1, 1).toLocaleString("en-GB", { month: "short" });
+const lastDay = new Date(Y, M + 1, 0).getDate();
+
+test("spend card shows total and delta", async ({ page }) => {
+	await openHome(page);
+	await expect(spend(page).getByText("₹18,412", { exact: true })).toBeVisible();
+	await expect(spend(page).getByTestId("spend-delta")).toHaveText(`↓ ₹1,868 vs ${prevShort} at this point`);
+});
+
+test("range chips switch period", async ({ page }) => {
+	await openHome(page);
+	await expect(spend(page)).toContainText("SPENT THIS MONTH", { ignoreCase: true });
+	await spend(page).getByRole("button", { name: "1W" }).click();
+	await expect(spend(page)).toContainText("SPENT THIS WEEK", { ignoreCase: true });
+	await expect(spend(page).getByRole("button", { name: "1W" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("chart survives a failed forecast", async ({ page }) => {
+	await openHome(page, { ...typical, forecast: "fail" });
+	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(1);
+	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
+});
+
+test("forecast draws to month end", async ({ page }) => {
+	test.skip(now.getDate() === lastDay, "no future days left this month");
+	const dates = Array.from({ length: 31 }, (_, i) => ymd(Y, M, now.getDate() + 1 + i));
+	await openHome(page, { ...typical, forecast: { dates, values: dates.map(() => 100) } });
+	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(1);
+});
+
+test("bill pins show upcoming bills", async ({ page }) => {
+	test.skip(now.getDate() === lastDay, "no future days left this month");
+	await openHome(page, {
+		...typical,
+		reminders: [{ id: "n", vendor: "Netflix", amount: 649, date: thisMonth(now.getDate() + 1), type: "upcoming" }],
+	});
+	await expect(spend(page).getByTestId("bill-pin")).toHaveText("Netflix");
+});
+
+test("new user sees empty states", async ({ page }) => {
+	await openHome(page, {});
+	await expect(page.getByTestId("brief")).toContainText("Nothing spent yet");
+	await expect(spend(page)).toContainText("₹0");
+	await expect(page.getByText("NaN")).toHaveCount(0);
+	await expect(spend(page).getByTestId("spend-delta")).toHaveCount(0);
+});
+
+test("changing the chart range never blanks other cards", async ({ page }) => {
+	await openHome(page, { ...typical, delayMs: 800 });
+	await expect(page.getByTestId("brief")).toContainText("lighter than", { timeout: 15_000 });
+	await spend(page).getByRole("button", { name: "1W" }).click();
+	await page.waitForTimeout(200); // mid-refetch
+	await expect(page.getByTestId("brief")).toContainText("lighter than");
+	await expect(spend(page).locator('[data-slot="skeleton"]')).toHaveCount(0);
+});
