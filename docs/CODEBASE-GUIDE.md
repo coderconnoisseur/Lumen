@@ -253,7 +253,16 @@ embeds the demo documents once per server and uploads the files in the backgroun
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
 ## 7b2. App frame and navigation (frontend)
-- The signed-in pages live in the route group `app/(app)/` (URLs unchanged: `/dashboard`, `/analytics`, ...).
+- The signed-in pages live in the route group `app/(app)/`: `/home`, `/spending`, `/bills`, `/receipts`
+  (`?tab=documents|import|review`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
+  `/chatbot`, `/documents`, `/import`, `/review`, `/upload`) redirect to them in `next.config.js` (temporary 307s, query
+  strings carried). Until UI revamp Phase 5, Spending, Bills and Receipts reuse the old pages' `*Content.tsx`.
+- **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Receipts & statements
+  (badge = flagged review items) · Ask Lumen (Ctrl/⌘+K). It collapses to a 56px icon rail with Ctrl/⌘+B, remembered
+  in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
+  client-side because the auth guard shows a loader on the server, so there's no jump and no server read. Shortcuts
+  skip key presses in text fields (`isTypingTarget` in `lib/utils.ts`). **Account** (Settings, API keys, Log out) is the
+  top-right `components/avatar-menu.tsx`.
   `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
   pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
   `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
@@ -268,7 +277,10 @@ embeds the demo documents once per server and uploads the files in the backgroun
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
-  production). Firefox is opt-in with `E2E_FIREFOX=1`.
+  production). Firefox is opt-in with `E2E_FIREFOX=1`. `html, body` use `overflow-x: clip`, never `hidden`:
+  `hidden` makes `<body>` a scroll container whose scrollbar disappears when a menu opens.
+- **Signed-in e2e:** `e2e/fixtures.ts` `signIn(page)` fakes a Supabase session (localStorage) plus the
+  `lumen_session` cookie, and stubs every backend call, so `e2e/shell.spec.ts` drives the real shell without servers.
 - **Motion:** use `motion/react` only (framer-motion was removed). Shared timings live in `lib/motion.ts`
   (`DURATION`, `EASE_OUT`, `fadeUp`). Reduced motion is honoured globally by `MotionConfig reducedMotion="user"`
   in the app layout and a CSS rule in `globals.css`.

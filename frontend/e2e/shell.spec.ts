@@ -160,3 +160,12 @@ test("log out returns to the landing page", async ({ page }) => {
 	await page.getByRole("menuitem", { name: "Log out" }).click();
 	await expect(page).toHaveURL(/localhost:3100\/$/);
 });
+
+test("body is never its own scroll container (it would lose its scrollbar when a menu opens)", async ({ page }) => {
+	await signIn(page);
+	for (const p of ["/ask", "/home"]) {
+		await page.goto(p);
+		await expect(accountButton(page)).toBeVisible();
+		expect(await page.evaluate(() => getComputedStyle(document.body).overflowY), p).toBe("visible");
+	}
+});
