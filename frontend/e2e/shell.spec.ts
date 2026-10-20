@@ -10,3 +10,45 @@ test("signed-in shell renders", async ({ page }) => {
 	await expect(page.getByText("Redirecting to sign in")).toHaveCount(0);
 	expect(errors).toEqual([]);
 });
+
+const moved: [string, string][] = [
+	["/dashboard", "/home"],
+	["/analytics?tab=weekly", "/spending?tab=weekly"],
+	["/ai-analytics", "/spending"],
+	["/chatbot", "/ask"],
+	["/documents", "/receipts"],
+	["/import", "/receipts?tab=import"],
+	["/review", "/receipts?tab=review"],
+	["/upload", "/home?upload=1"],
+];
+
+test("old URLs redirect", async ({ request }) => {
+	for (const [from, to] of moved) {
+		const r = await request.get(from, { maxRedirects: 0 });
+		expect([307, 308], from).toContain(r.status());
+		expect(r.headers()["location"], from).toBe(to);
+	}
+});
+
+test("new URLs require a session", async ({ request }) => {
+	for (const p of ["/home", "/spending", "/bills", "/receipts", "/ask", "/settings"]) {
+		const r = await request.get(p, { maxRedirects: 0 });
+		expect(r.headers()["location"] ?? "", p).toContain("/login?reason=unauthorized");
+	}
+});
+
+test("new pages render for a signed-in user", async ({ page }) => {
+	await signIn(page);
+	const pages: [string, string][] = [
+		["/home", "Home"],
+		["/spending", "Spending"],
+		["/bills", "Bills & subscriptions"],
+		["/receipts", "Receipts & statements"],
+		["/receipts?tab=review", "Receipts & statements"],
+		["/ask", "Ask Lumen"],
+	];
+	for (const [p, title] of pages) {
+		await page.goto(p);
+		await expect(page, p).toHaveTitle(new RegExp(`^${title}`));
+	}
+});

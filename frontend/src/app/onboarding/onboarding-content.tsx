@@ -50,7 +50,7 @@ const GOALS: [Goal, string][] = [
 ];
 
 function safeNext(next: string | null): string {
-	if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return "/dashboard";
+	if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return "/home";
 	return next;
 }
 
@@ -120,7 +120,7 @@ export default function OnboardingContent() {
 			return;
 		}
 		if (user.is_anonymous) {
-			router.replace("/dashboard"); // demo visitors never onboard
+			router.replace("/home"); // demo visitors never onboard
 			return;
 		}
 		loadedFor.current = user.id;

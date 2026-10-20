@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = [
-	"/dashboard",
-	"/analytics",
-	"/ai-analytics",
-	"/chatbot",
-	"/upload",
-];
+// The signed-in app (old URLs redirect here in next.config.js before middleware runs).
+const PROTECTED_PREFIXES = ["/home", "/spending", "/bills", "/receipts", "/ask", "/settings"];
 
 export function middleware(request: NextRequest) {
 	const { pathname, search } = request.nextUrl;
@@ -32,10 +27,11 @@ export function middleware(request: NextRequest) {
 
 export const config = {
 	matcher: [
-		"/dashboard/:path*",
-		"/analytics/:path*",
-		"/ai-analytics/:path*",
-		"/chatbot/:path*",
-		"/upload/:path*",
+		"/home/:path*",
+		"/spending/:path*",
+		"/bills/:path*",
+		"/receipts/:path*",
+		"/ask/:path*",
+		"/settings/:path*",
 	],
 };
