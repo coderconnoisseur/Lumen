@@ -25,6 +25,9 @@ export async function signIn(page: Page, opts: { reviewCount?: number } = {}): P
 	await page.route("http://127.0.0.1:9/**", (route) => {
 		const path = new URL(route.request().url()).pathname;
 		if (path === "/api/review") return route.fulfill({ json: { items: Array(opts.reviewCount ?? 0).fill(flagged) } });
+		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: [] } });
+		if (path === "/chat/history") return route.fulfill({ json: { success: true, messages: [] } });
+		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: [] } });
 		if (path === "/api/profile") return route.fulfill({ json: { display_name: "E2E User", avatar_key: null } });
 		return route.fulfill({ json: {} });
 	});

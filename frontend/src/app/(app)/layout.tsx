@@ -18,7 +18,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 			<AuthGuard>
 				<ProfileProvider>
 				<MotionConfig reducedMotion="user">
-				<SidebarProvider>
+				{/* Only ever rendered client-side (the auth guard shows a loader on the server), so reading the remembered
+				    state straight from the cookie gives the right width on the sidebar's first paint: no jump, no SSR read. */}
+				<SidebarProvider defaultOpen={typeof document === "undefined" || !document.cookie.includes("sidebar_state=false")}>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
 						<header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">

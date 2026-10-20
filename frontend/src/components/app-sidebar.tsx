@@ -1,146 +1,117 @@
 "use client";
 
 import * as React from "react";
-import {
-	BookOpen,
-	Bot,
-	FileText,
-	PieChart,
-	LayoutDashboard,
-	Settings,
-	Upload,
-} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { CalendarClock, ChartLine, House, Receipt, Sparkles, type LucideIcon } from "lucide-react";
 
-import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
-import { NavUser } from "@/components/nav-user";
 import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
+	SidebarGroup,
 	SidebarGroupLabel,
 	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuBadge,
+	SidebarMenuButton,
+	SidebarMenuItem,
 	SidebarRail,
+	SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/components/auth/auth-provider";
-import { useProfile } from "@/components/profile/profile-provider";
+import { reviewApi } from "@/lib/api/client";
+import { isTypingTarget } from "@/lib/utils";
 
-const data = {
-	navMain: [
-		{
-			title: "Spending Views",
-			url: "#",
-			icon: BookOpen,
-			items: [
-				{
-					title: "Weekly",
-					url: "/analytics?tab=weekly",
-				},
-				{
-					title: "Monthly",
-					url: "/analytics?tab=monthly",
-				},
-				{
-					title: "Yearly",
-					url: "/analytics?tab=yearly",
-				},
-			],
-		},
-	],
-	projects: [
-		{
-			name: "Overview",
-			url: "/dashboard",
-			icon: LayoutDashboard,
-		},
-		{
-			name: "Analytics",
-			url: "/analytics",
-			icon: BookOpen,
-		},
-		{
-			name: "AI Insights",
-			url: "/ai-analytics",
-			icon: PieChart,
-		},
-		{
-			name: "Ask Lumen",
-			url: "/chatbot",
-			icon: Bot,
-		},
-		{
-			name: "Documents",
-			url: "/documents",
-			icon: FileText,
-		},
-		{
-			name: "Import statement",
-			url: "/import",
-			icon: Upload,
-		},
-		{
-			name: "Settings",
-			url: "/settings",
-			icon: Settings,
-		},
-		{
-			name: "Review (test)",
-			url: "/review",
-			icon: FileText,
-		},
-	],
-};
+type Item = { label: string; url: string; icon: LucideIcon };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-	const { user: authUser } = useAuth();
-	const { profile, avatarSrc } = useProfile();
-	const name =
-		profile?.display_name ??
-		authUser?.user_metadata?.full_name ??
-		authUser?.user_metadata?.name ??
-		authUser?.email ??
-		"User";
-	const user = {
-		name,
-		email: authUser?.email ?? "",
-		avatar: avatarSrc ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-	};
+// Spec section 3. Group labels say what you do, not what the backend is. Budget and Forecast (PLAN) join once
+// their pages exist.
+const HOME: Item = { label: "Home", url: "/home", icon: House };
+const TRACK: Item[] = [
+	{ label: "Spending", url: "/spending", icon: ChartLine },
+	{ label: "Bills & subscriptions", url: "/bills", icon: CalendarClock },
+];
+const RECEIPTS: Item = { label: "Receipts & statements", url: "/receipts", icon: Receipt };
+const ASK: Item = { label: "Ask Lumen", url: "/ask", icon: Sparkles };
+
+function NavItem({ item, children }: { item: Item; children?: React.ReactNode }) {
+	const pathname = usePathname();
+	const active = pathname === item.url || pathname.startsWith(`${item.url}/`);
+	return (
+		<SidebarMenuItem>
+			<SidebarMenuButton asChild tooltip={item.label} isActive={active}>
+				<Link href={item.url}>
+					<item.icon />
+					<span>{item.label}</span>
+				</Link>
+			</SidebarMenuButton>
+			{children}
+		</SidebarMenuItem>
+	);
+}
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const [toReview, setToReview] = React.useState(0);
+	const [mac, setMac] = React.useState(false);
+
+	// refreshed on navigation so the count drops after you review on /receipts
+	React.useEffect(() => {
+		reviewApi.list().then((items) => setToReview(items.length), () => setToReview(0));
+	}, [pathname]);
+
+	React.useEffect(() => {
+		setMac(/Mac|iPhone|iPad/.test(navigator.platform));
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "k" && (e.metaKey || e.ctrlKey) && !isTypingTarget(e.target)) {
+				e.preventDefault();
+				router.push(ASK.url);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [router]);
 
 	return (
-		<Sidebar
-			collapsible="icon"
-			{...props}
-			className="border-r border-sidebar-border/80"
-		>
-			<SidebarHeader className="border-b border-sidebar-border/80 px-3 py-3">
-				<div className="flex items-center gap-3">
-					<Image
-						src="/lumen_logo.svg"
-						alt="Lumen logo"
-						width={32}
-						height={32}
-						className="h-8 w-8"
-					/>
-					<div className="group-data-[collapsible=icon]:hidden">
-						<p className="text-sm font-semibold tracking-wide text-sidebar-foreground">
-							Lumen
-						</p>
-						<p className="text-xs text-sidebar-foreground/60">
-							Financial command center
-						</p>
-					</div>
-				</div>
+		<Sidebar collapsible="icon" {...props} className="border-r border-sidebar-border/80">
+			<SidebarHeader className="px-3 py-4">
+				<Link href="/home" className="flex items-center gap-2.5 px-1">
+					<Image src="/lumen_logo.svg" alt="" width={24} height={24} className="size-6 shrink-0" />
+					<span className="text-[17px] font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+						Lumen
+					</span>
+				</Link>
 			</SidebarHeader>
-			<SidebarContent className="px-1 py-3">
-				<SidebarGroupLabel>Workspace</SidebarGroupLabel>
-				<NavProjects projects={data.projects} />
-				<SidebarGroupLabel className="mt-2">Compare</SidebarGroupLabel>
-				<NavMain items={data.navMain} />
+			<SidebarContent className="px-1">
+				<SidebarGroup>
+					<SidebarMenu>
+						<NavItem item={HOME} />
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-mono">Track</SidebarGroupLabel>
+					<SidebarMenu>
+						{TRACK.map((item) => (
+							<NavItem key={item.url} item={item} />
+						))}
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarSeparator className="mx-3" />
+				<SidebarGroup>
+					<SidebarMenu>
+						<NavItem item={RECEIPTS}>
+							{toReview > 0 && <SidebarMenuBadge>{toReview}</SidebarMenuBadge>}
+						</NavItem>
+						<NavItem item={ASK}>
+							{/* fixed width: the label swaps to ⌘K on a Mac after mount without moving anything */}
+							<kbd className="label-mono pointer-events-none absolute top-1.5 right-1 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
+								{mac ? "⌘K" : "Ctrl K"}
+							</kbd>
+						</NavItem>
+					</SidebarMenu>
+				</SidebarGroup>
 			</SidebarContent>
-			<SidebarFooter className="border-t border-sidebar-border/80 pt-3">
-				<NavUser user={user} />
-			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
 	);

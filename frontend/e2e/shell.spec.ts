@@ -52,3 +52,77 @@ test("new pages render for a signed-in user", async ({ page }) => {
 		await expect(page, p).toHaveTitle(new RegExp(`^${title}`));
 	}
 });
+
+const sidebar = (page: import("@playwright/test").Page) => page.locator('[data-slot="sidebar-container"]');
+const railWidth = (page: import("@playwright/test").Page) =>
+	page.locator('[data-slot="sidebar-gap"]').evaluate((e) => e.getBoundingClientRect().width);
+
+test("sidebar shows the new IA", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	const links = sidebar(page).locator('[data-sidebar="menu-button"]');
+	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", /^Ask Lumen/]);
+	await expect(sidebar(page).getByText("Track", { exact: true })).toBeVisible();
+	for (const old of ["Workspace", "Compare", "Financial command center"]) {
+		await expect(page.getByText(old, { exact: true })).toHaveCount(0);
+	}
+});
+
+test("review badge counts flagged receipts", async ({ page }) => {
+	await signIn(page, { reviewCount: 3 });
+	await page.goto("/home");
+	await expect(sidebar(page).locator('[data-sidebar="menu-badge"]')).toHaveText("3");
+});
+
+test("ctrl+b collapses to a 56px rail with tooltips", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await expect(sidebar(page)).toBeVisible();
+	await page.keyboard.press("Control+b");
+	await expect.poll(() => railWidth(page)).toBeCloseTo(56, 0);
+	await expect(sidebar(page).getByText("Spending", { exact: true })).toBeHidden();
+	await sidebar(page).locator('a[href="/spending"]').hover();
+	await expect(page.getByRole("tooltip")).toHaveText("Spending");
+});
+
+test("collapsed state survives reload without a jump", async ({ page }) => {
+	// record the sidebar's data-state the moment it first enters the DOM (the auth guard renders it client-side)
+	await page.addInitScript(() => {
+		new MutationObserver((_, obs) => {
+			const el = document.querySelector('[data-slot="sidebar"][data-state]');
+			if (el) {
+				(window as unknown as { firstSidebarState: string }).firstSidebarState = el.getAttribute("data-state")!;
+				obs.disconnect();
+			}
+		}).observe(document, { childList: true, subtree: true });
+	});
+	await page.context().addCookies([{ name: "sidebar_state", value: "false", domain: "localhost", path: "/" }]);
+	await signIn(page);
+	await page.goto("/home");
+	await expect(sidebar(page)).toBeVisible();
+	expect(await page.evaluate(() => (window as unknown as { firstSidebarState: string }).firstSidebarState)).toBe(
+		"collapsed",
+	);
+	expect(await railWidth(page)).toBeCloseTo(56, 0);
+});
+
+test("ctrl+k opens Ask", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await expect(sidebar(page)).toBeVisible();
+	await page.keyboard.press("Control+k");
+	await expect(page).toHaveURL(/\/ask$/);
+});
+
+test("shortcuts ignore text fields", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/ask");
+	const box = page.locator("textarea").first();
+	await box.click();
+	const before = await railWidth(page);
+	await page.keyboard.press("Control+k");
+	await page.keyboard.press("Control+b");
+	await page.waitForTimeout(300);
+	await expect(page).toHaveURL(/\/ask$/);
+	expect(await railWidth(page)).toBe(before);
+});
