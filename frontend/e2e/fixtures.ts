@@ -21,10 +21,26 @@ export async function signIn(page: Page, opts: { reviewCount?: number } = {}): P
 			}),
 		);
 	});
-	const flagged = { id: "r1", status: "flagged", reasons: [], fields: {}, created_at: null, note: null };
+	// a tiny stateful review queue: approving/rejecting removes the item, so the sidebar badge can be checked
+	let queue = Array.from({ length: opts.reviewCount ?? 0 }, (_, i) => ({
+		id: `r${i}`,
+		status: "flagged",
+		confidence: "low",
+		invoice: { vendor_name: `Vendor ${i}` },
+		flags: [],
+		transaction_id: null,
+		note: null,
+		created_at: null,
+	}));
 	await page.route("http://127.0.0.1:9/**", (route) => {
 		const path = new URL(route.request().url()).pathname;
-		if (path === "/api/review") return route.fulfill({ json: { items: Array(opts.reviewCount ?? 0).fill(flagged) } });
+		if (path === "/api/review") return route.fulfill({ json: { items: queue } });
+		const decided = path.match(/^\/api\/review\/([^/]+)\/(approve|reject)$/);
+		if (decided) {
+			const item = queue.find((q) => q.id === decided[1])!;
+			queue = queue.filter((q) => q.id !== decided[1]);
+			return route.fulfill({ json: { item: { ...item, status: `${decided[2]}d` } } });
+		}
 		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: [] } });
 		if (path === "/chat/history") return route.fulfill({ json: { success: true, messages: [] } });
 		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: [] } });

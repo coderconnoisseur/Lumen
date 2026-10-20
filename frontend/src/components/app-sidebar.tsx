@@ -18,8 +18,10 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 	SidebarSeparator,
+	useSidebar,
 } from "@/components/ui/sidebar";
 import { reviewApi } from "@/lib/api/client";
+import { eventBus, EVENTS } from "@/lib/events";
 import { isTypingTarget } from "@/lib/utils";
 
 type Item = { label: string; url: string; icon: LucideIcon };
@@ -36,11 +38,13 @@ const ASK: Item = { label: "Ask Lumen", url: "/ask", icon: Sparkles };
 
 function NavItem({ item, children }: { item: Item; children?: React.ReactNode }) {
 	const pathname = usePathname();
+	const { isMobile, setOpenMobile } = useSidebar();
 	const active = pathname === item.url || pathname.startsWith(`${item.url}/`);
 	return (
 		<SidebarMenuItem>
 			<SidebarMenuButton asChild tooltip={item.label} isActive={active}>
-				<Link href={item.url}>
+				{/* on phones the sidebar is a sheet over the page: close it once you've picked somewhere */}
+				<Link href={item.url} onClick={() => isMobile && setOpenMobile(false)}>
 					<item.icon />
 					<span>{item.label}</span>
 				</Link>
@@ -56,9 +60,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 	const [toReview, setToReview] = React.useState(0);
 	const [mac, setMac] = React.useState(false);
 
-	// refreshed on navigation so the count drops after you review on /receipts
+	// refreshed on navigation and after each review decision (which happens without leaving /receipts)
 	React.useEffect(() => {
-		reviewApi.list().then((items) => setToReview(items.length), () => setToReview(0));
+		const refresh = () => reviewApi.list().then((items) => setToReview(items.length), () => setToReview(0));
+		void refresh();
+		return eventBus.on(EVENTS.REVIEW_DECIDED, refresh);
 	}, [pathname]);
 
 	React.useEffect(() => {

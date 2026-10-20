@@ -44,4 +44,5 @@ export const EVENTS = {
 	INVOICE_UPDATED: "invoice:updated",
 	INVOICE_CREATED: "invoice:created",
 	INVOICE_DELETED: "invoice:deleted",
+	REVIEW_DECIDED: "review:decided",
 } as const;

@@ -169,3 +169,24 @@ test("body is never its own scroll container (it would lose its scrollbar when a
 		expect(await page.evaluate(() => getComputedStyle(document.body).overflowY), p).toBe("visible");
 	}
 });
+
+test("review badge updates after a decision on the same page", async ({ page }) => {
+	await signIn(page, { reviewCount: 2 });
+	await page.goto("/receipts?tab=review");
+	const badge = sidebar(page).locator('[data-sidebar="menu-badge"]');
+	await expect(badge).toHaveText("2");
+	await page.getByRole("button", { name: "Approve" }).first().click();
+	await expect(badge).toHaveText("1");
+});
+
+test("mobile: tapping a link closes the sidebar sheet", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 800 });
+	await signIn(page);
+	await page.goto("/home");
+	await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+	const sheet = page.locator('[data-mobile="true"]');
+	await expect(sheet).toBeVisible();
+	await sheet.getByRole("link", { name: "Spending" }).click();
+	await expect(page).toHaveURL(/\/spending$/, { timeout: 20_000 }); // first dev compile of /spending is slow
+	await expect(sheet).toBeHidden();
+});
