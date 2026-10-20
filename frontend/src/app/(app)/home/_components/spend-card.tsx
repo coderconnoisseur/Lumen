@@ -12,7 +12,7 @@ const RANGES: Range[] = ["1W", "1M", "3M", "YTD"];
 const TITLE: Record<Range, string> = { "1W": "Spent this week", "1M": "Spent this month", "3M": "Spent this quarter", YTD: "Spent this year" };
 const W = 860;
 const H = 160;
-const short = (d: Date) => d.toLocaleString("en-GB", { month: "short" });
+const short = (d: Date) => d.toLocaleString("en-US", { month: "short" }); // "Sep", not en-GB's "Sept"
 const tick = (d: Date) => d.toLocaleString("en-GB", { day: "2-digit", month: "short" });
 
 // Counts up once per browser session, then shows the number straight away (motion rule: no replay on revisits).

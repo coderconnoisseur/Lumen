@@ -279,6 +279,15 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
   production). Firefox is opt-in with `E2E_FIREFOX=1`. `html, body` use `overflow-x: clip`, never `hidden`:
   `hidden` makes `<body>` a scroll container whose scrollbar disappears when a menu opens.
+- **Home** (`app/(app)/home/`, UI revamp Phase 2): greeting and a serif brief over a sky band, then the cards.
+  The main column has Spent this period (a hand-drawn SVG: cumulative now vs the previous period, a forecast to month-end, bill pins,
+  1W/1M/3M/YTD), Lumen found, and Spending calendar + Recent transactions. The side column has Budget, Upcoming bills, the draft-budget promo and
+  Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
+  queue). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
+  never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
+  **Interim until Phase 3:** the brief is one rule-based sentence, Lumen found only shows the review queue, the
+  Budget card is an empty state, and Activity is derived from transactions' `created_at`. `(app)/layout.tsx` is a
+  tiny server file exporting the light `theme-color`; the client shell is `components/app-shell.tsx`.
 - **Signed-in e2e:** `e2e/fixtures.ts` `signIn(page)` fakes a Supabase session (localStorage) plus the
   `lumen_session` cookie, and stubs every backend call, so `e2e/shell.spec.ts` drives the real shell without servers.
 - **Motion:** use `motion/react` only (framer-motion was removed). Shared timings live in `lib/motion.ts`

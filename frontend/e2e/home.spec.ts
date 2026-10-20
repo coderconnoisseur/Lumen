@@ -68,7 +68,7 @@ test("old dashboard is gone", async ({ page }) => {
 });
 
 const spend = (page: Page) => page.getByTestId("spend-card");
-const prevShort = new Date(Y, M - 1, 1).toLocaleString("en-GB", { month: "short" });
+const prevShort = new Date(Y, M - 1, 1).toLocaleString("en-US", { month: "short" });
 const lastDay = new Date(Y, M + 1, 0).getDate();
 
 test("spend card shows total and delta", async ({ page }) => {
@@ -167,4 +167,32 @@ test("bills card lists next three", async ({ page }) => {
 	const rows = page.getByTestId("bill-row");
 	await expect(rows).toHaveCount(3);
 	await expect(rows.first()).toContainText("Netflix");
+});
+
+test("budget is honest until Phase 3", async ({ page }) => {
+	await openHome(page);
+	await expect(page.getByText("No budget yet")).toBeVisible();
+	await expect(page.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+});
+
+test("activity shows newest imports", async ({ page }) => {
+	await openHome(page, { txns: [{ ...tx("r", "Swiggy", thisMonth(1), 486), created_at: hoursAgo(2) }] });
+	await expect(page.getByTestId("activity")).toContainText("2h ago");
+	await expect(page.getByTestId("activity")).toContainText("Added Swiggy");
+});
+
+test("side column order", async ({ page }) => {
+	await openHome(page);
+	const side = page.getByTestId("home-side");
+	await expect(side.locator(":scope > section").first()).toBeVisible();
+	const titles = await side.locator(":scope > section").evaluateAll((els) =>
+		els.map((e) => (e.querySelector("h2, h3, a")?.textContent ?? "").replace(" ›", "").trim().toLowerCase()),
+	);
+	expect(titles.map((t) => t.split(" · ")[0])).toEqual(["budget", "upcoming bills", "let lumen draft your budget", "activity"]);
+});
+
+test("sky band is drawn behind the greeting", async ({ page }) => {
+	await openHome(page);
+	const bg = await page.getByTestId("sky-band").evaluate((e) => getComputedStyle(e).backgroundImage);
+	expect(bg).toContain("linear-gradient");
 });

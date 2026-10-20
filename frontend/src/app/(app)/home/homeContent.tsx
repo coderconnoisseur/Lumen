@@ -8,7 +8,9 @@ import { ExportDialog } from "@/components/exportDialog";
 import { useMoney } from "@/lib/format";
 import { briefSentence, cumulative, dayIndex, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
 import { Brief } from "./_components/brief";
+import { ActivityCard } from "./_components/activity-card";
 import { BillsCard } from "./_components/bills-card";
+import { BudgetCard, DraftBudgetPromo } from "./_components/budget-card";
 import { CalendarCard } from "./_components/calendar-card";
 import { LumenFound } from "./_components/lumen-found";
 import { SpendCard } from "./_components/spend-card";
@@ -58,7 +60,7 @@ export default function HomeContent() {
 
 	return (
 		<div className="relative flex-1">
-			<div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-(--band)" />
+			<div aria-hidden data-testid="sky-band" className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[image:var(--band)]" />
 			<div className="relative px-4 py-6 sm:px-6 lg:px-8">
 				<div className="flex flex-wrap items-center gap-3">
 					<h1 className="text-2xl font-medium tracking-tight">
@@ -90,7 +92,10 @@ export default function HomeContent() {
 						<CalendarCard txns={data.monthTxns} period={month.current} loading={data.status === "loading"} />
 					</div>
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side">
+						<BudgetCard monthName={monthName(today)} />
 						<BillsCard reminders={data.reminders} today={today} loading={data.status === "loading"} />
+						<DraftBudgetPromo />
+						<ActivityCard txns={data.monthTxns} now={new Date()} loading={data.status === "loading"} />
 					</div>
 				</div>
 			</div>
