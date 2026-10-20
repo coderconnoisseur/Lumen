@@ -302,3 +302,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   12 e2e checks pass, including portal colours, AA contrast for muted text (4.9:1), login staying dark and
   reduced motion. framer-motion was removed. Story point: reproduce in a test first. Here the test environment
   was hiding the very bug.
+
+## 26. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
+- **S:** The sidebar still had the November-2025 tabs ("Workspace", "Compare", a test link), so its labels no longer
+  matched what the app does. The Phase 0 fix had also left Ask Lumen shifting 15 px once in about four runs.
+- **T:** Ship the new navigation (Home · Track · Receipts · Ask) with old URLs still working. Collapse to an icon
+  rail without a jump on reload. Find the remaining shift.
+- **A:** Added a Playwright fixture that fakes a signed-in session and stubs the backend, so the real shell is
+  testable without servers. A probe showed `<body>` owning its own 15 px scrollbar: `overflow-x: hidden` on html and
+  body turns body into a scroll container, and a menu's scroll lock removes that scrollbar. Switched to `overflow-x:
+  clip`. The collapsed state is read on the sidebar's first (client-only) render, so app pages stay static on Vercel.
+- **R:** 31 e2e checks pass, including 8 redirects, auth on all new routes, a rail on first paint, shortcuts ignored
+  while typing, a live review badge and the mobile sheet closing. Avatar-menu shift checks passed 24/24 on repeat
+  (failed 1 in 4 before). Story point: a flaky test is a bug report. Here it caught the half of the original bug
+  that the first fix missed.
