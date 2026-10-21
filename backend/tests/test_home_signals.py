@@ -16,7 +16,7 @@ def kinds(items):
 
 def test_duplicate_same_vendor_amount_within_a_day():
     [d] = find_signals([t("2026-10-14", 2499), t("2026-10-15", 2499.5, vendor="CROMA ")], TODAY, 0, [])
-    assert d == {"kind": "duplicate", "tag": "DUPLICATES", "headline": "Possible double charge: Croma {0}",
+    assert d == {"kind": "duplicate", "tag": "DUPLICATES", "subject": "Croma", "headline": "Possible double charge: Croma {0}",
                  "detail": "Charged on 14 Oct and 15 Oct.", "amounts": [2499], "worth": 2499, "href": None}
 
 
@@ -35,7 +35,7 @@ def test_spike_needs_30pct_and_floor():
     assert find_signals(small, TODAY, 0, []) == []
     big = [t("2026-09-05", 5000, "Swiggy", "Food"), t("2026-10-05", 6750, "Swiggy", "Food")]  # +35%, +1750
     [s] = find_signals(big, TODAY, 0, [])
-    assert s == {"kind": "spike", "tag": "SPENDING", "headline": "Food is up 35%",
+    assert s == {"kind": "spike", "tag": "SPENDING", "subject": "Food", "headline": "Food is up 35%",
                  "detail": "{0} so far vs {1} by this point last month.", "amounts": [6750, 5000], "worth": None,
                  "href": "/spending"}
 
@@ -58,7 +58,7 @@ def test_price_rise_from_recurring():
            {"vendor": "Tiny", "cadence": "monthly", "last_charge_date": "2026-10-02",
             "price_change": {"previous": 100, "latest": 103, "percent": 3}}]
     [p] = find_signals([], TODAY, 0, rec)
-    assert p == {"kind": "price_rise", "tag": "SUBSCRIPTIONS", "headline": "Spotify went up 17%",
+    assert p == {"kind": "price_rise", "tag": "SUBSCRIPTIONS", "subject": "Spotify", "headline": "Spotify went up 17%",
                  "detail": "{0} → {1} a month.", "amounts": [119, 139], "worth": None, "href": "/bills"}
 
 
@@ -69,7 +69,7 @@ def test_order_and_review_item():
             t("2026-09-05", 5000, "S", "Food"), t("2026-10-05", 6750, "S", "Food")]
     items = find_signals(txns, TODAY, 3, rec)
     assert kinds(items) == ["duplicate", "review", "spike", "price_rise"]
-    assert items[1] == {"kind": "review", "tag": "RECEIPTS", "headline": "3 receipts need a glance",
+    assert items[1] == {"kind": "review", "tag": "RECEIPTS", "subject": None, "headline": "3 receipts need a glance",
                         "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
                         "amounts": [], "worth": None, "href": "/receipts?tab=review"}
     assert find_signals([], TODAY, 1, [])[0]["headline"] == "1 receipt needs a glance"
@@ -119,3 +119,12 @@ def test_spike_ignores_partial_refund_month():
 def test_daily_habit_is_not_a_duplicate():
     coffee = [t(f"2026-10-{d:02d}", 180, "Blue Tokai", "Food") for d in range(10, 18)]
     assert find_signals(coffee, TODAY, 0, []) == []
+
+
+def test_found_items_carry_their_subject():
+    rec = [{"vendor": "Spotify", "cadence": "monthly", "last_charge_date": "2026-10-02",
+            "price_change": {"previous": 119, "latest": 139, "percent": 16.8}}]
+    txns = [t("2026-10-14", 2499), t("2026-10-14", 2499),
+            t("2026-09-05", 5000, "S", "food"), t("2026-10-05", 6750, "S", "food")]
+    assert [(i["kind"], i["subject"]) for i in find_signals(txns, TODAY, 2, rec)] == [
+        ("duplicate", "Croma"), ("review", None), ("spike", "food"), ("price_rise", "Spotify")]

@@ -57,7 +57,7 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
                 used |= {i, j}
                 when = f"Charged twice on {_short(d)}." if d == d2 else f"Charged on {_short(d)} and {_short(d2)}."
                 rounded = round(amount)
-                out.append({"kind": "duplicate", "tag": "DUPLICATES", "headline": f"Possible double charge: "
+                out.append({"kind": "duplicate", "tag": "DUPLICATES", "subject": t["vendor_name"].strip(), "headline": f"Possible double charge: "
                             f"{t['vendor_name'].strip()} {{0}}", "detail": when, "amounts": [rounded],
                             "worth": rounded, "href": None})
                 break
@@ -88,7 +88,7 @@ def _spikes(txns: list[dict], today: date) -> list[dict]:
         p = then.get(k, 0.0)
         if p > 0 and n >= p * SPIKE_RATIO and n - p >= floor:
             pct = round((n - p) / p * 100)
-            out.append((pct, {"kind": "spike", "tag": "SPENDING", "headline": f"{names[k]} is up {pct}%",
+            out.append((pct, {"kind": "spike", "tag": "SPENDING", "subject": names[k], "headline": f"{names[k]} is up {pct}%",
                               "detail": "{0} so far vs {1} by this point last month.",
                               "amounts": [round(n), round(p)], "worth": None, "href": "/spending"}))
     return [s for _, s in sorted(out, key=lambda x: -x[0])]
@@ -99,7 +99,7 @@ def _price_rises(recurring: list[dict], today: date) -> list[dict]:
     for r in recurring:
         change, last = r.get("price_change"), _day(r.get("last_charge_date"))
         if change and change.get("percent", 0) >= PRICE_RISE_PCT and last and (today - last).days <= PRICE_RISE_RECENT_DAYS:
-            out.append({"kind": "price_rise", "tag": "SUBSCRIPTIONS",
+            out.append({"kind": "price_rise", "tag": "SUBSCRIPTIONS", "subject": r["vendor"],
                         "headline": f"{r['vendor']} went up {round(change['percent'])}%",
                         "detail": f"{{0}} → {{1}} a {_CADENCE.get(r.get('cadence'), 'charge')}.",
                         "amounts": [change["previous"], change["latest"]], "worth": None, "href": "/bills"})
@@ -110,7 +110,7 @@ def find_signals(txns: list[dict], today: date, review_count: int, recurring: li
     """Everything worth a look, most actionable first: duplicates, receipts to review, spikes, price rises."""
     review = []
     if review_count > 0:
-        review = [{"kind": "review", "tag": "RECEIPTS",
+        review = [{"kind": "review", "tag": "RECEIPTS", "subject": None,
                    "headline": f"{review_count} {'receipt needs' if review_count == 1 else 'receipts need'} a glance",
                    "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
                    "amounts": [], "worth": None, "href": "/receipts?tab=review"}]

@@ -175,3 +175,23 @@ def test_agent_set_budget_target_is_trimmed(setup):
         type="set_budget", target=" Food ", risk="low", reason="r", payload={"limit": 5000}))
     c.post(f"/api/agent/proposals/{out['proposal_id']}/approve", headers=bearer(A))
     assert c.get("/api/budget", headers=bearer(A)).json()["categories"][0]["category"] == "Food"
+
+
+def test_decide_claims_with_a_conditional_update(setup):
+    """Approval claims the proposal (UPDATE ... WHERE status = 'pending') before applying anything, so two
+    concurrent approvals can't both apply on Postgres; the loser gets 409 (as _save_invoice already does)."""
+    from sqlalchemy import event
+
+    c, engine = setup
+    history(engine, A)
+    pid = c.post("/api/budget/draft", headers=bearer(A)).json()["proposals"][0]["id"]
+    statements = []
+    listener = lambda conn, cur, stmt, params, ctx, many: statements.append(" ".join(stmt.split()).lower())
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        assert c.post(f"/api/agent/proposals/{pid}/approve", headers=bearer(A)).status_code == 200
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    claim = next(i for i, s in enumerate(statements) if s.startswith("update proposals") and "status = ?" in s.split("where", 1)[1])
+    writes = [i for i, s in enumerate(statements) if s.startswith("insert into budgets") or s.startswith("insert into audit_events")]
+    assert writes and claim < min(writes)
