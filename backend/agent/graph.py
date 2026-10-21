@@ -26,6 +26,13 @@ MAX_TOOL_CALLS = 6
 MAX_TOOL_RESULT_CHARS = 3000
 # Models sometimes pad the id or use full-width brackets: "[ id#s04 ]", "【id#s04】".
 _CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")
+# gpt-oss's native markers: "【id#s02】" for a real passage, but also "【exchange_rate】" (a tool name, not a source).
+_NATIVE_MARK = re.compile(r"[ \t]*【\s*([^【】]*?)\s*】")
+
+
+def lumen_citations(text: str, retrieved) -> str:
+    """Rewrite native 【id】 markers as Lumen's [id] when id is a passage or web result this run returned; drop the rest."""
+    return _NATIVE_MARK.sub(lambda m: f"[{m.group(1)}]" if m.group(1) in retrieved else "", text)
 
 
 class AgentState(TypedDict):
@@ -164,7 +171,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
     retrieved |= {w["id"]: {"chunk_id": w["id"], "title": w["title"], "url": w["url"], "site": w["site"],
                             "text": w["snippet"]}
                   for s in final["steps"] if s["tool"] == "web_search" for w in s["result"].get("results", [])}
-    answer, follow_up = split_follow_up(final["answer"] or "")
+    answer, follow_up = split_follow_up(lumen_citations(final["answer"] or "", retrieved))
     citations = list(dict.fromkeys(c for c in _CITATION.findall(answer) if c in retrieved))
     return {
         "answer": answer,

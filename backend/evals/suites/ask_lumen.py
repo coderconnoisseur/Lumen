@@ -52,9 +52,13 @@ def load_cases() -> list[dict]:
     return [json.loads(l) for l in (DATA_DIR / "ask_lumen.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+_SPACES = str.maketrans({" ": " ", " ": " ", " ": " ", "‑": "-", "‐": "-", "’": "'"})
+
+
 def _norm(s: str) -> str:
-    """Lower case, straight apostrophes, no thousands commas ("₹1,20,000" and "120,000" both become 120000)."""
-    return re.sub(r"(?<=\d),(?=\d)", "", s.replace("’", "'").lower())
+    """Lower case, straight apostrophes, plain spaces and hyphens (gpt-oss writes "24 Oct", "2026‑27"), no
+    thousands separators ("₹1,20,000", "120,000" and "120 000" all become 120000)."""
+    return re.sub(r"(?<=\d)[,   ](?=\d)", "", s).translate(_SPACES).lower()
 
 
 def _has(text: str, phrase: str) -> bool:
