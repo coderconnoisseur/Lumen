@@ -181,7 +181,8 @@ def test_chat_success_returns_answer_and_saves_history(authed_client, monkeypatc
     )
     assert resp.status_code == 200
     assert resp.get_json()["data"]["response"] == "You have no transactions yet."
-    assert saved == [("user-1", "total spend", "You have no transactions yet.")]
+    thread_id = resp.get_json()["data"]["thread_id"]  # a new chat gets its own thread (UI revamp Phase 4)
+    assert saved == [("user-1", thread_id, "total spend", "You have no transactions yet.")]
 
 
 @pytest.fixture
