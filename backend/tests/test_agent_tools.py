@@ -222,6 +222,16 @@ def test_exchange_rate_bad_code_rejected(db, world):
     assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "DOLLARS", "quote": "INR"})
 
 
+def test_lumen_citations():
+    from agent.graph import lumen_citations
+    real = {"doc-1#s02", "web:1"}
+    # seen in the first ask_lumen recording (audit-L07, audit-C24)
+    assert lumen_citations("Ends **1 November 2026**【doc-1#s02】.", real) == "Ends **1 November 2026**[doc-1#s02]."
+    assert lumen_citations("= **26,000 INR**【exchange_rate】", real) == "= **26,000 INR**"
+    assert lumen_citations("A 【 web:1 】 b【doc-9#s01】.", real) == "A[web:1] b."
+    assert lumen_citations("Plain [doc-1#s02] stays.", real) == "Plain [doc-1#s02] stays."
+
+
 def test_split_follow_up():
     from agent.graph import split_follow_up
     assert split_follow_up("You spent 500.\nNext: Which vendor was it?") == ("You spent 500.", "Which vendor was it?")
