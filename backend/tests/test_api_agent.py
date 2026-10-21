@@ -86,7 +86,8 @@ def test_proposals_wait_for_a_human_and_approval_is_audited(setup):
     approved = client.post(f"/api/agent/proposals/{pid}/approve", headers=bearer(u1)).json()
     assert approved["proposal"]["status"] == "approved" and approved["applied"]["transactions_updated"] == 1
     assert category() == "Shopping"
-    assert client.post(f"/api/agent/proposals/{pid}/reject", headers=bearer(u1)).status_code == 409
+    late = client.post(f"/api/agent/proposals/{pid}/reject", headers=bearer(u1))
+    assert late.status_code == 409 and late.json()["error"] == "This proposal was already decided."
     with engine.connect() as conn:
         actions = [r[0] for r in conn.execute(text(
             "SELECT action FROM audit_events WHERE proposal_id = :p ORDER BY id"), {"p": pid})]

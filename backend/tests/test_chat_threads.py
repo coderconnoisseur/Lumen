@@ -51,6 +51,21 @@ def test_post_without_thread_creates_one_titled_from_question(chat):
     assert not thread["title"].rstrip("…").endswith(" ")
 
 
+def test_chat_save_failure_leaves_no_empty_thread(chat, monkeypatch):
+    import routes.chat as chat_routes
+
+    client, post, _, _ = chat
+
+    def boom(*a):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(chat_routes, "_save_exchange", boom)
+    res = post(A, "Lost to a failed save")
+    assert res.status_code == 200  # the answer still comes back
+    assert "thread_id" not in res.get_json()["data"]  # no id for a thread that was never saved
+    assert client.get("/chat/threads", headers=bearer(A)).get_json()["threads"] == []
+
+
 def test_post_with_thread_appends(chat):
     client, post, _, _ = chat
     tid = post(A, "First").get_json()["data"]["thread_id"]

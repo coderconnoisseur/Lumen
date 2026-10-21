@@ -140,6 +140,15 @@ test("ctrl+k opens the ask palette and enter hands off", async ({ page }) => {
 	expect(posts).toEqual(["Where did my money go"]);
 });
 
+test("ctrl+k works below md with the sheet closed", async ({ page }) => {
+	await page.setViewportSize({ width: 767, height: 1024 });
+	await signIn(page);
+	await page.goto("/home");
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+	await page.keyboard.press("Control+k");
+	await expect(palette(page)).toBeVisible();
+});
+
 test("palette works with caps lock", async ({ page }) => {
 	await signIn(page);
 	await page.goto("/home");

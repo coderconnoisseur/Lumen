@@ -73,6 +73,28 @@ test("deleting a thread removes it", async ({ page }) => {
 	await expect(rail(page).getByRole("button", { name: /^Bills due/ })).toHaveCount(0);
 });
 
+test("rail actions wait for the answer", async ({ page }) => {
+	await openAsk(page, { ...old, delayMs: 1500 });
+	await rail(page).getByRole("button", { name: "Delete chat: Bills due" }).click();
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeFocused();
+	await composer(page).fill("Slow one");
+	await composer(page).press("Enter");
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeDisabled();
+	await expect(rail(page).getByRole("button", { name: "Confirm delete" })).toBeDisabled();
+	await expect(rail(page).getByRole("button", { name: "Delete chat: Food last month" })).toBeDisabled();
+	await expect(page.getByText("Answer to: Slow one")).toBeVisible();
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeEnabled();
+});
+
+test("the trash button shows without hover at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openAsk(page, old);
+	await page.getByRole("button", { name: "History" }).click();
+	const trash = rail(page).getByRole("button", { name: "Delete chat: Bills due" });
+	await expect(trash).toBeVisible();
+	await expect(trash).toHaveCSS("opacity", "1");
+});
+
 test("handoff sends once", async ({ page }) => {
 	const posts: string[] = [];
 	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON().query));
