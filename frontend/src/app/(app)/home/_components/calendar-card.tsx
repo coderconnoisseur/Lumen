@@ -1,6 +1,6 @@
 import { useMoney } from "@/lib/format";
 import { calendarBuckets, heat, parseDay, type Period, type Txn } from "@/lib/home-math";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 // "₹2.2k" in the user's own currency: take the symbol from how useMoney prints zero
 const kShort = (n: number, symbol: string) => (n >= 1000 ? `${symbol}${(n / 1000).toFixed(1)}k` : `${symbol}${Math.round(n)}`);
@@ -16,7 +16,7 @@ export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: P
 	const recent = [...txns].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
 	return (
-		<HomeCard title="Spending calendar" loading={loading} skeletonHeight={232}>
+		<PageCard title="Spending calendar" loading={loading} skeletonHeight={232}>
 			<div className="grid gap-4 md:grid-cols-[1.05fr_1fr]">
 				<div className="grid grid-cols-7 gap-1">
 					{Array.from({ length: lead }, (_, i) => (
@@ -56,6 +56,6 @@ export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: P
 					)}
 				</div>
 			</div>
-		</HomeCard>
+		</PageCard>
 	);
 }

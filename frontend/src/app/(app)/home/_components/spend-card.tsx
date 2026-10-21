@@ -6,7 +6,7 @@ import { useMoney } from "@/lib/format";
 import { dayIndex, parseDay, sameDayDelta, type Period, type Range } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 import type { Forecast, Reminder } from "../use-home-data";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 const RANGES: Range[] = ["1W", "1M", "3M", "YTD"];
 const TITLE: Record<Range, string> = { "1W": "Spent this week", "1M": "Spent this month", "3M": "Spent this quarter", YTD: "Spent this year" };
@@ -95,7 +95,7 @@ export function SpendCard({
 		range === "1M" ? `vs ${short(previous.start)} at this point` : range === "YTD" ? `vs ${previous.start.getFullYear()} at this point` : "vs last period at this point";
 
 	return (
-		<HomeCard title={TITLE[range]} loading={loading} skeletonHeight={262} className="relative" data-testid="spend-card">
+		<PageCard title={TITLE[range]} loading={loading} skeletonHeight={262} className="relative" data-testid="spend-card">
 			<div className="flex items-end gap-4">
 				<div>
 					<div className="text-[28px] font-medium tracking-tight">
@@ -182,6 +182,6 @@ export function SpendCard({
 					</button>
 				))}
 			</div>
-		</HomeCard>
+		</PageCard>
 	);
 }

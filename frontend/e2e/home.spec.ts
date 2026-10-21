@@ -333,3 +333,19 @@ test("a replaced draft says so", async ({ page }) => {
 	await page.waitForTimeout(300);
 	expect(approvals).toBe(1);
 });
+
+const overlaps = (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
+	a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+test("home header keeps clear of the account menu", async ({ page }) => {
+	for (const [width, height] of [[1440, 900], [1024, 800]]) {
+		await page.setViewportSize({ width, height });
+		await openHome(page);
+		await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-size", "26px");
+		const menu = (await page.getByRole("button", { name: "Account menu" }).boundingBox())!;
+		for (const name of [/upload/i, /^export$/i]) {
+			const box = (await page.getByRole("button", { name }).first().boundingBox())!;
+			expect(overlaps(menu, box), `${String(name)} at ${width}px`).toBe(false);
+		}
+	}
+});

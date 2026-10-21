@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { HomeSummary } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { fill } from "@/lib/home-math";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 // "Lumen found": duplicates, receipts to review, spending spikes and price rises (GET /api/home/summary, rule-based).
 // A money "worth" is only claimed for things you may get back (duplicates).
@@ -11,7 +11,7 @@ export function LumenFound({ summary, loading }: { summary: HomeSummary | null; 
 	const found = summary?.found ?? [];
 	const total = found.length + (summary?.more ?? 0);
 	return (
-		<HomeCard title="Lumen found" loading={loading} skeletonHeight={132} data-testid="lumen-found">
+		<PageCard title="Lumen found" loading={loading} skeletonHeight={132} data-testid="lumen-found">
 			{found.length === 0 ? (
 				<p className="font-serif text-[17px] text-muted-foreground">Nothing needs you right now.</p>
 			) : (
@@ -39,6 +39,6 @@ export function LumenFound({ summary, loading }: { summary: HomeSummary | null; 
 					</div>
 				</>
 			)}
-		</HomeCard>
+		</PageCard>
 	);
 }

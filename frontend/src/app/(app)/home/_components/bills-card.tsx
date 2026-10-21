@@ -1,7 +1,7 @@
 import { useMoney } from "@/lib/format";
 import { parseDay } from "@/lib/home-math";
 import type { Reminder } from "../use-home-data";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 // The next three recurring charges Lumen expects.
 export function BillsCard({ reminders, today, loading }: { reminders: Reminder[]; today: Date; loading: boolean }) {
@@ -11,7 +11,7 @@ export function BillsCard({ reminders, today, loading }: { reminders: Reminder[]
 		.sort((a, b) => a.date.localeCompare(b.date))
 		.slice(0, 3);
 	return (
-		<HomeCard title="Upcoming bills" href="/bills" loading={loading} skeletonHeight={138}>
+		<PageCard title="Upcoming bills" href="/bills" loading={loading} skeletonHeight={138}>
 			{next.length === 0 ? (
 				<p className="text-sm text-muted-foreground">No bills coming up in the next month.</p>
 			) : (
@@ -29,6 +29,6 @@ export function BillsCard({ reminders, today, loading }: { reminders: Reminder[]
 					);
 				})
 			)}
-		</HomeCard>
+		</PageCard>
 	);
 }

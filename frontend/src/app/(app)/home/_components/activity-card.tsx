@@ -2,13 +2,13 @@ import Link from "next/link";
 import type { ActivityItem } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { fill, relativeTime } from "@/lib/home-math";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 // What happened lately: statement imports, receipts read, your decisions (GET /api/home/summary).
 export function ActivityCard({ items, now, loading }: { items: ActivityItem[]; now: Date; loading: boolean }) {
 	const money = useMoney();
 	return (
-		<HomeCard title="Activity" loading={loading} skeletonHeight={110} data-testid="activity">
+		<PageCard title="Activity" loading={loading} skeletonHeight={110} data-testid="activity">
 			{items.length === 0 ? (
 				<p className="text-[12.5px] text-muted-foreground">
 					Nothing imported yet.{" "}
@@ -25,6 +25,6 @@ export function ActivityCard({ items, now, loading }: { items: ActivityItem[]; n
 					</div>
 				))
 			)}
-		</HomeCard>
+		</PageCard>
 	);
 }

@@ -6,7 +6,7 @@ import { useMoney } from "@/lib/format";
 import { toast } from "@/lib/toast";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { HomeCard } from "./card";
+import { PageCard } from "@/components/page/page-card";
 
 // Overall budget = the profile's monthly budget (onboarding); per-category limits come from approved set_budget
 // proposals or PUT /api/budget. Nothing here is invented: with neither, the card says so.
@@ -18,7 +18,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 	const daysLeft = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
 
 	return (
-		<HomeCard title={`Budget · ${monthName}`} loading={loading} skeletonHeight={64} data-testid="budget-card">
+		<PageCard title={`Budget · ${monthName}`} loading={loading} skeletonHeight={64} data-testid="budget-card">
 			{total ? (
 				<>
 					<div className="text-[22px] font-medium tracking-tight">
@@ -51,7 +51,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 					))}
 				</div>
 			)}
-		</HomeCard>
+		</PageCard>
 	);
 }
 

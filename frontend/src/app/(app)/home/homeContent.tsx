@@ -8,6 +8,7 @@ import { ExportDialog } from "@/components/exportDialog";
 import type { FoundItem } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { briefSentence, cumulative, dayIndex, fill, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
+import { PageHeader } from "@/components/page/page-header";
 import { Brief } from "./_components/brief";
 import { ActivityCard } from "./_components/activity-card";
 import { BillsCard } from "./_components/bills-card";
@@ -68,19 +69,16 @@ export default function HomeContent() {
 		<div className="relative flex-1">
 			<div aria-hidden data-testid="sky-band" className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[image:var(--band)]" />
 			<div className="relative px-4 py-6 sm:px-6 lg:px-8">
-				{/* md:pr-12 leaves room for the floating account menu (app-shell.tsx) */}
-				<div className="flex flex-wrap items-center gap-3 md:pr-12">
-					<h1 className="text-2xl font-medium tracking-tight">
-						{firstName ? `Good ${partOfDay(new Date().getHours())}, ${firstName}` : "Welcome back"}
-					</h1>
-					<div className="ml-auto flex gap-2">
-						<ExportDialog />
-						<DialogDemo defaultOpen={openUpload} />
-					</div>
-				</div>
-				<div className="mt-4">
-					<Brief text={brief} />
-				</div>
+				<PageHeader
+					title={firstName ? `Good ${partOfDay(new Date().getHours())}, ${firstName}` : "Welcome back"}
+					brief={<Brief text={brief} />}
+					actions={
+						<>
+							<ExportDialog />
+							<DialogDemo defaultOpen={openUpload} />
+						</>
+					}
+				/>
 				<div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_330px]">
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-main">
 						<SpendCard
