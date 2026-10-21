@@ -151,3 +151,27 @@ def test_agent_tool_draft_budget(setup):
     assert [p["target"] for p in out["proposals"]] == ["Food", "Travel"]
     pending = c.get("/api/agent/proposals?status=pending", headers=bearer(A)).json()["proposals"]
     assert {p["type"] for p in pending} == {"set_budget"} and len(pending) == 2
+
+
+@pytest.mark.parametrize("payload", [{"amount": 5000}, {"limit": 0}, {"limit": -5}, {"limit": "lots"}, {"limit": float("inf")}])
+def test_agent_set_budget_with_a_bad_limit_is_rejected_not_applied(setup, payload):
+    """The LLM can file set_budget with any payload: approving a bad one must be a 422, never a broken budget."""
+    from agent.tools import TOOLS, ProposeActionArgs, ToolContext
+
+    c, _ = setup
+    out = TOOLS["propose_action"].run(ToolContext(user_id=A, engine=setup[1], sql_agent=None), ProposeActionArgs(
+        type="set_budget", target=" Food ", risk="low", reason="r", payload=payload))
+    r = c.post(f"/api/agent/proposals/{out['proposal_id']}/approve", headers=bearer(A))
+    assert r.status_code == 422
+    assert c.get("/api/budget", headers=bearer(A)).status_code == 200
+    assert c.get("/api/budget", headers=bearer(A)).json()["categories"] == []
+
+
+def test_agent_set_budget_target_is_trimmed(setup):
+    from agent.tools import TOOLS, ProposeActionArgs, ToolContext
+
+    c, engine = setup
+    out = TOOLS["propose_action"].run(ToolContext(user_id=A, engine=engine, sql_agent=None), ProposeActionArgs(
+        type="set_budget", target=" Food ", risk="low", reason="r", payload={"limit": 5000}))
+    c.post(f"/api/agent/proposals/{out['proposal_id']}/approve", headers=bearer(A))
+    assert c.get("/api/budget", headers=bearer(A)).json()["categories"][0]["category"] == "Food"

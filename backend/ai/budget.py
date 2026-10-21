@@ -55,7 +55,8 @@ def _round_up(avg: float) -> int:
 
 
 def draft_budget(txns: list[dict], today: date) -> list[dict]:
-    """One line per category: the mean of the 3 complete months before today's, rounded up.
+    """One line per category: the mean over the 3 complete months before today's (only those with any spend),
+    rounded up.
     Empty when fewer than 2 of those months have any spend (not enough history to suggest limits)."""
     months = []
     y, m = today.year, today.month
@@ -64,12 +65,13 @@ def draft_budget(txns: list[dict], today: date) -> list[dict]:
         months.append((y, m))
     months.reverse()
     totals = _totals(txns, set(months))
-    if len({mo for (_, mo), v in totals.items() if v}) < 2:
+    active = len({mo for (_, mo), v in totals.items() if v})  # months with any spend (a new user may have only 2)
+    if active < 2:
         return []
     names = _display_names(txns)
     lines = []
     for key in {k for k, _ in totals}:
-        avg = sum(totals.get((key, mo), 0.0) for mo in months) / 3
+        avg = sum(totals.get((key, mo), 0.0) for mo in months) / active
         if avg >= MIN_MONTHLY:
             lines.append({"category": names[key], "limit": _round_up(avg),
                           "basis": {"months": [f"{yy}-{mm:02d}" for yy, mm in months], "average": round(avg, 2)}})

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { agentApi, budgetApi, type BudgetState, type Proposal } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -63,6 +63,8 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [lines, setLines] = useState<Line[] | null>(null);
+	const [deciding, setDeciding] = useState(false);
+	const inFlight = useRef(false); // a ref, so a double click is blocked before React re-renders
 
 	async function draft() {
 		setBusy(true);
@@ -77,14 +79,19 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 	}
 
 	async function decide(ids: string[], decision: "approve" | "reject") {
-		for (const id of ids) {
-			try {
+		if (inFlight.current) return;
+		inFlight.current = true;
+		setDeciding(true);
+		try {
+			for (const id of ids) {
 				await agentApi.decide(id, decision);
 				setLines((ls) => ls?.map((l) => (l.id === id ? { ...l, decided: decision } : l)) ?? ls);
-			} catch {
-				toast.error("Couldn't save that decision.");
-				return;
 			}
+		} catch {
+			toast.error("Couldn't save that decision.");
+		} finally {
+			inFlight.current = false;
+			setDeciding(false);
 		}
 	}
 
@@ -135,10 +142,10 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 												</span>
 											) : (
 												<>
-													<button type="button" className="rounded-md px-2 py-1 text-[12.5px] text-muted-foreground hover:bg-accent" onClick={() => void decide([l.id], "reject")}>
+													<button type="button" disabled={deciding} className="rounded-md px-2 py-1 text-[12.5px] text-muted-foreground hover:bg-accent disabled:opacity-50" onClick={() => void decide([l.id], "reject")}>
 														Skip
 													</button>
-													<button type="button" className="rounded-md bg-primary px-2 py-1 text-[12.5px] text-primary-foreground" onClick={() => void decide([l.id], "approve")}>
+													<button type="button" disabled={deciding} className="rounded-md bg-primary px-2 py-1 text-[12.5px] text-primary-foreground disabled:opacity-50" onClick={() => void decide([l.id], "approve")}>
 														Approve
 													</button>
 												</>
@@ -149,7 +156,7 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 							</div>
 							<button
 								type="button"
-								disabled={pending.length === 0}
+								disabled={pending.length === 0 || deciding}
 								onClick={() => void decide(pending, "approve")}
 								className="mt-1 w-full rounded-lg bg-foreground py-2 text-sm text-background disabled:opacity-50"
 							>

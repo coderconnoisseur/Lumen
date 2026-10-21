@@ -14,6 +14,7 @@ from ai.budget import _display_names, _key
 from ai.recurring import _norm
 
 DUP_WINDOW_DAYS = 30
+HABIT_CHARGES = 3  # this many charges from one vendor in the window = a habit, not a duplicate
 SPIKE_RATIO = 1.3
 SPIKE_FLOOR = 1000
 PRICE_RISE_PCT = 5
@@ -40,6 +41,11 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
         d, amount = _day(t.get("date")), t.get("total_amount")
         if d and amount and amount > 0 and today - timedelta(days=DUP_WINDOW_DAYS) <= d <= today and t.get("vendor_name"):
             recent.append((_norm(t["vendor_name"]), d, float(amount), t))
+    # a vendor you pay most days (coffee, metro) isn't double-charging you
+    per_vendor = defaultdict(int)
+    for v, *_ in recent:
+        per_vendor[v] += 1
+    recent = [r for r in recent if per_vendor[r[0]] < HABIT_CHARGES]
     recent.sort(key=lambda r: (r[0], r[1]))
     out, used = [], set()
     for i, (v, d, amount, t) in enumerate(recent):
@@ -63,10 +69,11 @@ def _spikes(txns: list[dict], today: date) -> list[dict]:
     prev_end = first - timedelta(days=1)
     prev_first = prev_end.replace(day=1)
     same_day = prev_first.replace(day=min(today.day, prev_end.day))
+    # spending only: a refund in either month would shrink the base and fake a huge percentage
     now, then, prev_total = defaultdict(float), defaultdict(float), 0.0
     for t in txns:
         d, amount = _day(t.get("date")), t.get("total_amount")
-        if not d or amount is None:
+        if not d or not amount or amount <= 0:
             continue
         if first <= d <= today:
             now[_key(t.get("category"))] += amount

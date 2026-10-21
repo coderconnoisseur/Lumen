@@ -300,3 +300,14 @@ test("sidebar badge uses the count endpoint", async ({ page }) => {
 	await counted;
 	await expect(page.locator('[data-sidebar="menu-badge"]')).toHaveText("2");
 });
+
+test("draft dialog ignores a double click", async ({ page }) => {
+	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)] });
+	let approvals = 0;
+	page.on("request", (r) => r.url().includes("/proposals/") && r.url().endsWith("/approve") && approvals++);
+	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
+	await page.getByRole("dialog").getByRole("button", { name: "Approve all" }).dblclick();
+	await expect(page.getByRole("dialog").getByText("Approved")).toHaveCount(2);
+	await page.waitForTimeout(300);
+	expect(approvals).toBe(2);
+});

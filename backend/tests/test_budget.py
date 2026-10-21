@@ -72,3 +72,8 @@ def test_budget_unique_per_category(tmp_path):
     flask_db.metadata.create_all(engine)
     with pytest.raises(IntegrityError), Session(engine) as s, s.begin():
         s.add_all([Budget(user_id="u", category="Food", monthly_limit=1), Budget(user_id="u", category="Food", monthly_limit=2)])
+
+
+def test_draft_with_two_months_averages_over_two():
+    txns = [t("2026-08-10", 6000), t("2026-09-10", 6000)]  # no July data
+    assert draft_budget(txns, TODAY)[0]["limit"] == 6000

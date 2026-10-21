@@ -109,3 +109,13 @@ def test_activity_keeps_newest_six():
     rows = [t("2026-10-01", i, vendor=f"V{i}", created_at=datetime(2026, 10, 21, i)) for i in range(10)]
     out = activity(rows, [], NOW)
     assert len(out) == 6 and out[0]["at"] == "2026-10-21T09:00:00Z"
+
+
+def test_spike_ignores_partial_refund_month():
+    rows = [t("2026-09-05", 2000, "X", "Food"), t("2026-09-06", -1800, "X", "Food"), t("2026-10-05", 1500, "X", "Food")]
+    assert find_signals(rows, TODAY, 0, []) == []
+
+
+def test_daily_habit_is_not_a_duplicate():
+    coffee = [t(f"2026-10-{d:02d}", 180, "Blue Tokai", "Food") for d in range(10, 18)]
+    assert find_signals(coffee, TODAY, 0, []) == []
