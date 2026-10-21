@@ -340,3 +340,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   while typing, a live review badge and the mobile sheet closing. Avatar-menu shift checks passed 24/24 on repeat
   (failed 1 in 4 before). Story point: a flaky test is a bug report. Here it caught the half of the original bug
   that the first fix missed.
+
+## 29. A Home that says something (UI revamp, Phase 2)
+- **S:** The signed-in home was a stock "Financial Overview": four KPI tiles, an invoice list and a "What to watch"
+  card of static tips. Nothing on it was about *your* month.
+- **T:** Build the approved Origin-inspired Home: a brief, a spend-vs-last-month chart, "Lumen found", a calendar,
+  bills, budget and activity. Use only real data, keep it light on the free Vercel tier, and keep the owner's
+  "nothing moves unless you asked" rule.
+- **A:** Put all the maths in pure functions with 13 unit tests (periods, cumulative spend, the same-day comparison
+  clamped to month length, the brief sentence). Drew the chart as one SVG instead of pulling in the chart library.
+  Cards with no backend yet show honest empty states, not invented numbers. A test caught that changing the chart's
+  range blanked the brief; Home now keeps its old numbers until new ones arrive.
+- **R:** `/home` is static at 15.7 kB of route JS. 65 checks pass, including zero layout shift with a 1.5 s slow
+  backend, a failed forecast, a brand-new user with no data, and 15-lakh amounts with long vendor names. Story point:
+  an honest empty state beats a convincing placeholder.

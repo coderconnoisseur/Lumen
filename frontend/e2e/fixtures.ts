@@ -5,7 +5,16 @@ import type { Page } from "@playwright/test";
 //   (key = sb-<first label of NEXT_PUBLIC_SUPABASE_URL host>-auth-token; the e2e host is 127.0.0.1).
 // - the `lumen_session` cookie gets past middleware.
 // - every backend call (NEXT_PUBLIC_BACKEND_URL in playwright.config.ts) is stubbed.
-export async function signIn(page: Page, opts: { reviewCount?: number } = {}): Promise<void> {
+export type HomeFixture = {
+	txns?: { id: string; vendor_name: string; date: string; total_amount: number; category: string | null; created_at: string | null }[];
+	reminders?: { id: string; vendor: string; amount: number; date: string; type: string; category?: string }[];
+	forecast?: { dates: string[]; values: number[] } | "fail";
+	delayMs?: number;
+	forecastDelayMs?: number;
+};
+
+export async function signIn(page: Page, opts: { reviewCount?: number; home?: HomeFixture } = {}): Promise<void> {
+	const home = opts.home ?? {};
 	await page.context().addCookies([{ name: "lumen_session", value: "1", domain: "localhost", path: "/" }]);
 	await page.addInitScript(() => {
 		const now = Math.floor(Date.now() / 1000);
@@ -32,8 +41,28 @@ export async function signIn(page: Page, opts: { reviewCount?: number } = {}): P
 		note: null,
 		created_at: null,
 	}));
-	await page.route("http://127.0.0.1:9/**", (route) => {
-		const path = new URL(route.request().url()).pathname;
+	await page.route("http://127.0.0.1:9/**", async (route) => {
+		const url = new URL(route.request().url());
+		const path = url.pathname;
+		if (home.delayMs) await new Promise((r) => setTimeout(r, home.delayMs));
+		if (path === "/transactions") {
+			const from = url.searchParams.get("date_from") ?? "0000";
+			const to = url.searchParams.get("date_to") ?? "9999";
+			const all = (home.txns ?? []).filter((t) => t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+			// like the real API: at most 100 rows per page
+			const size = Math.min(Number(url.searchParams.get("page_size") ?? 10), 100);
+			const page = Number(url.searchParams.get("page") ?? 1);
+			const data = all.slice((page - 1) * size, page * size);
+			return route.fulfill({ json: { success: true, data, pagination: { page, has_next: page * size < all.length, total_items: all.length } } });
+		}
+		if (path === "/api/analytics/reminders")
+			return route.fulfill({ json: { success: true, reminders: home.reminders ?? [], count: 0 } });
+		if (path === "/api/analytics/forecast") {
+			if (home.forecastDelayMs) await new Promise((r) => setTimeout(r, home.forecastDelayMs));
+			if (home.forecast === "fail") return route.fulfill({ status: 500, json: { error: "boom" } });
+			const f = home.forecast;
+			return route.fulfill({ json: { success: true, forecast: f ? { success: true, forecast: f } : { success: false } } });
+		}
 		if (path === "/api/review") return route.fulfill({ json: { items: queue } });
 		const decided = path.match(/^\/api\/review\/([^/]+)\/(approve|reject)$/);
 		if (decided) {
@@ -44,7 +73,10 @@ export async function signIn(page: Page, opts: { reviewCount?: number } = {}): P
 		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: [] } });
 		if (path === "/chat/history") return route.fulfill({ json: { success: true, messages: [] } });
 		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: [] } });
-		if (path === "/api/profile") return route.fulfill({ json: { display_name: "E2E User", avatar_key: null } });
+		if (path === "/api/profile")
+			return route.fulfill({
+				json: { profile: { display_name: "E2E User", avatar_key: null, currency: "INR", onboarded: true, demo: false } },
+			});
 		return route.fulfill({ json: {} });
 	});
 	// supabase signOut and any other auth call

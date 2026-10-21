@@ -208,8 +208,8 @@ Keep `docs/CODEBASE-GUIDE.md` current in each PR.
 
 Small items found while building, parked here so they aren't lost. Tick them off in the PR that fixes them.
 
-- [ ] **Phase 2.** The `theme-color` meta is still `#050505` inside the light app, so the mobile browser bar stays black. Make it per route group (`viewport` export in `(app)/layout`). *(Phase 0 review)*
-- [ ] **Phase 2.** Muted text on the `#cfe2fb` end of `--band` is about 4.2:1. Use `foreground` for text on the band. *(Phase 0 review)*
+- [x] **Phase 2.** The `theme-color` meta is still `#050505` inside the light app, so the mobile browser bar stays black. Make it per route group (`viewport` export in `(app)/layout`). *(Phase 0 review)*
+- [x] **Phase 2.** Muted text on the `#cfe2fb` end of `--band` is about 4.2:1. Use `foreground` for text on the band. *(Phase 0 review)*
 - [ ] **Phase 4.** The Ask Lumen chat still uses the dark `.bui` palette inside the light shell. Restyle it to Sky. *(Phase 0)*
 - [ ] **Phase 6.** The global reduced-motion rule also stops loading spinners. Consider exempting spinners with `motion-safe:` or giving them a static "Loading…" label. *(Phase 0 review)*
 - [ ] **Phase 6.** The e2e suite is local and Chromium-only. Add Firefox once Windows allows Playwright's build (`E2E_FIREFOX=1`), and consider running it in CI with the `signIn` fixture. *(Phase 0)*
@@ -220,4 +220,12 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [ ] **Phase 6.** iOS Safari 15 and older don't support `overflow-x: clip`, so wide landing marquees could scroll sideways there. If that matters, add an `@supports not (overflow-x: clip)` fallback (not `hidden` on body). *(Phase 1 review)*
 - [ ] **Phase 4.** Ctrl/⌘+K checks `e.key === "k"`, so Caps Lock or Shift misses it. Use `e.code === "KeyK"`. *(Phase 1 review)*
 - [ ] **Phase 6.** The sidebar cookie expires after 7 days (shadcn default), so a collapsed rail reopens after a week away. Extend it to about a year. *(Phase 1 review)*
+- [ ] **Phase 3.** Replace Home's interim parts: the brief (summary endpoint), Lumen found (subscriptions, spikes, duplicates), Activity (a real feed, including statement imports dated earlier than this month), and wire up Budget and the draft-budget promo. *(Phase 2)*
+- [ ] **Later.** Home sub-tabs (Overview / This month / Year). The chart's range chips cover this for now. *(Phase 2 decision)*
+- [ ] **Phase 5.** The Export and Upload buttons on Home still use the old loud blue `Button` and the dark upload dialog. Restyle them with the dialogs. *(Phase 2)*
+- [ ] **Phase 3.** The calendar's `kShort` hardcodes `₹`; use the user's currency symbol like `useMoney`. *(Phase 2 review)*
+- [ ] **Phase 3.** `sameDayDelta` only guards a zero previous total. A refund-heavy start of month (negative running total) flips the brief's "lighter"/"heavier". Use `then <= 0`. *(Phase 2 review)*
+- [ ] **Phase 6.** `CountUp` paints the final number for one frame before counting from 0. Start at 0 when it will animate. *(Phase 2 review)*
+- [ ] **Phase 6.** Measure each Home card's real content height against its `skeletonHeight` (the spend card's is estimated at about 270px vs 262px); the CLS test threshold of 0.01 can hide a small shift. *(Phase 2 review)*
+- [ ] **Phase 3.** Confirm statement imports write rows before the POST returns. Otherwise a Home visit in that window caches stale totals for 5 minutes. *(Phase 2 review)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*

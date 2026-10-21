@@ -607,12 +607,12 @@ export const aiAnalyticsApi = {
 			params: riskLevel ? { risk_level: riskLevel } : {},
 		})).data),
 
-	getForecast: async (daysAhead: number = 30) => {
-		const response = await apiClient.get("/api/analytics/forecast", {
-			params: { days_ahead: daysAhead },
-		});
-		return response.data;
-	},
+	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
+	getForecast: (daysAhead: number = 30, insights = true) =>
+		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
+			(await apiClient.get("/api/analytics/forecast", {
+				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
+			})).data),
 
 	getRiskScore: async () => {
 		const response = await apiClient.get("/api/analytics/risk-score");
