@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { CalendarClock, ChartLine, House, Receipt, Sparkles, type LucideIcon } from "lucide-react";
 
 import {
@@ -20,6 +20,7 @@ import {
 	SidebarSeparator,
 	useSidebar,
 } from "@/components/ui/sidebar";
+import { AskPalette } from "@/components/ask-palette";
 import { reviewApi } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
 import { isTypingTarget } from "@/lib/utils";
@@ -55,10 +56,10 @@ function NavItem({ item, children }: { item: Item; children?: React.ReactNode })
 }
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-	const router = useRouter();
 	const pathname = usePathname();
 	const [toReview, setToReview] = React.useState(0);
 	const [mac, setMac] = React.useState(false);
+	const [paletteOpen, setPaletteOpen] = React.useState(false);
 
 	// refreshed on navigation and after each review decision (which happens without leaving /receipts)
 	React.useEffect(() => {
@@ -69,15 +70,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
 	React.useEffect(() => {
 		setMac(/Mac|iPhone|iPad/.test(navigator.platform));
+		// e.code, not e.key: Caps Lock or Shift turns the key into "K"
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "k" && (e.metaKey || e.ctrlKey) && !isTypingTarget(e.target)) {
+			if (e.code === "KeyK" && (e.metaKey || e.ctrlKey) && !isTypingTarget(e.target)) {
 				e.preventDefault();
-				router.push(ASK.url);
+				setPaletteOpen(true);
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [router]);
+	}, []);
 
 	return (
 		<Sidebar collapsible="icon" {...props} className="border-r border-sidebar-border/80">
@@ -109,15 +111,29 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 						<NavItem item={RECEIPTS}>
 							{toReview > 0 && <SidebarMenuBadge>{toReview}</SidebarMenuBadge>}
 						</NavItem>
-						<NavItem item={ASK}>
+						<NavItem item={ASK} />
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup className="mt-auto">
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								tooltip={`Ask anything (${mac ? "⌘K" : "Ctrl K"})`}
+								onClick={() => setPaletteOpen(true)}
+								className="border border-sidebar-border bg-card text-muted-foreground hover:text-foreground"
+							>
+								<Sparkles />
+								<span>Ask anything</span>
+							</SidebarMenuButton>
 							{/* fixed width: the label swaps to ⌘K on a Mac after mount without moving anything */}
-							<kbd className="label-mono pointer-events-none absolute top-1.5 right-1 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
+							<kbd className="label-mono pointer-events-none absolute top-1.5 right-1.5 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
 								{mac ? "⌘K" : "Ctrl K"}
 							</kbd>
-						</NavItem>
+						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroup>
 			</SidebarContent>
+			<AskPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 			<SidebarRail />
 		</Sidebar>
 	);

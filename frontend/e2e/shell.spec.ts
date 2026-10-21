@@ -61,7 +61,7 @@ test("sidebar shows the new IA", async ({ page }) => {
 	await signIn(page);
 	await page.goto("/home");
 	const links = sidebar(page).locator('[data-sidebar="menu-button"]');
-	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", /^Ask Lumen/]);
+	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
 	await expect(sidebar(page).getByText("Track", { exact: true })).toBeVisible();
 	for (const old of ["Workspace", "Compare", "Financial command center"]) {
 		await expect(page.getByText(old, { exact: true })).toHaveCount(0);
@@ -106,12 +106,49 @@ test("collapsed state survives reload without a jump", async ({ page }) => {
 	expect(await railWidth(page)).toBeCloseTo(56, 0);
 });
 
-test("ctrl+k opens Ask", async ({ page }) => {
+const palette = (page: import("@playwright/test").Page) => page.getByRole("dialog", { name: "Ask anything" });
+
+test("ctrl+k opens the ask palette and enter hands off", async ({ page }) => {
+	const posts: string[] = [];
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON().query));
 	await signIn(page);
 	await page.goto("/home");
 	await expect(sidebar(page)).toBeVisible();
 	await page.keyboard.press("Control+k");
+	await expect(palette(page)).toBeVisible();
+	await page.getByRole("textbox", { name: "Ask Lumen anything" }).fill("Where did my money go");
+	await page.keyboard.press("Enter");
 	await expect(page).toHaveURL(/\/ask$/);
+	await expect(page.getByText("Answer to: Where did my money go")).toBeVisible();
+	expect(posts).toEqual(["Where did my money go"]);
+});
+
+test("palette works with caps lock", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await expect(sidebar(page)).toBeVisible();
+	await page.keyboard.press("Control+Shift+K");
+	await expect(palette(page)).toBeVisible();
+});
+
+test("ask anything button opens the palette", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	await sidebar(page).getByRole("button", { name: /^Ask anything/ }).click();
+	await expect(palette(page)).toBeVisible();
+});
+
+test("opening the palette does not move the page", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	const main = page.locator("#main");
+	await expect(sidebar(page)).toBeVisible();
+	const before = await main.boundingBox();
+	await page.keyboard.press("Control+k");
+	await expect(palette(page)).toBeVisible();
+	const after = await main.boundingBox();
+	expect(after!.x).toBeCloseTo(before!.x, 0);
+	expect(after!.width).toBeCloseTo(before!.width, 0);
 });
 
 test("shortcuts ignore text fields", async ({ page }) => {
@@ -124,6 +161,7 @@ test("shortcuts ignore text fields", async ({ page }) => {
 	await page.keyboard.press("Control+b");
 	await page.waitForTimeout(300);
 	await expect(page).toHaveURL(/\/ask$/);
+	await expect(page.getByRole("dialog", { name: "Ask anything" })).toHaveCount(0);
 	expect(await railWidth(page)).toBe(before);
 });
 
