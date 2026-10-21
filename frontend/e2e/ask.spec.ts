@@ -127,3 +127,39 @@ test("the open thread is highlighted readably, not in the brand blue", async ({ 
 	});
 	expect(Math.min(r, g, b)).toBeGreaterThan(180); // a light tint, so the dark title and time stay readable
 });
+
+test("asking from the palette while on Ask starts a clean new chat, every time", async ({ page }) => {
+	const posts: { query: string; thread_id?: string }[] = [];
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON()));
+	await openAsk(page, old);
+	await rail(page).getByRole("button", { name: /^Food last month/ }).click();
+	await expect(page.getByText("You spent ₹7,480 on food.")).toBeVisible();
+	for (const q of ["foo", "bar"]) {
+		await page.locator("body").click({ position: { x: 900, y: 60 } });
+		await page.keyboard.press("Control+k");
+		await page.getByRole("textbox", { name: "Ask Lumen anything" }).fill(q);
+		await page.keyboard.press("Enter");
+		await expect(page.getByText(`Answer to: ${q}`)).toBeVisible();
+		await expect(page.getByText("You spent ₹7,480 on food.")).toHaveCount(0);
+		await expect(page).toHaveURL(/\/ask$/);
+	}
+	expect(posts.map((p) => [p.query, p.thread_id])).toEqual([["foo", undefined], ["bar", undefined]]);
+});
+
+test("the send button looks different when it can send", async ({ page }) => {
+	await openAsk(page);
+	const send = page.getByRole("button", { name: "Send" }).first();
+	const bg = () => send.evaluate((e) => {
+		const x = document.createElement("canvas").getContext("2d")!;
+		x.fillStyle = getComputedStyle(e).backgroundColor;
+		x.fillRect(0, 0, 1, 1);
+		return Array.from(x.getImageData(0, 0, 1, 1).data.slice(0, 4));
+	});
+	await page.waitForTimeout(400); // the button animates its background for 200ms
+	const off = await bg();
+	await composer(page).fill("Something");
+	await page.waitForTimeout(400);
+	const on = await bg();
+	const lum = (c: number[]) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * (c[3] / 255) + 244 * (1 - c[3] / 255);
+	expect(Math.abs(lum(on) - lum(off))).toBeGreaterThan(80); // a dark filled button vs a faint one on the light page
+});

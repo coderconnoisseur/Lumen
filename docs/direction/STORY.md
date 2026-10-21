@@ -380,8 +380,8 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   so its prompt is byte-identical there. Widened the follow-up splitter to the "Next :", "Next：" and "Next -" shapes
   models produce, plus a frontend guard. Restyled the chat by remapping Beautiful UI's tokens instead of rewriting
   components. Approving a proposal now claims it with a conditional UPDATE before applying anything.
-- **R:** Backend: 974 passed (22 new tests: per-user threads, memory isolation between threads, prompt unchanged
-  without history, Next variants, the atomic claim). Frontend: 100 e2e checks, including a handoff that sends once and
+- **R:** Backend: 978 passed (26 new tests: per-user threads, memory isolation between threads, prompt unchanged
+  without history, Next variants, the atomic claim). Frontend: 102 e2e checks, including a handoff that sends once and
   never on reload, a rail that doesn't move the conversation, and Caps-Lock-proof ⌘K. Screenshots caught two bugs the
   tests then pinned: an unreadable blue selected thread and a 24 px sidebar overflow left over from Phase 1.
 

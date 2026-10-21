@@ -68,7 +68,7 @@ export default function ChatbotContent() {
 	const [threadId, setThreadId] = useState<string | null>(null);
 	const [historyOpen, setHistoryOpen] = useState(false);
 	const bottomRef = useRef<HTMLDivElement>(null);
-	const handedOff = useRef(false); // StrictMode mounts twice; a ?q= handoff must send once
+	const lastQ = useRef<string | null>(null); // the ?q= already handed off (StrictMode runs effects twice)
 	const router = useRouter();
 	const q = useSearchParams().get("q");
 	const busy = messages.some((m) => m.pending);
@@ -95,11 +95,18 @@ export default function ChatbotContent() {
 	}, [messages]);
 
 	// the Ask anything palette hands over /ask?q=…: a new chat, sent once, then the URL is cleaned so a reload doesn't resend
+	// (Ask stays mounted when the palette is used from here, so this runs for every new ?q=, not just on first load)
 	useEffect(() => {
-		if (handedOff.current || q === null) return;
-		handedOff.current = true;
+		if (q === null) {
+			lastQ.current = null;
+			return;
+		}
+		if (lastQ.current === q) return;
+		lastQ.current = q;
 		router.replace("/ask");
-		if (q.trim()) void ask(q.trim(), undefined, undefined, null);
+		if (!q.trim()) return;
+		newChat();
+		void ask(q.trim(), undefined, undefined, null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [q]);
 

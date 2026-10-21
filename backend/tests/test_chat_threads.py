@@ -132,3 +132,20 @@ def test_agent_history_is_this_thread_only(chat):
     assert asked[0]["history"] == [] and asked[2]["history"] == []  # new threads start empty
     assert asked[3]["history"] == [{"role": "user", "content": "Thread B first"},
                                    {"role": "assistant", "content": "Answer to: Thread B first"}]
+
+
+def test_legacy_fold_that_loses_a_race_leaves_no_empty_thread(chat, monkeypatch):
+    """Two concurrent first lists: the loser saw legacy rows but the winner already moved them (its UPDATE hits 0
+    rows). Simulated by forcing the 'has legacy rows' check true with nothing left to fold."""
+    import routes.chat as chat_routes
+
+    client, *_ = chat
+    monkeypatch.setattr(chat_routes, "_has_legacy", lambda user_id: True)
+    assert client.get("/chat/threads", headers=bearer(A)).get_json()["threads"] == []
+
+
+@pytest.mark.parametrize("bad", [{"x": 1}, ["t"], 123])
+def test_non_string_thread_id_is_404_not_500(chat, bad):
+    client, *_ = chat
+    r = client.post("/chat", json={"query": "hi", "thread_id": bad}, headers=bearer(A))
+    assert r.status_code == 404

@@ -86,8 +86,11 @@ def _title(question: str) -> str:
     return cut.rstrip(" ,.;:-") + "\u2026"
 
 
-def _own_thread(user_id: str, thread_id: str) -> ChatThread:
-    """The caller's thread, or a 404 (another user's id looks exactly like a missing one)."""
+def _own_thread(user_id: str, thread_id) -> ChatThread:
+    """The caller's thread, or a 404 (another user's id looks exactly like a missing one; so does a non-string id
+    from a hand-made request, which Postgres would otherwise reject with a 500)."""
+    if not isinstance(thread_id, str):
+        abort(404)
     thread = db.session.get(ChatThread, thread_id)
     if thread is None or thread.user_id != user_id:
         abort(404)
@@ -122,17 +125,23 @@ def _thread_history(user_id: str, thread_id: str | None) -> list[dict]:
     return [{"role": r.role, "content": r.content} for r in rows]
 
 
+def _has_legacy(user_id: str) -> bool:
+    return ChatMessage.query.filter_by(user_id=user_id, thread_id=None).first() is not None
+
+
 def _fold_legacy(user_id: str) -> None:
-    """Messages saved before threads existed become one "Earlier chats" thread, once."""
-    legacy = ChatMessage.query.filter_by(user_id=user_id, thread_id=None)
-    if legacy.first() is None:
+    """Messages saved before threads existed become one "Earlier chats" thread, once. Two first lists at the same
+    time (two tabs) both see legacy rows, but only one UPDATE moves them; the other keeps no thread."""
+    if not _has_legacy(user_id):
         return
     newest = db.session.query(func.max(ChatMessage.created_at)).filter(
         ChatMessage.user_id == user_id, ChatMessage.thread_id.is_(None)).scalar() or datetime.utcnow()
-    thread = ChatThread(id=str(uuid.uuid4()), user_id=user_id, title="Earlier chats", created_at=newest,
-                        updated_at=newest)
-    db.session.add(thread)
-    legacy.update({"thread_id": thread.id})
+    thread_id = str(uuid.uuid4())
+    moved = ChatMessage.query.filter_by(user_id=user_id, thread_id=None).update({"thread_id": thread_id})
+    if not moved:
+        db.session.rollback()
+        return
+    db.session.add(ChatThread(id=thread_id, user_id=user_id, title="Earlier chats", created_at=newest, updated_at=newest))
     db.session.commit()
 
 
