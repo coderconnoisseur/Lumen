@@ -285,8 +285,23 @@ embeds the demo documents once per server and uploads the files in the backgroun
   Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
   queue). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
   never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
-  **Interim until Phase 3:** the brief is one rule-based sentence, Lumen found only shows the review queue, the
-  Budget card is an empty state, and Activity is derived from transactions' `created_at`. `(app)/layout.tsx` is a
+  **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
+  Lumen found and Activity:
+  - Lumen found shows double charges (the only items with a "you may get back" ₹), receipts to review, category spikes
+    vs the same day last month, and subscription price rises from `ai.recurring`.
+  - Activity shows statement imports grouped into one line, receipts read, and your approve/reject decisions.
+
+  Text carries `{0}` placeholders plus `amounts`, which the client fills in the user's currency (`fill` in
+  `lib/home-math.ts`). The brief adds "The one thing worth a look" from the top item.
+
+  Budgets: the overall budget is `User.monthly_budget` (onboarding); per-category limits are the `budgets` table.
+  - `GET/PUT /api/budget` (`api/budget.py`).
+  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean, rounded up) and files `set_budget`
+    proposals. Approving one (`/api/agent/proposals/{id}/approve`) upserts the row. A new draft retires pending ones.
+  - Ask Lumen's `draft_budget` tool files the same proposals.
+  - Home's draft dialog approves lines one by one or all at once.
+
+  The sidebar badge uses `GET /api/review?count=1`. `(app)/layout.tsx` is a
   tiny server file exporting the light `theme-color`; the client shell is `components/app-shell.tsx`.
 - **Signed-in e2e:** `e2e/fixtures.ts` `signIn(page)` fakes a Supabase session (localStorage) plus the
   `lumen_session` cookie, and stubs every backend call, so `e2e/shell.spec.ts` drives the real shell without servers.
