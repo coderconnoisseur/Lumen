@@ -287,6 +287,21 @@ class Proposal(db.Model):
     decided_at = db.Column(db.DateTime, nullable=True)
 
 
+class Budget(db.Model):
+    """A monthly spending limit for one category (UI revamp Phase 3). The overall budget is User.monthly_budget.
+    Rows are written only by approving a set_budget proposal or by PUT /api/budget."""
+
+    __tablename__ = "budgets"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    category = db.Column(db.String, nullable=False)
+    monthly_limit = db.Column(db.Float, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "category", name="u_budget_user_category"),)
+
+
 class AuditEvent(db.Model):
     """Append-only log of proposals and decisions (who, what, when)."""
 
