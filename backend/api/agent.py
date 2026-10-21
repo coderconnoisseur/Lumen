@@ -149,6 +149,12 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         if p.status != "pending":
             raise HTTPException(409, f"Proposal is already {p.status}")
         applied = None
+        if decision == "approved" and p.type == "set_budget":
+            from api.budget import upsert_budget
+
+            limit = float(json.loads(p.payload or "{}")["limit"])
+            upsert_budget(session, user_id, p.target, limit)
+            applied = {"category": p.target, "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")
             if category:
