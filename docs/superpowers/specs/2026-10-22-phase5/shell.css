@@ -1,0 +1,72 @@
+/* Shared mockup shell for the Phase 4.5 polish + Phase 5 pages. Sky palette from globals.css. */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--side:#f0efea;--card:#fff;--line:#e7e5df;--line2:#efede8;
+  --text:#1c1c1a;--ink2:#46453f;--mute:#7a7871;--faint:#a8a69f;
+  --acc:#2f6fe0;--accSoft:#e4edfc;--acc2:#7fa8ee;
+  --good:#2e8b57;--goodSoft:#e3f1e8;--warn:#b7791f;--warnSoft:#faf0dc;--bad:#c4572f;--badSoft:#fae6dd;
+  --chip:#ecebe6;
+  --band:linear-gradient(180deg,#d3e4fb 0%,#e8f0fb 50%,rgba(245,244,240,0) 100%);
+  --shadow:0 1px 2px rgba(28,28,26,.04),0 4px 16px -8px rgba(28,28,26,.08);
+}
+body{background:#d9d8d3;font-family:'Funnel Sans',system-ui,sans-serif;color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+.serif{font-family:Newsreader,serif;font-weight:400}
+
+.app{display:flex;width:1440px;min-height:1000px;background:var(--bg);margin:0 auto}
+
+/* sidebar */
+.side{width:232px;flex:none;background:var(--side);border-right:1px solid var(--line);padding:14px 10px 12px;display:flex;flex-direction:column;align-self:stretch}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 8px 18px;font-weight:600;font-size:16.5px;letter-spacing:-.01em}
+.brand img{width:22px;height:22px}
+.brand .col{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--mute);opacity:.0;transition:opacity .15s}
+.side:hover .brand .col,.brand .col.show{opacity:1}
+.brand .col:hover{background:var(--chip)}
+.grp{padding:14px 10px 5px;font-size:11.5px;font-weight:500;color:var(--faint);letter-spacing:.02em}
+.it{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--ink2);font-size:13.5px}
+.it svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;opacity:.75}
+.it.on{background:var(--card);color:var(--text);font-weight:500;box-shadow:var(--shadow)}
+.it.on svg{opacity:1;stroke:var(--acc)}
+.it .n{margin-left:auto;font-size:11px;font-weight:600;background:var(--accSoft);color:var(--acc);border-radius:10px;padding:1px 7px}
+.it .new{margin-left:auto;font-size:10.5px;color:var(--acc)}
+.foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.askbox{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 11px;color:var(--mute);font-size:13px}
+.askbox svg{width:15px;height:15px;stroke:var(--acc);fill:none;stroke-width:1.6}
+.askbox kbd{margin-left:auto;font:11px 'Funnel Sans';color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.me{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px}
+.me:hover{background:var(--chip)}
+.av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6c93d8,#2f6fe0);color:#fff;display:grid;place-items:center;font-size:11.5px;font-weight:600}
+.me b{font-weight:500;font-size:13px;display:block}
+.me small{color:var(--mute);font-size:11.5px}
+.me .chev{margin-left:auto;color:var(--faint)}
+
+/* main */
+.main{flex:1;min-width:0;position:relative}
+.band{position:absolute;inset:0 0 auto 0;height:420px;background:var(--band);pointer-events:none}
+.wrap{position:relative;padding:26px 36px 48px;max-width:1208px}
+.label{font-size:12.5px;font-weight:500;color:var(--mute);letter-spacing:.01em}
+.card{background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:18px 20px;box-shadow:var(--shadow)}
+.ch{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ch a{margin-left:auto;font-size:12.5px;color:var(--mute);text-decoration:none}
+.ch a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;font:500 13px 'Funnel Sans';border:1px solid var(--line);background:rgba(255,255,255,.7);color:var(--ink2);backdrop-filter:blur(8px)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6}
+.btn.pri{background:var(--text);color:#fff;border-color:var(--text)}
+.chips{display:inline-flex;gap:2px;background:rgba(255,255,255,.55);border:1px solid var(--line2);border-radius:9px;padding:2px}
+.chips span{font-size:12px;font-weight:500;padding:4px 10px;border-radius:7px;color:var(--mute)}
+.chips .on{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;border-radius:20px;padding:2px 9px}
+.pill.good{background:var(--goodSoft);color:var(--good)}
+.pill.warn{background:var(--warnSoft);color:var(--warn)}
+.pill.bad{background:var(--badSoft);color:var(--bad)}
+.pill.acc{background:var(--accSoft);color:var(--acc)}
+.mute{color:var(--mute)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line2)}
+.row:last-child{border:0}
+.logo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none}
+.amt{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:500}
+.bar{height:6px;background:var(--chip);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px}
+svg text{font:10.5px 'Funnel Sans';fill:var(--faint)}
+.note{position:fixed;right:16px;bottom:16px;max-width:340px;background:#1c1c1a;color:#eee;font-size:12.5px;line-height:1.5;padding:12px 14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.note b{color:#fff}

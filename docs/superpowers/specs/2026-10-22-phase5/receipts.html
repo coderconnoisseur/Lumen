@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Receipts mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell.css">
+<style>
+.hello{display:flex;align-items:center;gap:12px}
+.hello h1{font-size:26px;font-weight:500;letter-spacing:-.015em}
+.hello .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.brief{font-family:Newsreader,serif;font-size:19px;color:var(--ink2);margin:8px 0 22px;max-width:780px;line-height:1.45}
+.brief em{color:var(--acc);font-style:italic}
+.chev{color:var(--faint);font-size:13px}
+.lnk{color:var(--acc);font-weight:500;font-size:12.5px}
+/* review strip */
+.rv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.ri{border:1px solid var(--line2);border-radius:12px;padding:14px 14px 12px;display:flex;flex-direction:column;background:#fdfdfc}
+.ri .top{display:flex;align-items:center;gap:10px}
+.ri .top b{font-weight:500;font-size:14px;display:block}
+.ri .top small{color:var(--mute);font-size:11.5px}
+.ri .top .amt{font-size:15px}
+.fl{display:grid;grid-template-columns:72px 1fr;gap:5px 8px;font-size:12.5px;margin:12px 0 10px;padding-top:10px;border-top:1px solid var(--line2)}
+.fl dt{color:var(--mute)}
+.fl dd{color:var(--ink2);font-variant-numeric:tabular-nums}
+.fl dd.lo{background:var(--warnSoft);color:#8a5a12;border-radius:5px;padding:0 6px;margin-left:-6px;width:max-content;max-width:calc(100% + 6px)}
+.fl dd.bad{background:var(--badSoft);color:var(--bad);border-radius:5px;padding:0 6px;margin-left:-6px;width:max-content}
+.why{font-size:12px;color:var(--mute);line-height:1.45;margin-bottom:12px}
+.why b{color:var(--ink2);font-weight:500}
+.acts{margin-top:auto;display:flex;gap:6px}
+.acts .btn{height:30px;padding:0 11px;font-size:12.5px}
+.acts .ok{color:var(--good);border-color:#cfe5d7;background:var(--goodSoft)}
+.acts .no{margin-left:auto;color:var(--mute);border-color:transparent;background:none}
+/* layout */
+.g2{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:14px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.tools{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.search{margin-left:auto;display:flex;align-items:center;gap:8px;width:240px;height:32px;border:1px solid var(--line);border-radius:9px;padding:0 10px;color:var(--faint);font-size:12.5px;background:#fff}
+.search svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
+.seg span{width:26px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--faint)}
+.seg .on{background:var(--chip);color:var(--ink2)}
+.seg svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.dh,.dr{display:grid;grid-template-columns:minmax(0,1fr) 120px 74px 104px 126px;align-items:center;gap:12px}
+.dh{font-size:11.5px;color:var(--faint);padding:10px 0 8px;border-bottom:1px solid var(--line2)}
+.dh .r,.dr .r{text-align:right}
+.dr{padding:10px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.dr:last-child{border:0}
+.dr .t{display:flex;align-items:center;gap:11px;min-width:0}
+.dr .t b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .t small{color:var(--mute);font-size:11.5px}
+.dr .src{color:var(--mute);font-size:12.5px}
+.dr .d{color:var(--mute);font-size:12.5px}
+.fi{width:30px;height:36px;flex:none;border-radius:6px;border:1px solid var(--line);background:#fafaf8;position:relative;display:grid;place-items:end center;padding-bottom:4px;font-size:8.5px;font-weight:600;color:var(--mute);letter-spacing:.02em}
+.fi:before{content:"";position:absolute;top:6px;left:6px;right:8px;height:2px;background:var(--line);box-shadow:0 4px 0 var(--line),0 8px 0 var(--line)}
+.fi.img{background:linear-gradient(160deg,#eef1ec,#e2e6df)}
+.fi.img:before{display:none}
+.retry{color:var(--acc);font-size:12px;font-weight:500;margin-left:6px}
+.spin{width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;border-right-color:transparent}
+/* statements */
+.st{padding:12px 0;border-bottom:1px solid var(--line2)}
+.st:last-child{border:0;padding-bottom:2px}
+.st .top{display:flex;align-items:center;gap:10px}
+.st .top b{font-weight:500;display:block}
+.st .top small{color:var(--mute);font-size:11.5px}
+.st .bar{display:flex;margin-top:10px;height:6px;gap:2px;background:none}
+.st .bar i{border-radius:3px}
+.st .k{display:flex;gap:12px;font-size:11.5px;color:var(--mute);margin-top:7px;flex-wrap:wrap}
+.st .k i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}
+.em{display:flex;align-items:center;gap:10px;font-size:13px}
+.em small{display:block;color:var(--mute);font-size:11.5px}
+/* dialog state */
+.stateh{width:1440px;margin:40px auto 10px;font-size:13px;font-weight:500;color:#5a5852;padding-left:4px}
+.scrim{width:1440px;height:820px;margin:0 auto 60px;background:var(--bg);position:relative;overflow:hidden}
+.scrim:before{content:"";position:absolute;inset:0;background:rgba(28,28,26,.18);backdrop-filter:blur(2px)}
+.ghost{position:absolute;inset:0;padding:26px 36px 0 268px;opacity:.55}
+.ghost .card{height:190px;margin-top:14px}
+.dlg{position:absolute;left:50%;top:70px;transform:translateX(-50%);width:600px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px -12px rgba(28,28,26,.25);padding:22px 24px 18px}
+.dlg h2{font-size:18px;font-weight:500;letter-spacing:-.01em}
+.dlg .sub{color:var(--mute);font-size:13px;margin-top:3px}
+.dlg .x{position:absolute;right:16px;top:16px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--mute)}
+.kind{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 14px}
+.kind div{border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:12.5px;color:var(--mute);line-height:1.4}
+.kind div b{display:block;color:var(--text);font-weight:500;font-size:13.5px}
+.kind .on{border-color:var(--acc2);background:#f7faff;box-shadow:0 0 0 3px var(--accSoft)}
+.drop{border:1.5px dashed #d4d1c9;border-radius:14px;background:#fbfbf9;padding:26px 0 22px;text-align:center}
+.drop .ic{width:40px;height:40px;border-radius:12px;background:var(--accSoft);color:var(--acc);display:grid;place-items:center;margin:0 auto 10px}
+.drop .ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+.drop b{font-weight:500;font-size:14px}
+.drop p{color:var(--mute);font-size:12.5px;margin-top:4px}
+.drop p u{color:var(--acc);text-decoration:none;font-weight:500}
+.pr{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.pr:last-child{border:0}
+.pr .mid{flex:1;min-width:0}
+.pr .mid b{font-weight:500}
+.pr .mid small{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
+.pr .bar{height:4px;margin-top:6px}
+.pr .rt{font-size:12px;color:var(--mute);white-space:nowrap}
+.dfoot{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line2);font-size:12.5px;color:var(--mute)}
+.dfoot .btn{height:32px}
+</style></head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="../../../../frontend/public/lumen_logo.svg" alt="">Lumen
+      <span class="col show" title="Collapse sidebar (Ctrl+B)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></span></div>
+    <div class="grp">Overview</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <div class="grp">Track</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Spending</a>
+    <a class="it"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Bills &amp; subscriptions</a>
+    <div class="grp">Plan</div>
+    <a class="it"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg>Budget</a>
+    <div class="grp">Records</div>
+    <a class="it on"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h5"/></svg>Receipts &amp; statements<span class="n">4</span></a>
+    <div class="grp">Assistant</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask Lumen</a>
+    <div class="foot">
+      <div class="askbox"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask anything<kbd>Ctrl K</kbd></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="band" style="height:300px;opacity:.7"></div>
+    <div class="wrap">
+      <div class="hello">
+        <h1>Receipts &amp; statements</h1>
+        <div class="r">
+          <span class="btn"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload</span>
+          <span class="btn"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg>Import statement</span>
+          <span class="btn"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Connect email</span>
+        </div>
+      </div>
+      <p class="brief"><em>Four receipts</em> need your OK before they count. The other 42 files are filed.</p>
+
+      <!-- Needs your review -->
+      <section class="card">
+        <div class="ch"><span class="label">Needs your review</span><span class="pill warn num">4</span><span class="mute" style="font-size:12.5px;margin-left:4px">Highlighted fields are the ones Lumen wasn't sure about</span><a>Approve all high-confidence</a></div>
+        <div class="rv">
+          <div class="ri">
+            <div class="top"><span class="logo" style="background:#e3f1e8;color:#2e8b57">Cr</span><span><b>Croma</b><small>Invoice · uploaded 12 Oct</small></span><span class="amt">₹9,999</span></div>
+            <dl class="fl"><dt>Vendor</dt><dd>Croma, Andheri W</dd><dt>Date</dt><dd>12 Oct 2026</dd><dt>Items + GST</dt><dd class="bad">₹8,474 + ₹1,525</dd><dt>Total</dt><dd class="bad">₹9,999</dd></dl>
+            <p class="why"><b>Totals don't add up.</b> Items and GST add to ₹9,999; the printed total looks like ₹9,990.</p>
+            <div class="acts"><span class="btn ok">Approve</span><span class="btn">Edit</span><span class="btn no">Reject</span></div>
+          </div>
+          <div class="ri">
+            <div class="top"><span class="logo" style="background:#fde8e1;color:#c4572f">FM</span><span><b>FreshMart</b><small>Receipt · from email 18 Oct</small></span><span class="amt">₹1,284</span></div>
+            <dl class="fl"><dt>Vendor</dt><dd>FreshMart, Powai</dd><dt>Date</dt><dd>18 Oct 2026</dd><dt>Bill no.</dt><dd class="bad">FM-55120</dd><dt>Total</dt><dd>₹1,284</dd></dl>
+            <p class="why"><b>Looks like a duplicate.</b> FreshMart FM-55120 is already recorded from 4 minutes earlier.</p>
+            <div class="acts"><span class="btn ok">Keep both</span><span class="btn">Compare</span><span class="btn no">Reject</span></div>
+          </div>
+          <div class="ri">
+            <div class="top"><span class="logo" style="background:#faf0dc;color:#b7791f">Am</span><span><b>Amazon.in</b><small>Invoice · uploaded 20 Oct</small></span><span class="amt">₹2,349</span></div>
+            <dl class="fl"><dt>Vendor</dt><dd>Amazon Seller Services</dd><dt>Date</dt><dd class="lo">20/10/26 ?</dd><dt>Order</dt><dd>404-8812…</dd><dt>Total</dt><dd>₹2,349</dd></dl>
+            <p class="why"><b>Date unclear.</b> Printed as 20/10/26; Lumen read it as 20 Oct 2026.</p>
+            <div class="acts"><span class="btn ok">Approve</span><span class="btn">Edit</span><span class="btn no">Reject</span></div>
+          </div>
+          <div class="ri">
+            <div class="top"><span class="logo" style="background:#ecebe6;color:#46453f">BT</span><span><b>Blue Tokai</b><small>Receipt · photo 21 Oct</small></span><span class="amt">₹640</span></div>
+            <dl class="fl"><dt>Vendor</dt><dd class="lo">Blue Tokai Coffee</dd><dt>Date</dt><dd>21 Oct 2026</dd><dt>Currency</dt><dd class="lo">none printed</dd><dt>Total</dt><dd>₹640</dd></dl>
+            <p class="why"><b>New to you.</b> No earlier payments to this vendor, and no currency on the bill (assumed ₹).</p>
+            <div class="acts"><span class="btn ok">Approve</span><span class="btn">Edit</span><span class="btn no">Reject</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="g2">
+        <!-- Library -->
+        <section class="card">
+          <div class="ch" style="margin-bottom:10px"><span class="label">Everything you've given Lumen</span><span class="mute num" style="font-size:12.5px">46 files</span></div>
+          <div class="tools">
+            <div class="chips"><span class="on">All</span><span>Receipts</span><span>Invoices</span><span>Statements</span><span>Contracts</span></div>
+            <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search vendor, file or text</div>
+            <div class="seg"><span class="on" title="List"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span><span title="Grid"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span></div>
+          </div>
+          <div class="dh"><span>File</span><span>Came from</span><span>Date</span><span class="r">Amount</span><span class="r">Status</span></div>
+          <div class="dr"><span class="t"><span class="fi img">JPG</span><span><b>Uber trip receipt</b><small>Receipt · uber-22oct.jpg</small></span></span><span class="src">Upload</span><span class="d">22 Oct</span><span class="r num">₹212</span><span class="r"><span class="pill acc"><span class="spin"></span>Reading</span></span></div>
+          <div class="dr"><span class="t"><span class="fi img">JPG</span><span><b>Blue Tokai Coffee</b><small>Receipt · IMG_4412.jpg</small></span></span><span class="src">Upload</span><span class="d">21 Oct</span><span class="r num">₹640</span><span class="r"><span class="pill warn">Needs review</span></span></div>
+          <div class="dr"><span class="t"><span class="fi">PDF</span><span><b>Amazon.in order 404-8812…</b><small>Invoice · amazon-invoice.pdf</small></span></span><span class="src">Upload</span><span class="d">20 Oct</span><span class="r num">₹2,349</span><span class="r"><span class="pill warn">Needs review</span></span></div>
+          <div class="dr"><span class="t"><span class="fi img">PNG</span><span><b>zomato-order.png</b><small>Receipt · couldn't read the total</small></span></span><span class="src">Upload</span><span class="d">19 Oct</span><span class="r mute">—</span><span class="r"><span class="pill bad">Failed</span><a class="retry">Retry</a></span></div>
+          <div class="dr"><span class="t"><span class="fi">PDF</span><span><b>FreshMart bill FM-55120</b><small>Receipt · billing@freshmart.in</small></span></span><span class="src">Gmail</span><span class="d">18 Oct</span><span class="r num">₹1,284</span><span class="r"><span class="pill warn">Needs review</span></span></div>
+          <div class="dr"><span class="t"><span class="fi">PDF</span><span><b>Croma tax invoice</b><small>Invoice · croma-CR2210.pdf</small></span></span><span class="src">Upload</span><span class="d">12 Oct</span><span class="r num">₹9,999</span><span class="r"><span class="pill warn">Needs review</span></span></div>
+          <div class="dr"><span class="t"><span class="fi">PDF</span><span><b>Jio Fiber bill, October</b><small>Invoice · ebill@jio.com</small></span></span><span class="src">Gmail</span><span class="d">9 Oct</span><span class="r num">₹999</span><span class="r"><span class="pill good">Done</span></span></div>
+          <div class="dr"><span class="t"><span class="fi">CSV</span><span><b>HDFC Savings, September</b><small>Statement · 142 lines</small></span></span><span class="src">Import</span><span class="d">3 Oct</span><span class="r mute">—</span><span class="r"><span class="pill good">Done</span></span></div>
+          <div class="dr"><span class="t"><span class="fi">PDF</span><span><b>Rental agreement, Powai flat</b><small>Contract · 14 sections indexed</small></span></span><span class="src">Upload</span><span class="d">1 Oct</span><span class="r num mute">₹25,000/mo</span><span class="r"><span class="pill good">Done</span></span></div>
+          <div class="ch" style="margin:12px 0 0"><a style="margin-left:0">Show 37 more</a></div>
+        </section>
+
+        <div class="stack">
+          <!-- Statement imports -->
+          <section class="card">
+            <div class="ch"><span class="label">Statement imports</span><span class="chev">›</span><a>Import statement</a></div>
+            <div class="st">
+              <div class="top"><span class="logo" style="background:#e4edfc;color:#2f6fe0">HD</span><span><b>HDFC Savings ··4417</b><small>1–30 Sep · imported 3 Oct</small></span><span class="amt num" style="font-size:13px">142 lines</span></div>
+              <div class="bar"><i style="width:68%;background:var(--acc)"></i><i style="width:15%;background:var(--acc2)"></i><i style="width:2%;background:var(--warn)"></i><i style="width:15%;background:var(--chip)"></i></div>
+              <div class="k num"><span><i style="background:var(--acc)"></i>97 new</span><span><i style="background:var(--acc2)"></i>21 matched receipts</span><span><i style="background:var(--warn)"></i>3 duplicates</span><span><i style="background:var(--chip)"></i>21 credits skipped</span></div>
+            </div>
+            <div class="st">
+              <div class="top"><span class="logo" style="background:#fde8e1;color:#c4572f">IC</span><span><b>ICICI Amazon Pay card</b><small>1–30 Sep · imported 4 Oct</small></span><span class="amt num" style="font-size:13px">58 lines</span></div>
+              <div class="bar"><i style="width:76%;background:var(--acc)"></i><i style="width:19%;background:var(--acc2)"></i><i style="width:5%;background:var(--chip)"></i></div>
+              <div class="k num"><span><i style="background:var(--acc)"></i>44 new</span><span><i style="background:var(--acc2)"></i>11 matched</span><span><i style="background:var(--chip)"></i>3 credits skipped</span></div>
+            </div>
+            <p class="mute" style="font-size:12px;margin-top:10px;line-height:1.45">October statements are usually out by 5 Nov. Lumen will remind you.</p>
+          </section>
+
+          <!-- Email inbox -->
+          <section class="card">
+            <div class="ch"><span class="label">From your inbox</span><span class="pill good" style="margin-left:2px">Connected</span><a>Settings</a></div>
+            <div class="em"><span class="logo" style="background:#fbe9e7;color:#c4572f">G</span><span>nishant.b@gmail.com<small>Checked 12 min ago · 11 receipts this month</small></span></div>
+            <div style="display:flex;gap:8px;margin-top:12px"><span class="btn" style="height:30px;font-size:12.5px">Check now</span><span class="btn" style="height:30px;font-size:12.5px;border-color:transparent;background:none;color:var(--mute)">Pause</span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- State 2 -->
+<div class="stateh">State: upload dialog open</div>
+<div class="scrim">
+  <div class="ghost"><div style="height:34px;width:320px;background:#e9e8e3;border-radius:8px"></div><div class="card"></div><div class="card" style="height:420px"></div></div>
+  <div class="dlg">
+    <span class="x"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+    <h2>Upload to Lumen</h2>
+    <p class="sub">Lumen reads each file, fills in the details and asks you only when it isn't sure.</p>
+    <div class="kind">
+      <div class="on"><b>Receipts &amp; invoices</b>Read the vendor, date and total, then add to spending</div>
+      <div><b>Documents</b>Contracts, policies, POs. Indexed so Ask Lumen can quote them</div>
+    </div>
+    <div class="drop">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></div>
+      <b>Drop files here</b>
+      <p>or <u>browse your computer</u> · PDF, PNG or JPG, several at once</p>
+    </div>
+    <div style="margin-top:12px">
+      <div class="pr"><span class="fi">PDF</span><div class="mid"><b>croma-CR2210.pdf</b><small>Croma · ₹9,999 · 1 thing to check</small></div><span class="pill warn">Needs review</span></div>
+      <div class="pr"><span class="fi img">JPG</span><div class="mid"><b>freshmart-21oct.jpg</b><small>Reading the receipt…</small><div class="bar"><i style="width:64%;background:var(--acc)"></i></div></div><span class="rt num">64%</span></div>
+      <div class="pr"><span class="fi">PDF</span><div class="mid"><b>amazon-invoice.pdf</b><small>Waiting</small></div><span class="rt">Queued</span></div>
+      <div class="pr"><span class="fi img">HEIC</span><div class="mid"><b>IMG_4420.heic</b><small style="color:var(--bad)">HEIC isn't supported yet. Export it as JPG and try again.</small></div><a class="retry">Remove</a></div>
+    </div>
+    <div class="dfoot">Bank statement? Use <span class="lnk">Import statement</span> (CSV).<span style="margin-left:auto"></span><span class="btn">Close</span><span class="btn pri">Upload 2 more</span></div>
+  </div>
+  <div class="note" style="position:absolute"><b>Open questions for the owner</b><br>
+1. Review cards replace the old Review tab; Approve on a duplicate becomes "Keep both". OK?<br>
+2. Field highlights come from the existing validation flags (total, date, vendor, currency). True per-field confidence is <b>needs-backend</b>.<br>
+3. Library merges RAG documents + invoices into one list with a status pill. Persisted "Reading" state and Retry are <b>needs-backend</b> (extraction is synchronous today).<br>
+4. Statement imports history (bank, period, counts) is <b>needs-backend</b>; import returns counts but nothing is stored. PDF statements too: CSV only today.<br>
+5. List view over grid: calmer and scans by amount. Grid toggle kept for photo receipts.</div>
+</div>
+
+
+</body></html>
