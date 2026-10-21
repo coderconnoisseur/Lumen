@@ -354,3 +354,18 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
 - **R:** `/home` is static at 15.7 kB of route JS. 65 checks pass, including zero layout shift with a 1.5 s slow
   backend, a failed forecast, a brand-new user with no data, and 15-lakh amounts with long vendor names. Story point:
   an honest empty state beats a convincing placeholder.
+
+## 30. "Lumen found" and budgets you approve line by line (UI revamp, Phase 3)
+- **S:** Home's smart cards were placeholders: Lumen found only knew the review queue, Activity was guessed from
+  transactions, and Budget said "coming soon".
+- **T:** Back them with real, cheap, honest data. Use no LLM on every Home visit, never invent a saving, and keep Lumen's
+  rule that nothing changes without the user's approval.
+- **A:** Wrote pure, tested rules for double charges, category spikes measured by the same day last month (refunds
+  can't fake one), and subscription price rises. Built an activity feed from tables that already exist. Budgets: a
+  deterministic draft (3-month mean, rounded up) files one `set_budget` proposal per category, and approving one
+  upserts the limit. The same path is exposed as an agent tool, so "make me a budget" in Ask Lumen gives the same
+  approvable lines. Money travels as numbers with placeholders, so every amount shows in the user's currency.
+- **R:** 47 new backend tests (950 passing) and 82 e2e checks, including per-user isolation, a double approve
+  returning 409 with one row, re-drafts retiring stale suggestions, and a user with no history. Home is still static
+  (17.5 kB of route JS). Owner follow-up logged: make the rules smarter about one-off big purchases, measured against an
+  eval set.

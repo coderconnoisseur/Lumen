@@ -13,7 +13,7 @@ from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -204,10 +204,15 @@ def submit(body: Submit, claims: dict = Depends(current_user), engine: Engine = 
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
-def list_items(status: str = "flagged", claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
+def list_items(status: str = "flagged", count: bool = False, claims: dict = Depends(current_user),
+               engine: Engine = Depends(get_engine)):
     from models import ReviewItem
 
     with Session(engine) as session:
+        if count:  # the sidebar badge only needs the number (UI revamp Phase 3)
+            n = session.scalar(select(func.count()).select_from(ReviewItem).where(
+                ReviewItem.user_id == claims["sub"], ReviewItem.status == status))
+            return {"success": True, "count": n or 0}
         rows = session.scalars(select(ReviewItem).where(ReviewItem.user_id == claims["sub"], ReviewItem.status == status)
                                .order_by(ReviewItem.created_at.desc())).all()
         return {"success": True, "items": [_item_dict(r) for r in rows]}

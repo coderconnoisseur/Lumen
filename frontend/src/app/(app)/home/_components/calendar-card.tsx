@@ -2,12 +2,14 @@ import { useMoney } from "@/lib/format";
 import { calendarBuckets, heat, parseDay, type Period, type Txn } from "@/lib/home-math";
 import { HomeCard } from "./card";
 
-const kShort = (n: number) => (n >= 1000 ? `₹${(n / 1000).toFixed(1)}k` : `₹${Math.round(n)}`);
+// "₹2.2k" in the user's own currency: take the symbol from how useMoney prints zero
+const kShort = (n: number, symbol: string) => (n >= 1000 ? `${symbol}${(n / 1000).toFixed(1)}k` : `${symbol}${Math.round(n)}`);
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
 
 // This month as a heat grid (darker = more spent) beside the latest transactions.
 export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: Period; loading: boolean }) {
 	const money = useMoney();
+	const symbol = money(0).replace(/[\d.,\s]/g, "");
 	const days = calendarBuckets(txns, period);
 	const max = Math.max(...days.map((d) => d.amount), 0);
 	const lead = (period.start.getDay() + 6) % 7; // Monday first
@@ -30,7 +32,7 @@ export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: P
 								style={h ? { background: `color-mix(in srgb, var(--primary) ${Math.round(h * 100)}%, transparent)`, color: h > 0.5 ? "#fff" : undefined } : undefined}
 							>
 								{day}
-								{amount > 0 && <b className="block font-medium text-inherit">{kShort(amount)}</b>}
+								{amount > 0 && <b className="block font-medium text-inherit">{kShort(amount, symbol)}</b>}
 							</div>
 						);
 					})}

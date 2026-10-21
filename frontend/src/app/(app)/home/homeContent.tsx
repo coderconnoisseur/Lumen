@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useProfile } from "@/components/profile/profile-provider";
 import { DialogDemo } from "@/components/uploadDialog";
 import { ExportDialog } from "@/components/exportDialog";
+import type { FoundItem } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
-import { briefSentence, cumulative, dayIndex, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
+import { briefSentence, cumulative, dayIndex, fill, parseDay, periods, sameDayDelta, type Range } from "@/lib/home-math";
 import { Brief } from "./_components/brief";
 import { ActivityCard } from "./_components/activity-card";
 import { BillsCard } from "./_components/bills-card";
@@ -18,6 +19,11 @@ import { useHomeData, type Reminder } from "./use-home-data";
 
 const partOfDay = (h: number) => (h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 const monthName = (d: Date) => d.toLocaleString("en-IN", { month: "long" });
+
+// The brief's second sentence: the top "Lumen found" item, if there is one.
+function worthALook(item: FoundItem | undefined, money: (n: number) => string) {
+	return item ? ` The one thing worth a look: ${fill(item.headline, item.amounts, money).replace(/\.$/, "")}.` : "";
+}
 
 export function nextBill(reminders: Reminder[], today: Date) {
 	return reminders
@@ -53,7 +59,7 @@ export default function HomeContent() {
 					nextBill: bill ? { vendor: bill.vendor, date: parseDay(bill.date) } : undefined,
 					money: (n) => money(n),
 					today,
-				});
+				}) + worthALook(data.summary?.found[0], money);
 
 	const firstName = profile?.display_name?.split(" ")[0];
 	const chart = periods(range, today);
@@ -88,14 +94,15 @@ export default function HomeContent() {
 							today={today}
 							loading={data.status === "loading"}
 						/>
-						<LumenFound toReview={data.toReview} loading={data.status === "loading"} />
+						<LumenFound summary={data.summary} loading={data.status === "loading"} />
 						<CalendarCard txns={data.monthTxns} period={month.current} loading={data.status === "loading"} />
 					</div>
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side">
-						<BudgetCard monthName={monthName(today)} />
+						<BudgetCard budget={data.budget} monthName={monthName(today)} today={today} loading={data.status === "loading"} />
 						<BillsCard reminders={data.reminders} today={today} loading={data.status === "loading"} />
-						<DraftBudgetPromo />
-						<ActivityCard txns={data.monthTxns} now={new Date()} loading={data.status === "loading"} />
+						{/* once you have category budgets, the promo has done its job */}
+						{!data.budget?.categories.length && <DraftBudgetPromo onChanged={data.reloadBudget} />}
+						<ActivityCard items={data.summary?.activity ?? []} now={new Date()} loading={data.status === "loading"} />
 					</div>
 				</div>
 			</div>

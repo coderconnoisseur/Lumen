@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { aiAnalyticsApi, reviewApi, transactionApi } from "@/lib/api/client";
+import { useCallback, useEffect, useState } from "react";
+import { aiAnalyticsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary } from "@/lib/api/client";
 import { periods, type Range, type Txn } from "@/lib/home-math";
 
 export type Reminder = { id: string | number; vendor: string; amount: number | null; date: string; type: string; category?: string };
@@ -14,7 +14,9 @@ export type HomeData = {
 	prevMonthTxns: Txn[];
 	reminders: Reminder[];
 	forecast: Forecast;
-	toReview: number;
+	summary: HomeSummary | null;
+	budget: BudgetState | null;
+	reloadBudget: () => void;
 };
 
 const ymd = (d: Date) =>
@@ -43,10 +45,10 @@ const value = <T,>(r: PromiseSettledResult<T>, fallback: T) => (r.status === "fu
 // A failed call empties its card instead of breaking the page. Three independent loads:
 //  - transactions, per chart range (skeletons only on the very first load; later range changes keep the old
 //    numbers until the new ones arrive, so a click on the chart never blanks the brief or another card)
-//  - reminders + review count, once
+//  - reminders, the Home summary (Lumen found + activity) and the budget, once
 //  - the forecast, once, numbers only (no LLM text); it never holds up the page, the dotted line just appears
 type Txns = Pick<HomeData, "txns" | "prevTxns" | "monthTxns" | "prevMonthTxns">;
-type Extras = Pick<HomeData, "reminders" | "toReview">;
+type Extras = Pick<HomeData, "reminders" | "summary" | "budget">;
 
 export function useHomeData(range: Range, today: Date): HomeData {
 	const [txns, setTxns] = useState<Txns | null>(null);
@@ -81,9 +83,10 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		let live = true;
 		Promise.allSettled([
 			aiAnalyticsApi.getReminders(31).then((r: { reminders?: Reminder[] }) => r.reminders ?? []),
-			reviewApi.list().then((items) => items.length),
-		]).then(([reminders, toReview]) => {
-			if (live) setExtras({ reminders: value(reminders, []), toReview: value(toReview, 0) });
+			homeApi.summary(),
+			budgetApi.get(),
+		]).then(([reminders, summary, budget]) => {
+			if (live) setExtras({ reminders: value(reminders, []), summary: value(summary, null), budget: value(budget, null) });
 		});
 		aiAnalyticsApi
 			.getForecast(31, false)
@@ -96,6 +99,10 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		};
 	}, [day]);
 
+	const reloadBudget = useCallback(() => {
+		budgetApi.get().then((budget) => setExtras((e) => (e ? { ...e, budget } : e)), () => {});
+	}, []);
+
 	return {
 		status: txns && extras ? "ready" : "loading",
 		txns: txns?.txns ?? [],
@@ -103,7 +110,9 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		monthTxns: txns?.monthTxns ?? [],
 		prevMonthTxns: txns?.prevMonthTxns ?? [],
 		reminders: extras?.reminders ?? [],
-		toReview: extras?.toReview ?? 0,
+		summary: extras?.summary ?? null,
+		budget: extras?.budget ?? null,
+		reloadBudget,
 		forecast,
 	};
 }

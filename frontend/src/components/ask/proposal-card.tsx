@@ -11,6 +11,7 @@ const TITLES: Record<string, string> = {
 	mark_paid: "Mark this as paid?",
 	update_category: "Change the category?",
 	follow_up_vendor: "Follow up with this vendor?",
+	set_budget: "Set this monthly budget?",
 };
 
 const RISK: Record<string, { bars: number; tone: string }> = {
@@ -33,7 +34,8 @@ export function ProposalCard({ proposal }: { proposal: Proposal }) {
 	const [decided, setDecided] = useState<"approve" | "reject" | null>(null);
 	const [busy, setBusy] = useState(false);
 	const risk = RISK[proposal.risk] ?? RISK.medium;
-	const details = Object.entries(proposal.payload);
+	// nested values (e.g. a set_budget's "basis") aren't readable as chips
+	const details = Object.entries(proposal.payload).filter(([, v]) => v === null || typeof v !== "object");
 
 	async function decide(decision: "approve" | "reject") {
 		setBusy(true);

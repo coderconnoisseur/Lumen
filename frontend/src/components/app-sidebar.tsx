@@ -62,7 +62,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
 	// refreshed on navigation and after each review decision (which happens without leaving /receipts)
 	React.useEffect(() => {
-		const refresh = () => reviewApi.list().then((items) => setToReview(items.length), () => setToReview(0));
+		const refresh = () => reviewApi.count().then(setToReview, () => setToReview(0));
 		void refresh();
 		return eventBus.on(EVENTS.REVIEW_DECIDED, refresh);
 	}, [pathname]);

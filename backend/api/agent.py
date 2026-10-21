@@ -7,6 +7,7 @@ the others are recorded decisions until the review queue lands (SPEC-EXTRACT).
 from __future__ import annotations
 
 import json
+import math
 import threading
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -149,6 +150,18 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         if p.status != "pending":
             raise HTTPException(409, f"Proposal is already {p.status}")
         applied = None
+        if decision == "approved" and p.type == "set_budget":
+            from api.budget import upsert_budget
+
+            # the agent can file set_budget with any payload: only a real positive limit is ever applied
+            try:
+                limit = float(json.loads(p.payload or "{}")["limit"])
+            except (KeyError, TypeError, ValueError):
+                limit = math.nan
+            if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
+                raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
+            upsert_budget(session, user_id, p.target.strip(), limit)
+            applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")
             if category:
