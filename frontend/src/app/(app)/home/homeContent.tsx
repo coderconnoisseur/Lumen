@@ -99,7 +99,7 @@ export default function HomeContent() {
 							loading={data.status === "loading"}
 						/>
 						<LumenFound summary={data.summary} loading={data.status === "loading"} />
-						<CalendarCard txns={data.monthTxns} period={month.current} loading={data.status === "loading"} />
+						<CalendarCard txns={data.monthTxns} reminders={data.reminders} period={month.current} today={today} loading={data.status === "loading"} />
 					</div>
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side">
 						<BudgetCard budget={data.budget} monthName={monthName(today)} today={today} loading={data.status === "loading"} />

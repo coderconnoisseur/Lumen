@@ -11,6 +11,7 @@ import {
 	relativeTime,
 	sameDayDelta,
 	type Txn,
+	vendorChip,
 } from "../src/lib/home-math";
 
 const d = (s: string) => {
@@ -192,4 +193,11 @@ test("pickTicks drops ticks that crowd a kept one", () => {
 	const t = (x: number, keep = false) => ({ i: x, x, label: String(x), keep });
 	expect(pickTicks([t(0, true), t(20), t(40), t(300, true), t(310, true)], 48).map((k) => k.label)).toEqual(["0", "300", "310"]);
 	expect(pickTicks([t(0, true), t(60), t(120), t(200, true)], 48).map((k) => k.label)).toEqual(["0", "60", "120", "200"]);
+});
+
+test("vendorChip gives two initials and a stable hue", () => {
+	expect(vendorChip("Swiggy Instamart").initials).toBe("SI");
+	expect(vendorChip("swiggy").initials).toBe("SW");
+	expect(vendorChip("Swiggy Instamart").hue).toBe(vendorChip("Swiggy Instamart").hue);
+	expect(vendorChip("").initials).toBe("?");
 });

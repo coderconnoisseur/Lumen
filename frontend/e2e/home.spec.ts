@@ -378,3 +378,18 @@ test("the hero + opens upload", async ({ page }) => {
 	await spend(page).getByRole("button", { name: "Upload a receipt" }).click();
 	await expect(page.getByRole("dialog")).toBeVisible();
 });
+
+test("calendar marks today and names future bills", async ({ page }) => {
+	test.skip(now.getDate() === lastDay, "no future days left this month");
+	const tomorrow = now.getDate() + 1;
+	await openHome(page, {
+		...typical,
+		reminders: [{ id: "n", vendor: "Netflix", amount: 649, date: thisMonth(tomorrow), type: "upcoming" }],
+	});
+	await expect(page.getByTestId(`cal-day-${now.getDate()}`)).toHaveAttribute("data-today", "true");
+	await expect(page.getByTestId(`cal-day-${tomorrow}`)).toHaveAttribute("data-future", "true");
+	await expect(page.getByTestId(`cal-day-${tomorrow}`)).toContainText("Netflix");
+	const card = page.getByTestId("calendar-card");
+	await expect(card.getByRole("link", { name: new RegExp(`${monthLong}, day by day`) })).toHaveAttribute("href", "/spending");
+	await expect(card.getByRole("link", { name: "See all" })).toHaveAttribute("href", "/spending");
+});
