@@ -369,3 +369,19 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   returning 409 with one row, re-drafts retiring stale suggestions, and a user with no history. Home is still static
   (17.5 kB of route JS). Owner follow-up logged: make the rules smarter about one-off big purchases, measured against an
   eval set.
+
+## 31. Ask Lumen gets conversations and a memory (UI revamp, Phase 4)
+- **S:** Ask Lumen always reopened one endless chat, and the agent answered every message alone, so "and last month?"
+  could never work. Users also saw a stray "Next:" under answers, and the chat was still dark inside the light app.
+- **T:** Real threads with a fresh chat on open and one-click resume, short-term memory without changing what the
+  evals measure, a ⌘K "Ask anything" from any page, and the Sky look, all without moving anything on screen.
+- **A:** Added a `chat_threads` table and a nullable `thread_id`, with legacy history folded into one "Earlier chats"
+  thread on first list. The agent gets the thread's last 6 turns (user/assistant only, trimmed), and none for evals,
+  so its prompt is byte-identical there. Widened the follow-up splitter to the "Next :", "Next：" and "Next -" shapes
+  models produce, plus a frontend guard. Restyled the chat by remapping Beautiful UI's tokens instead of rewriting
+  components. Approving a proposal now claims it with a conditional UPDATE before applying anything.
+- **R:** Backend: 974 passed (22 new tests: per-user threads, memory isolation between threads, prompt unchanged
+  without history, Next variants, the atomic claim). Frontend: 100 e2e checks, including a handoff that sends once and
+  never on reload, a rail that doesn't move the conversation, and Caps-Lock-proof ⌘K. Screenshots caught two bugs the
+  tests then pinned: an unreadable blue selected thread and a 24 px sidebar overflow left over from Phase 1.
+

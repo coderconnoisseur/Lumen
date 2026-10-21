@@ -310,11 +310,26 @@ embeds the demo documents once per server and uploads the files in the backgroun
   in the app layout and a CSS rule in `globals.css`.
 
 ## 7c. Ask Lumen screen (frontend, UI phase)
-- `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
-  It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
-  original's `file_key`), `steps` (tool, summary, `latency_ms`), `proposals`. The SQL the agent ran stays
-  server-side (not shown to users). History (`GET /chat/history`)
-  keeps only the text, so older answers show citation numbers without passages.
+- `/ask` (`app/(app)/ask/chatbotContent.tsx`; `/chatbot` redirects) holds **conversations** with the agent (UI revamp
+  Phase 4).
+  - **Threads.** Threads live in `chat_threads`; `chat_messages.thread_id` was added through `_ADDED_COLUMNS`. The
+    routes in `routes/chat.py` are `GET /chat/threads`, `GET`/`DELETE /chat/threads/<id>`, and `POST /chat` with an
+    optional `thread_id` (none starts a thread titled from the question). Another user's id is a 404.
+  - **Legacy history.** Messages saved before threads fold into one "Earlier chats" thread the first time you list
+    threads. `GET/DELETE /chat/history` are gone.
+  - **Memory.** The agent gets the thread's last 6 messages (user/assistant only, 1,500 chars each) between the system
+    prompt and the question (`run_agent(history=...)`). With no history the prompt is unchanged, which keeps the evals
+    comparable.
+  - **The page.** Opening Ask starts a fresh chat with suggestions (from Home's "Lumen found" via
+    `suggestedQuestions`, then `/chat/suggestions`). Past chats sit in `thread-rail.tsx` (a column on desktop, a Sheet
+    on small screens). `/ask?q=…` starts a new chat with that question once, then cleans the URL.
+  - **Answers.** `POST /chat` returns the markdown answer plus its evidence: `sources` (passage `text` and the original's
+    `file_key`), `steps` (tool, summary, `latency_ms`) and `proposals`. The SQL the agent ran stays server-side. Saved
+    messages keep only the text, so older answers show citation numbers without passages.
+  - **Next: line.** The agent's last "Next: …" line becomes the follow-up chip (`split_follow_up` also accepts
+    "Next :", the full-width colon and dashes), and `answer.tsx` never renders a bare trailing "Next:".
+- **Ask anything** (`components/ask-palette.tsx`): the sidebar button, or ⌘/Ctrl+K anywhere outside a text field
+  (`e.code === "KeyK"`, so Caps Lock and Shift work), opens a one-line dialog; Enter goes to `/ask?q=…`.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
   `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
   `invoice-card.tsx` (paperclip in the prompt bar sends the file as multipart `file` with the question; the answer
@@ -323,10 +338,11 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
-- Look: components adapted from Beautiful UI (beautifului.dev, MIT), styled after the owner's reference (near-black
-  canvas, flat colour steps, light serif display = Newsreader, Inter UI, Roboto Mono uppercase labels, white as the
-  only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
-  theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
+- Look: components adapted from Beautiful UI (beautifului.dev, MIT). Its tokens live in `app/beautiful-ui.css`,
+  scoped to a `.bui` wrapper. Inside the signed-in app, `:root:has([data-app-theme="sky"]) .bui` remaps every token to
+  Sky (light paper, blue accent, AA text), so Ask is light with no component changes. Inside `.bui`, use its own
+  tokens (`bg-hover`, `bg-surface`, `border-line`, `text-ink-2`), not shadcn's `accent`, which resolves to bui's blue
+  `--accent` there. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
 ## 7d. Landing page (frontend, UI phase)
 - `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
