@@ -208,7 +208,7 @@ export default function ImportContent() {
 						Imported {result.imported} · {result.duplicates} duplicates · {result.matched} already recorded ·{" "}
 						{result.credits} credits skipped
 						{result.unreadable.length > 0 && ` · unreadable lines: ${result.unreadable.join(", ")}`}.{" "}
-						<Link href="/dashboard" className="underline">
+						<Link href="/home" className="underline">
 							See the dashboard
 						</Link>
 					</p>

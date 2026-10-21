@@ -203,3 +203,21 @@ Keep `docs/CODEBASE-GUIDE.md` current in each PR.
 - Chart implementation (keep recharts or hand-rolled SVG like the mockup), as long as it matches the look and passes the perf budget.
 - Mobile layout details beyond "sidebar becomes a sheet".
 - Copy for empty states and the brief's rule templates.
+
+## 12. Deferred backlog (revisit in the phase named)
+
+Small items found while building, parked here so they aren't lost. Tick them off in the PR that fixes them.
+
+- [ ] **Phase 2.** The `theme-color` meta is still `#050505` inside the light app, so the mobile browser bar stays black. Make it per route group (`viewport` export in `(app)/layout`). *(Phase 0 review)*
+- [ ] **Phase 2.** Muted text on the `#cfe2fb` end of `--band` is about 4.2:1. Use `foreground` for text on the band. *(Phase 0 review)*
+- [ ] **Phase 4.** The Ask Lumen chat still uses the dark `.bui` palette inside the light shell. Restyle it to Sky. *(Phase 0)*
+- [ ] **Phase 6.** The global reduced-motion rule also stops loading spinners. Consider exempting spinners with `motion-safe:` or giving them a static "Loading…" label. *(Phase 0 review)*
+- [ ] **Phase 6.** The e2e suite is local and Chromium-only. Add Firefox once Windows allows Playwright's build (`E2E_FIREFOX=1`), and consider running it in CI with the `signIn` fixture. *(Phase 0)*
+- [x] ~~**Phase 6.** `(app)/layout` reads the sidebar cookie on the server.~~ Not needed: the sidebar only renders client-side (behind the auth guard), so Phase 1 reads the cookie there and the app routes stay static. *(Phase 1)*
+- [ ] **Phase 5.** Spending and Bills both show the payment calendar and reminders cards in the interim. Remove the duplicate when the pages are redesigned. *(Phase 1 decision)*
+- [ ] **Phase 3.** The sidebar's review badge downloads every flagged item just to count them. Add a count-only endpoint (e.g. `GET /api/review?status=flagged&count=1`). *(Phase 1 review)*
+- [ ] **Phase 5.** `/spending` stacks two old pages, so it has two `<h1>`s and fetches the calendar and reminders twice. It goes away with the redesign. *(Phase 1 review)*
+- [ ] **Phase 6.** iOS Safari 15 and older don't support `overflow-x: clip`, so wide landing marquees could scroll sideways there. If that matters, add an `@supports not (overflow-x: clip)` fallback (not `hidden` on body). *(Phase 1 review)*
+- [ ] **Phase 4.** Ctrl/⌘+K checks `e.key === "k"`, so Caps Lock or Shift misses it. Use `e.code === "KeyK"`. *(Phase 1 review)*
+- [ ] **Phase 6.** The sidebar cookie expires after 7 days (shadcn default), so a collapsed rail reopens after a week away. Extend it to about a year. *(Phase 1 review)*
+- [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*

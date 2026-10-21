@@ -96,8 +96,8 @@ test("reduced motion kills transitions", async ({ browser }) => {
 
 test("app pages are sky from the first server paint (no dark auth loader)", async ({ request }) => {
 	// the `lumen_session` hint cookie gets past middleware, like a signed-in user's hard refresh
-	const html = await (await request.get("/dashboard", { headers: { cookie: "lumen_session=1" } })).text();
-	expect(html).toContain('data-app-theme="sky"');
+	const html = await (await request.get("/home", { headers: { cookie: "lumen_session=1" } })).text();
+	expect(html.includes('data-app-theme="sky"'), "sky wrapper in server HTML").toBe(true);
 });
 
 test("dark .bui panels keep readable muted text inside sky", async ({ page }) => {

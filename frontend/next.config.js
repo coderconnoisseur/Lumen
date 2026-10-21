@@ -22,7 +22,18 @@ const nextConfig = {
 	// The login page used to live at /signin; old bookmarks and already-sent email links still work
 	// (query strings carry over, and browsers keep the #fragment Supabase puts on email links).
 	async redirects() {
-		return [{ source: "/signin", destination: "/login", permanent: true }];
+		// UI revamp Phase 1 renamed the app pages; temporary (307) while names may still change before launch.
+		const moved = [
+			["/dashboard", "/home"],
+			["/analytics", "/spending"],
+			["/ai-analytics", "/spending"],
+			["/chatbot", "/ask"],
+			["/documents", "/receipts"],
+			["/import", "/receipts?tab=import"],
+			["/review", "/receipts?tab=review"],
+			["/upload", "/home?upload=1"],
+		].map(([source, destination]) => ({ source, destination, permanent: false }));
+		return [{ source: "/signin", destination: "/login", permanent: true }, ...moved];
 	},
 };
 

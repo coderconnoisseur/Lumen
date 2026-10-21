@@ -172,9 +172,11 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/* clip, not hidden: `hidden` turns <body> into its own scroll container (overflow-y becomes auto), whose
+	   scrollbar then vanishes when a menu locks scrolling and shifts the page (seen on Ask Lumen). */
 	html,
 	body {
-		overflow-x: hidden;
+		overflow-x: clip;
 	}
 	/* only in the app: on the dark public pages an unused gutter shows as a seam beside full-bleed layouts */
 	:root:has([data-app-theme="sky"]) {

@@ -5,7 +5,7 @@ import { MotionConfig } from "motion/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ProfileProvider } from "@/components/profile/profile-provider";
-import { Separator } from "@/components/ui/separator";
+import { AvatarMenu } from "@/components/avatar-menu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 // The signed-in app's frame: auth check, sidebar and top bar are built once and stay mounted while you move between
@@ -18,14 +18,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 			<AuthGuard>
 				<ProfileProvider>
 				<MotionConfig reducedMotion="user">
-				<SidebarProvider>
+				{/* Only ever rendered client-side (the auth guard shows a loader on the server), so reading the remembered
+				    state straight from the cookie gives the right width on the sidebar's first paint: no jump, no SSR read. */}
+				<SidebarProvider defaultOpen={typeof document === "undefined" || !document.cookie.includes("sidebar_state=false")}>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
 						<header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
 							<div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
 								<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-								<Separator orientation="vertical" className="h-4" />
-								<div className="text-sm font-medium text-muted-foreground">Lumen</div>
+								<div className="ml-auto">
+									<AvatarMenu />
+								</div>
 							</div>
 						</header>
 						{children}

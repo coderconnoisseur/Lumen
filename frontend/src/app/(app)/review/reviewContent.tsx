@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { filesApi, reviewApi, type ReviewItem } from "@/lib/api/client";
+import { eventBus, EVENTS } from "@/lib/events";
 import { toast } from "@/lib/toast";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -36,6 +37,7 @@ export default function ReviewContent() {
 			const done = await reviewApi.decide(item.id, decision, { edits });
 			toast.success(decision === "approve" ? `Approved${done.flags.length ? " (with warnings)" : ""}` : "Rejected");
 			setItems((list) => list.filter((i) => i.id !== item.id));
+			eventBus.emit(EVENTS.REVIEW_DECIDED);
 		} catch (error) {
 			toast.error(errorMessage(error, "Couldn't save the decision."));
 		}

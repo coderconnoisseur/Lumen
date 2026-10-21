@@ -179,7 +179,7 @@ export default function SettingsContent() {
 			description="Add your own model keys. Without one, Lumen's free allowance applies."
 			eyebrow="Account"
 		>
-			<div className="flex max-w-3xl flex-col gap-3">
+			<div id="keys" className="flex max-w-3xl flex-col gap-3">
 				{data?.providers.map((p) => (
 					<KeyRow key={p.provider} p={p} onChange={load} />
 				))}

@@ -198,7 +198,7 @@ export default function AnimatedListItemUse() {
 					<Button
 						onClick={() => {
 							/* Navigate to upload page */
-							window.location.href = "/upload";
+							window.location.href = "/home?upload=1";
 						}}
 						variant="default"
 					>
