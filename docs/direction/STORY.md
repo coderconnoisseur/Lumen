@@ -298,7 +298,21 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   them cited the right document with the right date), so a citation-format fix should move honesty to 30/30.
   The gates (30 honest, 24 correct) fail for now, which is the point: the next fixes have a number to beat.
 
-## 26. Stopping overlays from nudging the page (UI revamp, Phase 0)
+## 26. Making the Ask Lumen eval read what the model actually wrote
+- **S:** The first recording scored 21/30 correct and 28/30 honest. Reading the answers showed most misses were not
+  wrong answers: gpt-oss writes its own `【id】` citation markers, narrow no-break spaces ("24 Oct", "₹70 000") and
+  non-breaking hyphens ("2026-27"), which plain text search didn't match.
+- **T:** Fix what the user sees (the citation markers) and what the grader can't read, without re-recording.
+- **A:** run_agent now rewrites `【id】` to Lumen's `[id]` when that passage or web result really came back in
+  this answer, and drops the rest (e.g. `【exchange_rate】`). The grader reads narrow spaces and non-breaking
+  hyphens as plain ones; "this month vs last" also accepts "Sep"/"Oct". Replayed offline from the same cassette.
+- **R:** **26/30 correct (gate 24, passes), 29/30 honest (gate 30, fails).** Reading the spaces properly
+  uncovered a real error the old grader missed: the tax answer (C23) has the right total (₹0) but explains it with
+  the old regime's slabs ("first ₹2.5 lakh at 0%"). Fixing that, and L05 (unused subscriptions) and L08 (savings
+  goal), needs a prompt/tool change and a new recording. Story point: a grader bug can hide a dishonest answer
+  as easily as it can fail a right one.
+
+## 27. Stopping overlays from nudging the page (UI revamp, Phase 0)
 - **S:** Opening the profile menu shifted the Ask Lumen chat column sideways. Every menu, dialog, select and sheet in
   the app did the same, because Radix's scroll lock adds a margin equal to the scrollbar width.
 - **T:** Fix it once for the whole app, prove it stays fixed, and lay the light "Sky" theme over the signed-in app
