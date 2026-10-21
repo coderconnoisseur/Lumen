@@ -121,3 +121,14 @@ def test_history_endpoints_are_gone(chat):
     client, *_ = chat
     assert client.get("/chat/history", headers=bearer(A)).status_code in (404, 405)
     assert client.delete("/chat/history", headers=bearer(A)).status_code in (404, 405)
+
+
+def test_agent_history_is_this_thread_only(chat):
+    _, post, asked, _ = chat
+    a = post(A, "Thread A first").get_json()["data"]["thread_id"]
+    post(A, "Thread A second", a)
+    b = post(A, "Thread B first").get_json()["data"]["thread_id"]
+    post(A, "Thread B second", b)
+    assert asked[0]["history"] == [] and asked[2]["history"] == []  # new threads start empty
+    assert asked[3]["history"] == [{"role": "user", "content": "Thread B first"},
+                                   {"role": "assistant", "content": "Answer to: Thread B first"}]

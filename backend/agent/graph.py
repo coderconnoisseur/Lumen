@@ -45,7 +45,9 @@ class AgentState(TypedDict):
 
 
 # At a line start, or after a sentence on the same line ("…information. Next: …"); not "do this next: tomorrow".
-_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*\s*(.*?)[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
+# "Next:", "Next :", full-width "Next：" and "Next -" all occur in model output.
+_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next[ \t]*[:：\-–—][*_]*\s*(.*?)[ \t*_]*$",
+                   re.IGNORECASE | re.MULTILINE)
 # Lumen asking the user ("Would you like…?"): as a chip it would send Lumen's own question back to it, so it stays in
 # the answer as its closing question instead (owner report, 2026-10-16).
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
@@ -148,10 +150,22 @@ def build_graph(ctx: ToolContext, *, complete: Callable[..., Any], max_tool_call
     return graph.compile()
 
 
+HISTORY_TURNS = 6  # earlier messages of the thread the agent sees (UI revamp Phase 4, owner decision 2026-10-21)
+HISTORY_CHARS = 1500  # per message: enough for a follow-up to make sense, cheap enough to send every time
+
+
+def _history_messages(history: list[dict] | None) -> list[dict]:
+    """The thread's last turns as chat messages: user/assistant only (never a stored 'system'), each trimmed."""
+    turns = [m for m in (history or []) if m.get("role") in ("user", "assistant") and m.get("content")]
+    return [{"role": m["role"], "content": str(m["content"])[:HISTORY_CHARS]} for m in turns[-HISTORY_TURNS:]]
+
+
 def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] | None = None,
-              max_tool_calls: int = MAX_TOOL_CALLS, attachment: dict | None = None) -> dict:
+              max_tool_calls: int = MAX_TOOL_CALLS, attachment: dict | None = None,
+              history: list[dict] | None = None) -> dict:
     """Answer one question. Returns the answer, citations, the tool steps (for "show your work"), the SQL that ran,
-    any proposals filed, and why the loop stopped."""
+    any proposals filed, and why the loop stopped. `history` is the thread so far (oldest first); None or [] sends
+    exactly the single-question prompt the evals measure."""
     if complete is None:
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
@@ -162,6 +176,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
                     f"{json.dumps(attachment, default=str)[:MAX_TOOL_RESULT_CHARS]}")
     state: AgentState = {
         "messages": [{"role": "system", "content": system_prompt(ctx.today, ctx.profile)},
+                     *_history_messages(history),
                      {"role": "user", "content": question}],
         "steps": [], "tool_calls": 0, "answer": None, "stopped": None, "llm_calls": 0,
     }

@@ -47,7 +47,7 @@ def _attach(file, user_id: str) -> dict:
     return {"invoice": invoice, **checks, "proposal_id": proposal_id}
 
 
-def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
+def _ask(question: str, user_id: str, attachment: dict | None = None, history: list[dict] | None = None) -> dict:
     """Ask Lumen is the agent (SPEC-AGENT, switched after AGT-07 passed its gates on 2026-10-09): it picks its tools
     (SQL, documents, anomalies, forecast, invoices), cites evidence and only proposes changes."""
     from datetime import date
@@ -61,7 +61,7 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today(), profile=profile_for(deps.engine, user_id), question=question)
-    out = run_agent(question, ctx, complete=deps.complete, attachment=attachment)
+    out = run_agent(question, ctx, complete=deps.complete, attachment=attachment, history=history)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.
     return {"query": question, "query_type": "agent", "response": out["answer"], "follow_up": out["follow_up"],
@@ -111,6 +111,15 @@ def _save_exchange(user_id: str, thread_id: str, question: str, answer: str) -> 
     if thread is not None:
         thread.updated_at = datetime.utcnow()
     db.session.commit()
+
+
+def _thread_history(user_id: str, thread_id: str | None) -> list[dict]:
+    """The thread's messages so far, oldest first, for the agent's memory (it trims to the last few turns)."""
+    if not thread_id:
+        return []
+    rows = ChatMessage.query.filter_by(user_id=user_id, thread_id=thread_id).order_by(
+        ChatMessage.created_at.asc(), ChatMessage.role.desc()).all()
+    return [{"role": r.role, "content": r.content} for r in rows]
 
 
 def _fold_legacy(user_id: str) -> None:
@@ -163,7 +172,7 @@ def chat():
     try:
         logger.info("Processing chat query for user=%s", user_id)
         attachment = _attach(file, user_id) if file else None
-        result = _ask(query, user_id, **({"attachment": attachment} if attachment else {}))
+        result = _ask(query, user_id, attachment, _thread_history(user_id, thread_id))
     except LLMError as e:
         return llm_api_error(e, _LLM_MESSAGES, context=f"Chat failed for user={user_id}")
     except Exception as e:
