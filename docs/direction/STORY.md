@@ -327,7 +327,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   reduced motion. framer-motion was removed. Story point: reproduce in a test first. Here the test environment
   was hiding the very bug.
 
-## 27. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
+## 28. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
 - **S:** The sidebar still had the November-2025 tabs ("Workspace", "Compare", a test link), so its labels no longer
   matched what the app does. The Phase 0 fix had also left Ask Lumen shifting 15 px once in about four runs.
 - **T:** Ship the new navigation (Home · Track · Receipts · Ask) with old URLs still working. Collapse to an icon
@@ -341,7 +341,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   (failed 1 in 4 before). Story point: a flaky test is a bug report. Here it caught the half of the original bug
   that the first fix missed.
 
-## 28. A Home that says something (UI revamp, Phase 2)
+## 29. A Home that says something (UI revamp, Phase 2)
 - **S:** The signed-in home was a stock "Financial Overview": four KPI tiles, an invoice list and a "What to watch"
   card of static tips. Nothing on it was about *your* month.
 - **T:** Build the approved Origin-inspired Home: a brief, a spend-vs-last-month chart, "Lumen found", a calendar,
