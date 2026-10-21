@@ -410,31 +410,39 @@ export interface ChatAttachment {
 	code?: string;
 }
 
+/** One Ask Lumen conversation (UI revamp Phase 4). */
+export interface ChatThread {
+	id: string;
+	title: string;
+	updated_at: string | null;
+	message_count: number;
+}
+
 export const chatApi = {
-	sendMessage: async (query: string, file?: File): Promise<ChatAnswer> => {
+	/** No threadId starts a new conversation; the answer says which thread it landed in. */
+	sendMessage: async (query: string, file?: File, threadId?: string | null): Promise<ChatAnswer & { thread_id: string }> => {
 		const form = new FormData();
 		form.append("query", query);
 		if (file) form.append("file", file);
+		if (threadId) form.append("thread_id", threadId);
 		const response = file
 			? await apiClient.post("/chat", form, { headers: { "Content-Type": undefined } })
-			: await apiClient.post("/chat", { query });
+			: await apiClient.post("/chat", threadId ? { query, thread_id: threadId } : { query });
 		return response.data.data;
+	},
+
+	threads: async (): Promise<ChatThread[]> => (await apiClient.get("/chat/threads")).data.threads,
+
+	thread: async (id: string): Promise<{ thread: { id: string; title: string }; messages: { id: string; role: "user" | "assistant"; content: string }[] }> =>
+		(await apiClient.get(`/chat/threads/${encodeURIComponent(id)}`)).data,
+
+	deleteThread: async (id: string): Promise<void> => {
+		await apiClient.delete(`/chat/threads/${encodeURIComponent(id)}`);
 	},
 
 	getSuggestions: () =>
 		cached("/chat/suggestions", async () => (await apiClient.get("/chat/suggestions")).data),
 
-	getHistory: async (limit = 50) => {
-		const response = await apiClient.get("/chat/history", {
-			params: { limit },
-		});
-		return response.data;
-	},
-
-	clearHistory: async () => {
-		const response = await apiClient.delete("/chat/history");
-		return response.data;
-	},
 };
 
 /** A user's own model / search keys (SPEC-BYOK). The key itself never comes back, only its last 4. */
@@ -724,6 +732,8 @@ export interface Proposal {
 export interface FoundItem {
 	kind: "duplicate" | "review" | "spike" | "price_rise";
 	tag: string;
+	/** the vendor or category it's about (null for the review queue) */
+	subject: string | null;
 	headline: string;
 	detail: string;
 	amounts: number[];

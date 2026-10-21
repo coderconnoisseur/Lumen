@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import {
 	briefSentence,
 	fill,
+	suggestedQuestions,
 	cumulative,
 	heat,
 	periods,
@@ -135,4 +136,20 @@ test("fill replaces placeholders with money", () => {
 
 test("sameDayDelta guards a non-positive previous total", () => {
 	expect(sameDayDelta([5], [-10], 0)).toBeNull();
+});
+
+test("suggestedQuestions maps found items, dedupes, caps at 4", () => {
+	const f = (kind: string, subject: string | null) => ({ kind, subject }) as never;
+	expect(
+		suggestedQuestions(
+			[f("duplicate", "Croma"), f("spike", "Food"), f("price_rise", "Spotify"), f("review", null)],
+			["Why is Food up this month?", "Which vendor did I spend the most with?"],
+		),
+	).toEqual([
+		"Was I charged twice at Croma?",
+		"Why is Food up this month?",
+		"Which of my subscriptions went up?",
+		"Which vendor did I spend the most with?",
+	]);
+	expect(suggestedQuestions([], ["A", "B"])).toEqual(["A", "B"]);
 });

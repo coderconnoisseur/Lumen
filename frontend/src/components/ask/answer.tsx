@@ -74,6 +74,8 @@ function SourceCard({ source, number, active }: { source: ChatSource; number: nu
 	);
 }
 
+const TRAILING_NEXT = /\n[ \t]*[*_]*next[ \t]*[:\uFF1A-]?[*_]*[ \t]*\s*$/i;
+
 export function Answer({
 	content,
 	sources,
@@ -102,7 +104,8 @@ export function Answer({
 
 	const byId = new Map((sources ?? []).map((s, i) => [s.chunk_id, { source: s, number: i + 1 }]));
 	const order: string[] = [];
-	const markdown = content.replace(CITATION, (_, id: string) => {
+	// belt and braces for answers saved before the backend split "Next:" robustly: never show a bare "Next:" line
+	const markdown = content.replace(TRAILING_NEXT, "").replace(CITATION, (_, id: string) => {
 		if (!order.includes(id)) order.push(id);
 		return `[${id}](${CITE_PREFIX}${encodeURIComponent(id)})`;
 	});

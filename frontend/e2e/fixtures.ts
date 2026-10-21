@@ -20,8 +20,22 @@ export type HomeFixture = {
 	currency?: string;
 };
 
-export async function signIn(page: Page, opts: { reviewCount?: number; home?: HomeFixture } = {}): Promise<void> {
+export type ChatFixture = {
+	/** existing threads, newest first */
+	threads?: { id: string; title: string; updated_at: string; message_count: number; messages?: { role: string; content: string }[] }[];
+	/** the answer text POST /chat returns (default "Answer to: <query>") */
+	answer?: string;
+	suggestions?: string[];
+};
+
+export async function signIn(
+	page: Page,
+	opts: { reviewCount?: number; home?: HomeFixture; chat?: ChatFixture } = {},
+): Promise<void> {
 	const home = opts.home ?? {};
+	// a tiny stateful chat backend: POST /chat creates or extends a thread, the list and messages follow
+	const threads = (opts.chat?.threads ?? []).map((t) => ({ ...t, messages: [...(t.messages ?? [])] }));
+	let nextThread = 1;
 	await page.context().addCookies([{ name: "lumen_session", value: "1", domain: "localhost", path: "/" }]);
 	await page.addInitScript(() => {
 		const now = Math.floor(Date.now() / 1000);
@@ -94,8 +108,36 @@ export async function signIn(page: Page, opts: { reviewCount?: number; home?: Ho
 			return route.fulfill({ json: { item: { ...item, status: `${decided[2]}d` } } });
 		}
 		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: [] } });
-		if (path === "/chat/history") return route.fulfill({ json: { success: true, messages: [] } });
-		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: [] } });
+		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: opts.chat?.suggestions ?? [] } });
+		if (path === "/chat/threads")
+			return route.fulfill({
+				json: { success: true, threads: threads.map(({ messages, ...t }) => ({ ...t, message_count: messages.length })) },
+			});
+		const one = path.match(/^\/chat\/threads\/([^/]+)$/);
+		if (one) {
+			const t = threads.find((x) => x.id === one[1]);
+			if (!t) return route.fulfill({ status: 404, json: { error: "not found" } });
+			if (route.request().method() === "DELETE") {
+				threads.splice(threads.indexOf(t), 1);
+				return route.fulfill({ json: { success: true } });
+			}
+			return route.fulfill({
+				json: { success: true, thread: { id: t.id, title: t.title }, messages: t.messages.map((m, i) => ({ id: `${t.id}-${i}`, ...m })) },
+			});
+		}
+		if (path === "/chat" && route.request().method() === "POST") {
+			const body = route.request().postDataJSON() as { query: string; thread_id?: string };
+			let t = threads.find((x) => x.id === body.thread_id);
+			if (!t) {
+				t = { id: `t${nextThread++}`, title: body.query.slice(0, 60), updated_at: new Date().toISOString(), message_count: 0, messages: [] };
+				threads.unshift(t);
+			}
+			const response = opts.chat?.answer ?? `Answer to: ${body.query}`;
+			t.messages.push({ role: "user", content: body.query }, { role: "assistant", content: response });
+			return route.fulfill({
+				json: { success: true, data: { response, follow_up: null, sources: [], steps: [], proposals: [], stopped: "answer", thread_id: t.id } },
+			});
+		}
 		if (path === "/api/profile")
 			return route.fulfill({
 				json: { profile: { display_name: "E2E User", avatar_key: null, currency: home.currency ?? "INR", onboarded: true, demo: false } },

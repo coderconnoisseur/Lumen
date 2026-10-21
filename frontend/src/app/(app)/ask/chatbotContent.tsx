@@ -1,9 +1,12 @@
 "use client";
 
-// Ask Lumen: one chat with the agent. Every answer shows its sources, the steps behind it, and any change it proposes.
-import { useEffect, useRef, useState } from "react";
+// Ask Lumen: conversations with the agent (threads; it remembers the thread's last few turns). Every answer shows
+// its sources, the steps behind it, and any change it proposes. Opening Ask starts a fresh chat; past chats are in
+// the rail. /ask?q=… (the Ask anything palette) starts a new chat with that question, once.
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Paperclip, Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { History, Paperclip, Plus } from "lucide-react";
 import { Answer } from "@/components/ask/answer";
 import { Button } from "@/components/ask/button";
 import { PromptBar } from "@/components/ask/prompt-bar";
@@ -11,8 +14,11 @@ import { ProposalCard } from "@/components/ask/proposal-card";
 import { Thinking, WorkTrace } from "@/components/ask/work-trace";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useProfile } from "@/components/profile/profile-provider";
-import { agentApi, chatApi, type ChatAnswer, type Proposal } from "@/lib/api/client";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { agentApi, chatApi, homeApi, type ChatAnswer, type ChatThread, type Proposal } from "@/lib/api/client";
+import { suggestedQuestions } from "@/lib/home-math";
 import { toast } from "@/lib/toast";
+import { ThreadRail } from "./thread-rail";
 
 type Message = {
 	id: string;
@@ -58,23 +64,27 @@ export default function ChatbotContent() {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	const [proposals, setProposals] = useState<Proposal[]>([]);
 	const [loaded, setLoaded] = useState(false);
+	const [threads, setThreads] = useState<ChatThread[]>([]);
+	const [threadId, setThreadId] = useState<string | null>(null);
+	const [historyOpen, setHistoryOpen] = useState(false);
 	const bottomRef = useRef<HTMLDivElement>(null);
+	const handedOff = useRef(false); // StrictMode mounts twice; a ?q= handoff must send once
+	const router = useRouter();
+	const q = useSearchParams().get("q");
 	const busy = messages.some((m) => m.pending);
 
+	const refreshThreads = useCallback(() => {
+		chatApi.threads().then(setThreads, () => {});
+	}, []);
+
 	useEffect(() => {
-		Promise.allSettled([chatApi.getHistory(), chatApi.getSuggestions(), agentApi.proposals()]).then(
-			([history, suggested, pending]) => {
-				if (history.status === "fulfilled" && history.value.success) {
-					setMessages(
-						(history.value.messages as { id: string; role: Message["role"]; content: string }[]).map((m) => ({
-							id: m.id,
-							role: m.role,
-							content: m.content,
-						}))
-					);
-				}
-				if (suggested.status === "fulfilled") setSuggestions(suggested.value.suggestions ?? []);
+		Promise.allSettled([chatApi.getSuggestions(), homeApi.summary(), agentApi.proposals(), chatApi.threads()]).then(
+			([suggested, summary, pending, list]) => {
+				const server = suggested.status === "fulfilled" ? (suggested.value.suggestions ?? []) : [];
+				const found = summary.status === "fulfilled" ? summary.value.found : [];
+				setSuggestions(suggestedQuestions(found, server));
 				if (pending.status === "fulfilled") setProposals(pending.value);
+				if (list.status === "fulfilled") setThreads(list.value);
 				setLoaded(true);
 			}
 		);
@@ -84,7 +94,16 @@ export default function ChatbotContent() {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
 	}, [messages]);
 
-	async function ask(question: string, file?: File, replaceId?: string) {
+	// the Ask anything palette hands over /ask?q=…: a new chat, sent once, then the URL is cleaned so a reload doesn't resend
+	useEffect(() => {
+		if (handedOff.current || q === null) return;
+		handedOff.current = true;
+		router.replace("/ask");
+		if (q.trim()) void ask(q.trim(), undefined, undefined, null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [q]);
+
+	async function ask(question: string, file?: File, replaceId?: string, inThread: string | null = threadId) {
 		const id = crypto.randomUUID();
 		const started = Date.now();
 		setMessages((list) => [
@@ -93,7 +112,11 @@ export default function ChatbotContent() {
 			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
 		try {
-			const answer = await chatApi.sendMessage(question, file);
+			const answer = await chatApi.sendMessage(question, file, inThread);
+			if (!inThread) {
+				setThreadId(answer.thread_id);
+				refreshThreads();
+			}
 			if (answer.proposals.length) setProposals(await agentApi.proposals());
 			setMessages((list) =>
 				list.map((m) =>
@@ -109,14 +132,35 @@ export default function ChatbotContent() {
 		}
 	}
 
-	async function newChat() {
+	function newChat() {
+		setThreadId(null);
+		setMessages([]);
+		setHistoryOpen(false);
+	}
+
+	async function openThread(id: string) {
+		setHistoryOpen(false);
 		try {
-			await chatApi.clearHistory();
-			setMessages([]);
+			const { messages: rows } = await chatApi.thread(id);
+			setThreadId(id);
+			setMessages(rows.map((m) => ({ id: m.id, role: m.role, content: m.content })));
 		} catch {
-			toast.error("Couldn't clear the conversation.");
+			toast.error("Couldn't open that chat.");
 		}
 	}
+
+	async function deleteThread(id: string) {
+		try {
+			await chatApi.deleteThread(id);
+			setThreads((list) => list.filter((t) => t.id !== id));
+			if (id === threadId) newChat();
+		} catch {
+			toast.error("Couldn't delete that chat.");
+		}
+	}
+
+	const railProps = { threads, activeId: threadId, onSelect: (id: string) => void openThread(id), onNew: newChat,
+		onDelete: (id: string) => void deleteThread(id), disabled: busy };
 
 	// Proposals filed by answers on screen show under that answer; older pending ones gather at the end.
 	const shown = new Set(messages.flatMap((m) => [...(m.answer?.proposals ?? []), m.answer?.attachment?.proposal_id ?? ""]));
@@ -132,18 +176,27 @@ export default function ChatbotContent() {
 
 	return (
 		<DashboardShell contentClassName="p-0 sm:p-0 lg:p-0 gap-0">
-			<div className="bui relative flex h-[calc(100dvh-3.5rem)] flex-col">
-				{messages.length > 0 && (
-					<Button
-						variant="quiet"
-						size="xs"
-						onClick={() => void newChat()}
-						disabled={busy}
-						className="absolute top-3 right-4 z-10"
-					>
-						<Plus className="size-3.5" /> New chat
+			<div className="bui flex h-[calc(100dvh-3.5rem)]">
+				<aside className="hidden w-[248px] shrink-0 border-r border-line lg:block">
+					<ThreadRail {...railProps} />
+				</aside>
+				<Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+					<SheetContent side="left" className="bui w-[280px] p-0">
+						<SheetTitle className="sr-only">Past chats</SheetTitle>
+						<ThreadRail {...railProps} />
+					</SheetContent>
+				</Sheet>
+				<div className="relative flex min-w-0 flex-1 flex-col" data-testid="ask-column">
+				<div className="absolute top-3 right-4 z-10 flex gap-1.5 lg:hidden">
+					<Button variant="quiet" size="xs" onClick={() => setHistoryOpen(true)}>
+						<History className="size-3.5" /> History
 					</Button>
-				)}
+					{messages.length > 0 && (
+						<Button variant="quiet" size="xs" onClick={newChat} disabled={busy}>
+							<Plus className="size-3.5" /> New chat
+						</Button>
+					)}
+				</div>
 
 				{loaded && messages.length === 0 ? (
 					<div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-[8vh]">
@@ -242,6 +295,7 @@ export default function ChatbotContent() {
 						</div>
 					</>
 				)}
+				</div>
 			</div>
 		</DashboardShell>
 	);

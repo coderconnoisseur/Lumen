@@ -123,3 +123,17 @@ export function relativeTime(iso: string, now: Date): string {
 	if (s < 7 * 86_400) return `${Math.floor(s / 86_400)}d ago`;
 	return DAY_MONTH.format(at);
 }
+
+// Questions for a fresh Ask Lumen chat: Home's findings first (as questions in the user's own words), then the
+// server's suggestions; no repeats, at most 4.
+const ASK_ABOUT: Record<string, (subject: string | null) => string> = {
+	duplicate: (s) => `Was I charged twice at ${s}?`,
+	spike: (s) => `Why is ${s} up this month?`,
+	price_rise: () => "Which of my subscriptions went up?",
+	review: () => "What's waiting for my review?",
+};
+
+export function suggestedQuestions(found: { kind: string; subject: string | null }[], server: string[]): string[] {
+	const fromFound = found.slice(0, 3).map((f) => ASK_ABOUT[f.kind]?.(f.subject)).filter((q): q is string => !!q);
+	return [...new Set([...fromFound, ...server])].slice(0, 4);
+}
