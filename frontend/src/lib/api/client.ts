@@ -720,6 +720,47 @@ export interface Proposal {
 	created_at: string | null;
 }
 
+// Home (UI revamp Phase 3). Text carries {0}/{1} placeholders filled from `amounts` in the user's currency (fill()).
+export interface FoundItem {
+	kind: "duplicate" | "review" | "spike" | "price_rise";
+	tag: string;
+	headline: string;
+	detail: string;
+	amounts: number[];
+	worth: number | null;
+	href: string | null;
+}
+export interface ActivityItem {
+	kind: "statement_import" | "receipt" | "decision";
+	text: string;
+	amounts: number[];
+	at: string;
+}
+export interface HomeSummary {
+	found: FoundItem[];
+	more: number;
+	worth_total: number;
+	activity: ActivityItem[];
+}
+export interface BudgetState {
+	month: string;
+	monthly_budget: number | null;
+	spent: number;
+	categories: { category: string; limit: number; spent: number }[];
+}
+
+export const homeApi = {
+	summary: (): Promise<HomeSummary> => cached("/api/home/summary", async () => (await apiClient.get("/api/home/summary")).data),
+};
+
+export const budgetApi = {
+	get: async (): Promise<BudgetState> => (await apiClient.get("/api/budget")).data,
+	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
+		(await apiClient.put("/api/budget", body)).data,
+	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */
+	draft: async (): Promise<Proposal[]> => (await apiClient.post("/api/budget/draft")).data.proposals,
+};
+
 // The agent's proposals (SPEC-AGENT), served by the FastAPI routes under /api/agent. Questions go through chatApi.
 export const agentApi = {
 	proposals: async (): Promise<Proposal[]> => {
@@ -756,6 +797,12 @@ export const reviewApi = {
 	list: async (): Promise<ReviewItem[]> => {
 		const response = await apiClient.get("/api/review", { params: { status: "flagged" } });
 		return response.data.items;
+	},
+
+	/** Just the number waiting (the sidebar badge). */
+	count: async (): Promise<number> => {
+		const response = await apiClient.get("/api/review", { params: { status: "flagged", count: 1 } });
+		return response.data.count ?? 0;
 	},
 
 	decide: async (id: string, decision: "approve" | "reject", body: { edits?: Record<string, unknown>; note?: string } = {}): Promise<ReviewItem> => {

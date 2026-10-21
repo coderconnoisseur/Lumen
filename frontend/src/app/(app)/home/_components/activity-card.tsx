@@ -1,15 +1,12 @@
 import Link from "next/link";
+import type { ActivityItem } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
-import { relativeTime, type Txn } from "@/lib/home-math";
+import { fill, relativeTime } from "@/lib/home-math";
 import { HomeCard } from "./card";
 
-// Interim activity feed: the newest imports by when they arrived (Phase 3 may replace it with a real feed).
-export function ActivityCard({ txns, now, loading }: { txns: Txn[]; now: Date; loading: boolean }) {
+// What happened lately: statement imports, receipts read, your decisions (GET /api/home/summary).
+export function ActivityCard({ items, now, loading }: { items: ActivityItem[]; now: Date; loading: boolean }) {
 	const money = useMoney();
-	const items = txns
-		.filter((t) => t.created_at)
-		.sort((a, b) => b.created_at!.localeCompare(a.created_at!))
-		.slice(0, 5);
 	return (
 		<HomeCard title="Activity" loading={loading} skeletonHeight={110} data-testid="activity">
 			{items.length === 0 ? (
@@ -21,12 +18,10 @@ export function ActivityCard({ txns, now, loading }: { txns: Txn[]; now: Date; l
 					to get started.
 				</p>
 			) : (
-				items.map((t) => (
-					<div key={t.id} className="flex gap-2 py-1 text-[12.5px]">
-						<span className="min-w-0 flex-1 truncate">
-							Added {t.vendor_name ?? "a transaction"} {money(t.total_amount ?? 0)}
-						</span>
-						<span className="label-mono shrink-0 text-muted-foreground">{relativeTime(t.created_at!, now)}</span>
+				items.map((a, i) => (
+					<div key={i} className="flex gap-2 py-1 text-[12.5px]">
+						<span className="min-w-0 flex-1 truncate">{fill(a.text, a.amounts, money)}</span>
+						<span className="label-mono shrink-0 text-muted-foreground">{relativeTime(a.at, now)}</span>
 					</div>
 				))
 			)}

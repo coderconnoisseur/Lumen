@@ -169,16 +169,19 @@ test("bills card lists next three", async ({ page }) => {
 	await expect(rows.first()).toContainText("Netflix");
 });
 
-test("budget is honest until Phase 3", async ({ page }) => {
+test("budget card is honest with no budget", async ({ page }) => {
 	await openHome(page);
 	await expect(page.getByText("No budget yet")).toBeVisible();
-	await expect(page.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+	await expect(page.getByRole("button", { name: "DRAFT BUDGET" })).toBeEnabled();
 });
 
-test("activity shows newest imports", async ({ page }) => {
-	await openHome(page, { txns: [{ ...tx("r", "Swiggy", thisMonth(1), 486), created_at: hoursAgo(2) }] });
+test("activity comes from the summary", async ({ page }) => {
+	await openHome(page, {
+		...typical,
+		summary: { found: [], activity: [{ kind: "statement_import", text: "Imported a statement · 42 rows", amounts: [], at: hoursAgo(2) }] },
+	});
+	await expect(page.getByTestId("activity")).toContainText("Imported a statement · 42 rows");
 	await expect(page.getByTestId("activity")).toContainText("2h ago");
-	await expect(page.getByTestId("activity")).toContainText("Added Swiggy");
 });
 
 test("side column order", async ({ page }) => {
@@ -225,4 +228,75 @@ test("a forecast with no matching days draws no line", async ({ page }) => {
 	await openHome(page, { ...typical, forecast: { dates: [lastMonth(2), lastMonth(3)], values: [500, 500] } });
 	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(1);
 	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
+});
+
+const dupe = { kind: "duplicate", tag: "DUPLICATES", headline: "Possible double charge: Croma {0}", detail: "Charged on 14 Oct and 15 Oct.",
+	amounts: [2499], worth: 2499, href: null };
+const spike = { kind: "spike", tag: "SPENDING", headline: "Food is up 35%", detail: "{0} so far vs {1} by this point last month.",
+	amounts: [6750, 5000], worth: null, href: "/spending" };
+
+test("lumen found shows server signals and worth", async ({ page }) => {
+	await openHome(page, { ...typical, summary: { found: [dupe, spike], worth_total: 2499 } });
+	const found = page.getByTestId("lumen-found");
+	await expect(found).toContainText("2 things worth a look · ₹2,499 you may get back");
+	await expect(found.getByTestId("found-tile")).toHaveCount(2);
+	await expect(found).toContainText("Possible double charge: Croma ₹2,499");
+	await expect(found).toContainText("₹6,750 so far vs ₹5,000 by this point last month.");
+});
+
+test("brief adds the one thing worth a look", async ({ page }) => {
+	await openHome(page, { ...typical, summary: { found: [spike] } });
+	await expect(page.getByTestId("brief")).toContainText("The one thing worth a look: Food is up 35%.");
+});
+
+test("budget card shows progress against the monthly budget", async ({ page }) => {
+	await openHome(page, { ...typical, budget: { monthly_budget: 28000, spent: 18412, categories: [{ category: "Food", limit: 8000, spent: 7480 }] } });
+	const card = page.getByTestId("budget-card");
+	await expect(card).toContainText("₹18,412 of ₹28,000");
+	await expect(card).toContainText("₹9,588 left");
+	await expect(card).toContainText("Food");
+	await expect(page.getByText("Let Lumen draft your budget")).toHaveCount(0); // has category budgets already
+});
+
+test("budget card says when over", async ({ page }) => {
+	await openHome(page, { ...typical, budget: { monthly_budget: 15000, spent: 18412, categories: [] } });
+	await expect(page.getByTestId("budget-card")).toContainText("₹3,412 over");
+});
+
+const draftLine = (id: string, target: string, limit: number) => ({
+	id, type: "set_budget", target, risk: "low", reason: "Averaged a month over Jul–Sep, rounded up.",
+	payload: { limit, basis: { months: [], average: limit } }, status: "pending", created_at: null,
+});
+
+test("draft budget opens proposals and approve all applies them", async ({ page }) => {
+	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)] });
+	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
+	const dialog = page.getByRole("dialog");
+	await expect(dialog.getByTestId("draft-line")).toHaveCount(2);
+	await expect(dialog).toContainText("₹4,000");
+	const approvals = [page.waitForRequest(/proposals\/p1\/approve/), page.waitForRequest(/proposals\/p2\/approve/)];
+	await dialog.getByRole("button", { name: "Approve all" }).click();
+	await Promise.all(approvals);
+	await expect(dialog.getByText("Approved")).toHaveCount(2);
+	const refetch = page.waitForRequest((r) => r.url().endsWith("/api/budget") && r.method() === "GET");
+	await page.keyboard.press("Escape");
+	await refetch;
+});
+
+test("draft with no history explains why", async ({ page }) => {
+	await openHome(page, { ...typical, draft: [] });
+	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
+	await expect(page.getByRole("dialog")).toContainText("Not enough history yet");
+});
+
+test("calendar uses the user's currency", async ({ page }) => {
+	await openHome(page, { txns: [tx("c", "Croma", thisMonth(4), 2210)], currency: "USD" });
+	await expect(page.getByTestId("cal-day-4")).toContainText("$2.2k");
+});
+
+test("sidebar badge uses the count endpoint", async ({ page }) => {
+	const counted = page.waitForRequest((r) => r.url().includes("/api/review") && r.url().includes("count=1"));
+	await openHome(page, typical, 2);
+	await counted;
+	await expect(page.locator('[data-sidebar="menu-badge"]')).toHaveText("2");
 });

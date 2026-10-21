@@ -2,6 +2,7 @@
 import { test, expect } from "@playwright/test";
 import {
 	briefSentence,
+	fill,
 	cumulative,
 	heat,
 	periods,
@@ -123,4 +124,15 @@ test("relativeTime treats offset-less backend timestamps as UTC", () => {
 	expect(relativeTime("2026-10-20T10:00:00", now)).toBe("2h ago"); // backend: datetime.utcnow().isoformat()
 	expect(relativeTime("2026-10-20T10:00:00Z", now)).toBe("2h ago");
 	expect(relativeTime("2026-10-20T15:30:00+05:30", now)).toBe("2h ago");
+});
+
+test("fill replaces placeholders with money", () => {
+	expect(fill("{0} so far vs {1} by this point last month.", [6750, 5000], money)).toBe(
+		"₹6,750 so far vs ₹5,000 by this point last month.",
+	);
+	expect(fill("No amounts here", [], money)).toBe("No amounts here");
+});
+
+test("sameDayDelta guards a non-positive previous total", () => {
+	expect(sameDayDelta([5], [-10], 0)).toBeNull();
 });

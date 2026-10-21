@@ -59,7 +59,7 @@ export function sameDayDelta(cur: number[], prev: number[], index: number): { ab
 	if (!cur.length || !prev.length) return null;
 	const now = cur[Math.min(index, cur.length - 1)];
 	const then = prev[Math.min(index, prev.length - 1)];
-	if (!then) return null;
+	if (then <= 0) return null; // nothing (or net refunds) to compare against
 	return { abs: now - then, pct: ((now - then) / then) * 100 };
 }
 
@@ -91,6 +91,11 @@ export function briefSentence(a: {
 		s += ` ${a.nextBill.vendor} renews on ${when}.`;
 	}
 	return s;
+}
+
+/** Fill "{0}"-style placeholders with formatted money (the server keeps amounts numeric). */
+export function fill(text: string, amounts: number[], money: (n: number) => string): string {
+	return text.replace(/\{(\d+)\}/g, (_, i) => (amounts[Number(i)] == null ? "" : money(amounts[Number(i)])));
 }
 
 export function calendarBuckets(txns: Txn[], p: Period): { day: number; amount: number }[] {

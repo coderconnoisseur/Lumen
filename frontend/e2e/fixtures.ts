@@ -11,6 +11,13 @@ export type HomeFixture = {
 	forecast?: { dates: string[]; values: number[] } | "fail";
 	delayMs?: number;
 	forecastDelayMs?: number;
+	/** GET /api/home/summary; default: just the review item when reviewCount > 0 */
+	summary?: { found: object[]; more?: number; worth_total?: number; activity?: object[] };
+	/** GET/PUT /api/budget; default: nothing set */
+	budget?: { monthly_budget: number | null; spent: number; categories: { category: string; limit: number; spent: number }[] };
+	/** POST /api/budget/draft proposals; default [] */
+	draft?: object[];
+	currency?: string;
 };
 
 export async function signIn(page: Page, opts: { reviewCount?: number; home?: HomeFixture } = {}): Promise<void> {
@@ -63,7 +70,23 @@ export async function signIn(page: Page, opts: { reviewCount?: number; home?: Ho
 			const f = home.forecast;
 			return route.fulfill({ json: { success: true, forecast: f ? { success: true, forecast: f } : { success: false } } });
 		}
-		if (path === "/api/review") return route.fulfill({ json: { items: queue } });
+		if (path === "/api/review") {
+			if (url.searchParams.get("count") === "1") return route.fulfill({ json: { success: true, count: queue.length } });
+			return route.fulfill({ json: { items: queue } });
+		}
+		if (path === "/api/home/summary") {
+			const review = queue.length
+				? [{ kind: "review", tag: "RECEIPTS", headline: `${queue.length} ${queue.length === 1 ? "receipt needs" : "receipts need"} a glance`,
+					detail: "Lumen wasn't sure about these. Nothing is saved until you approve.", amounts: [], worth: null, href: "/receipts?tab=review" }]
+				: [];
+			const s = home.summary ?? { found: review };
+			return route.fulfill({ json: { success: true, more: 0, worth_total: 0, activity: [], ...s } });
+		}
+		if (path === "/api/budget")
+			return route.fulfill({ json: { success: true, month: "", ...(home.budget ?? { monthly_budget: null, spent: 0, categories: [] }) } });
+		if (path === "/api/budget/draft") return route.fulfill({ json: { success: true, proposals: home.draft ?? [] } });
+		const proposal = path.match(/^\/api\/agent\/proposals\/([^/]+)\/(approve|reject)$/);
+		if (proposal) return route.fulfill({ json: { success: true, proposal: { id: proposal[1], status: `${proposal[2]}d` }, applied: null } });
 		const decided = path.match(/^\/api\/review\/([^/]+)\/(approve|reject)$/);
 		if (decided) {
 			const item = queue.find((q) => q.id === decided[1])!;
@@ -75,7 +98,7 @@ export async function signIn(page: Page, opts: { reviewCount?: number; home?: Ho
 		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: [] } });
 		if (path === "/api/profile")
 			return route.fulfill({
-				json: { profile: { display_name: "E2E User", avatar_key: null, currency: "INR", onboarded: true, demo: false } },
+				json: { profile: { display_name: "E2E User", avatar_key: null, currency: home.currency ?? "INR", onboarded: true, demo: false } },
 			});
 		return route.fulfill({ json: {} });
 	});
