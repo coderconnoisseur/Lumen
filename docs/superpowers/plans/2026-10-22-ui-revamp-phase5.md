@@ -1,0 +1,203 @@
+# UI revamp Phase 5 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build Home v2 and the Spending, Bills & subscriptions, Budget and Receipts & statements pages to the approved mockups, on one shared page skeleton, with the cheap backend each page needs.
+
+**Architecture:** A small set of shared page pieces (`components/page/*`, `lib/chart.ts`) is built first and used by every page so they can't drift. Each sub-phase (5a–5e) is one stacked PR into `refactor`. Pages keep fetching through `lib/api/client.ts`; new backend routes are FastAPI routers in `backend/api/` like `budget.py`.
+
+**Tech Stack:** Next.js (app router), Tailwind v4 + shadcn tokens (Sky theme), motion, Playwright e2e; FastAPI + SQLAlchemy (Flask-SQLAlchemy models), pytest.
+
+**Spec:** `docs/superpowers/specs/2026-10-22-ui-revamp-phase5-design.md` (mockups in `docs/superpowers/specs/2026-10-22-phase5/`), parent `docs/superpowers/specs/2026-10-20-ui-revamp-design.md`.
+
+## Global Constraints
+
+- Labels: `.label-ui` (Funnel Sans, sentence case). No all-caps mono, no shadcn default blue `Button` on these pages, no dark dialog in the app.
+- Nothing the data can't back is shown: deferred elements are hidden, never faked (spec §2, §6).
+- A control whose label is an action does that action; it never sends its text to the chat.
+- Zero layout shift: every range/filter/month change, hover-edit and dialog keeps its box; each gets a bounding-box test.
+- Pages work at 375px wide with no sideways scroll; leave `md:pr-12` room for the floating account menu in header rows.
+- Inside `.bui` (Ask) use bui tokens (`bg-hover`, `bg-surface`, `border-line`, `text-ink-2`), never shadcn `accent`.
+- Git: branch names without "claude", no attribution lines in commits or PRs; PRs into `refactor` on coderconnoisseur/Lumen.
+- Backend test env: `OPENROUTER_API_KEY=test-key SECRET_KEY=test-secret-key-for-ci-only SUPABASE_URL=https://example.supabase.co python -m pytest -q` from `backend/`.
+- Frontend lint/build env: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=e2e-dummy NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:9`.
+
+## Review Focus
+
+1. **Empty account** (no transactions, no budget, no bills): every Home card shows its empty state at its loading height; no NaN, "₹0 of ₹0", or a chart line at zero. Pinned by Task 3 and Task 6 empty-state tests.
+2. **Phone width (375px)**: chart ticks never overlap (the reported "01 OC09 OCT"), calendar cells keep amounts readable, header actions wrap under the title without covering the account menu. Pinned by Task 2 (`pickTicks`) and Task 3 / Task 1 bounding-box tests.
+3. **Forecast missing or outside the month** (backend forecasts from the last transaction date): no "heading for" text and no dotted line. Pinned in Task 3.
+4. **Ask prefill** (`/ask?draft=`) must never send by itself, also after a reload or when Ask is already mounted. Pinned in Task 5.
+5. **Ask busy state**: Keep/Delete in the thread rail are disabled while an answer is in flight; deleting the open thread mid-answer must not orphan the answer. Pinned in Task 8.
+
+---
+
+## Phase 5a — shared skeleton, Home v2, dialogs, Ask/§12 fixes (detailed)
+
+Branch: `ui-revamp/phase5-pages` (contains the spec commit; stacked on `ui-revamp/polish`).
+
+### Task 1: Page header, page card, quiet buttons
+
+**Files:**
+- Create: `frontend/src/components/page/page-header.tsx`, `frontend/src/components/page/page-card.tsx`
+- Modify: `frontend/src/components/ui/button.tsx` (variants), `frontend/src/app/(app)/home/_components/card.tsx` (delete; callers import `PageCard`), all Home cards that import `HomeCard`, `frontend/src/app/(app)/home/homeContent.tsx`
+- Test: `frontend/e2e/home.spec.ts`
+
+**Interfaces:**
+- Produces: `PageHeader({ title: ReactNode; brief?: ReactNode; actions?: ReactNode; children?: ReactNode })` — renders `<h1 class="text-[26px] font-medium tracking-tight">`, actions right-aligned in the same row with `md:pr-12`, brief below in `font-serif text-[19px] text-ink-2`-equivalent (`text-foreground/80`), `children` = a control row under the brief.
+- Produces: `PageCard({ title: ReactNode; href?: string; action?: ReactNode; extra?: ReactNode; loading?: boolean; skeletonHeight: number; className?; "data-testid"?; children })` — same contract as today's `HomeCard` (skeleton at final height, `minHeight` after), restyled: `rounded-2xl border border-border/70 bg-card px-5 py-[18px] shadow-[0_1px_2px_rgba(28,28,26,.04),0_4px_16px_-8px_rgba(28,28,26,.08)]`; title row = `.label-ui` title, `›` after it when `href`, `extra` (legend, pill) then `action` at the right.
+- Produces: `Button` variants `quiet` (`border border-border bg-card/70 text-foreground/80 hover:bg-card hover:text-foreground backdrop-blur`) and `ink` (`bg-foreground text-background hover:bg-foreground/90`); size `pill-icon` (`size-[34px] rounded-full`).
+
+- [ ] **Step 1: Write the failing test** `home header keeps clear of the account menu` in `e2e/home.spec.ts`: at 1440×900 and 1024×800, `signIn`, goto `/home`; the bounding box of `getByRole("button", { name: "Account menu" })` does not intersect the boxes of `getByRole("button", { name: /upload/i })` and `getByRole("button", { name: "Export" })`; `getByRole("heading", { level: 1 })` has `font-size` `26px`.
+- [ ] **Step 2: Run** `npx playwright test e2e/home.spec.ts -g "account menu"` — Expected: FAIL (font-size 24px / names differ).
+- [ ] **Step 3: Implement** `PageHeader`, `PageCard`, the button variants; switch Home's greeting row to `PageHeader` (title = greeting, brief = `<Brief>`), replace every `HomeCard` import with `PageCard` and delete `card.tsx`.
+- [ ] **Step 4: Run** the new test and the whole `e2e/home.spec.ts` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: shared page header and card for the Phase 5 pages`.
+
+### Task 2: Chart helpers
+
+**Files:**
+- Create: `frontend/src/lib/chart.ts`
+- Test: `frontend/e2e/home-math.spec.ts` (pure-function tests live here)
+
+**Interfaces:**
+- Produces: `smoothPath(points: [number, number][]): string` — SVG path through every point; monotone cubic (Fritsch–Carlson) so a running total never dips or overshoots between points; 0 points → `""`, 1 point → `"M x y"`.
+- Produces: `pickTicks(candidates: { i: number; x: number; label: string; keep?: boolean }[], minGap: number): typeof candidates` — keeps `keep` ticks (today, first, last) and drops any other tick closer than `minGap` px to a kept one, left to right.
+
+- [ ] **Step 1: Write failing tests** in `e2e/home-math.spec.ts`:
+  - `smoothPath([[0,10],[10,20],[20,20],[30,40]])` starts with `"M0 10"`, contains `"20 20"` and ends with `"30 40"`.
+  - Sampling the cubic segments of `smoothPath([[0,0],[10,100],[20,100],[30,101]])` at t=0.25/0.5/0.75 never gives y > 101 or a y lower than the previous sample (monotone, no overshoot). Parse the `C` commands to compute the samples in the test.
+  - `pickTicks` with x = 0, 20, 40, 300, 310 (`keep` on 0, 300, 310) and `minGap: 48` returns labels for 0, 300, 310 only.
+- [ ] **Step 2: Run** `npx playwright test e2e/home-math.spec.ts` — Expected: FAIL (module not found).
+- [ ] **Step 3: Implement** both in `lib/chart.ts`.
+- [ ] **Step 4: Run** — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: smooth monotone chart path and tick picking`.
+
+### Task 3: Hero spend card v2
+
+**Files:**
+- Modify: `frontend/src/app/(app)/home/_components/spend-card.tsx`
+- Test: `frontend/e2e/home.spec.ts`
+
+**Interfaces:**
+- Consumes: `PageCard`, `smoothPath`, `pickTicks`; existing props of `SpendCard` plus `onUpload: () => void`.
+- Title (`TITLE` map): `"Spent in <Month>"` for 1M (month from `period.start`), `"Spent this week"`, `"Spent this quarter"`, `"Spent in <Year>"`; `href="/spending"`.
+
+- [ ] **Step 1: Write failing tests** in `e2e/home.spec.ts` (use the existing home fixture with transactions and forecast):
+  - `hero shows delta, percent and the forecast total`: text matches `/\+₹[\d,]+ \(\d+%\) vs \w+ by the \d+(st|nd|rd|th)/` and `/heading for ₹[\d,]+/`.
+  - `no forecast, no heading-for`: fixture forecast dates all in an earlier month → no `heading for` text and no `[data-series="forecast"]`.
+  - `ticks never overlap at phone width`: viewport 375×812; the bounding boxes of all `[data-testid="tick"]` are pairwise non-overlapping.
+  - `the + button opens upload`: click `getByRole("button", { name: "Upload a receipt" })` inside `[data-testid="spend-card"]` → a dialog is visible.
+  - keep the existing range-change bounding-box test green.
+- [ ] **Step 2: Run** `npx playwright test e2e/home.spec.ts -g "hero|ticks|\\+ button"` — Expected: FAIL.
+- [ ] **Step 3: Implement**: number 36px medium; delta line `+₹X (Y%) vs <Prev month> by the <ordinal day>` (bad colour when up, good when down; for 3M/YTD "vs last period"/"vs <year>"); `· heading for <money(last forecast point)>` only when the forecast is drawn; legend (Month / Previous / Forecast) in `extra`; `+` icon button (`aria-label="Upload a receipt"`) in `action`; paths via `smoothPath`; chart height 200px; bill pins become 22px round markers on the x-axis with the vendor's first letter and `title={vendor}`; ticks via `pickTicks` with `data-testid="tick"`, `minGap` 48; range chips centred below.
+- [ ] **Step 4: Run** `e2e/home.spec.ts` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: Home hero card in the Origin style`.
+
+### Task 4: "Month, day by day" calendar + recent transactions
+
+**Files:**
+- Modify: `frontend/src/app/(app)/home/_components/calendar-card.tsx`, `frontend/src/lib/home-math.ts` (export `ordinal(n)` if Task 3 didn't)
+- Test: `frontend/e2e/home.spec.ts`
+
+**Interfaces:**
+- Consumes: `PageCard`; new prop `reminders: Reminder[]`, `today: Date`.
+- Produces: `vendorChip(name: string): { initials: string; hue: number }` in `lib/home-math.ts` (2 initials, stable hue from the name) — reused by Spending/Bills.
+
+- [ ] **Step 1: Write failing tests**: `calendar marks today and names future bills` — the cell for today's date has `data-today="true"`; a fixture reminder dated after today puts its vendor text in that day's cell; future cells have `data-future="true"`; the card title links to `/spending`; `See all` in Recent transactions links to `/spending`. `vendorChip("Swiggy Instamart")` → `initials: "SI"` and the same hue on two calls (home-math.spec).
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement** per `home.html`: title `"<Month>, day by day"`, month total + "across N days" (days with spend), 50px cells with day number top and short amount bottom, heat shade as today, today outlined in primary, future cells dashed with up to one bill name; recent rows with a 28px initials chip from `vendorChip`.
+- [ ] **Step 4: Run** — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: day-by-day calendar with amounts and bill names`.
+
+### Task 5: Lumen found as a list, Ask prefill
+
+**Files:**
+- Modify: `frontend/src/app/(app)/home/_components/lumen-found.tsx`, `frontend/src/app/(app)/ask/chatbotContent.tsx`, `frontend/src/components/ask/prompt-bar.tsx` (accept an initial value if it doesn't)
+- Test: `frontend/e2e/home.spec.ts`, `frontend/e2e/ask.spec.ts`
+
+**Interfaces:**
+- Produces: `/ask?draft=<text>` — opens a fresh chat with the composer filled with `<text>`, focused, **not sent**; the URL is cleaned (`router.replace("/ask")`) so a reload doesn't refill. Used by Lumen found "Ask why", Spending, and Bills "How to cancel".
+- Produces: `askWhy(item: FoundItem, money): string` in `lumen-found.tsx` — `"Why " + headline (filled, lower-cased first letter, no trailing period) + "?"`.
+
+- [ ] **Step 1: Write failing tests**:
+  - home: `Lumen found is a list with doing links` — each item is a row with an icon, headline, detail, a primary link to `item.href` and an "Ask why" link whose href starts with `/ask?draft=`.
+  - ask: `draft prefills without sending` — goto `/ask?draft=Why%20is%20Food%20up%3F`; composer value is `Why is Food up?`; no `/chat` POST happened (count requests in the fixture route); URL becomes `/ask`; reload → composer empty.
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement** list layout per `home.html` (32px tinted icon by `kind`: duplicate=bad, spike=warn, price_rise/review=primary; title row pill "N to look at"); `?draft=` handling next to the existing `?q=` effect, guarded by the same `lastQ`-style ref.
+- [ ] **Step 4: Run** — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: Lumen found list with real actions; /ask?draft= prefills`.
+
+### Task 6: Budget card v2, Coming up, Home layout
+
+**Files:**
+- Modify: `frontend/src/app/(app)/home/_components/budget-card.tsx`, `bills-card.tsx`, `homeContent.tsx`
+- Test: `frontend/e2e/home.spec.ts`
+
+**Interfaces:**
+- Consumes: `BudgetState` from `lib/api/client.ts` (unchanged), `PageCard`, `vendorChip`.
+
+- [ ] **Step 1: Write failing tests**:
+  - `budget card shows spent of total, percent and top categories`: with a fixture budget of 4+ categories → text `/₹[\d,]+ of ₹[\d,]+/`, a `%` label, exactly 4 `[data-testid="budget-cat"]` rows ordered by spent desc; an over-budget category row has `data-over="true"`.
+  - `empty account Home`: fixture with no transactions/budget/reminders → no text matching `/NaN|of ₹0\b/`; every card's box height equals its loading skeleton height ±1px (record during loading via a delayed route, compare after).
+  - `coming up lists the next four bills`: 6 upcoming reminders → 4 rows with date chips (weekday + day).
+  - existing draft-budget tests stay green (promo still opens the draft dialog in 5a; 5d moves it).
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement** per `home.html`: layout = hero full width, then `grid lg:grid-cols-[minmax(0,1fr)_380px]`: left = calendar card, Lumen found; right = Budget in <Month>, Coming up, Activity (kept at the bottom for now). Budget: big spent of total, green bar + %, then top 4 category bars (green / amber ≥90% / red over).
+- [ ] **Step 4: Run** full `e2e/home.spec.ts` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: Home v2 layout, budget and coming-up cards`.
+
+### Task 7: Upload and Export restyle, light upload dialog
+
+**Files:**
+- Modify: `frontend/src/components/uploadDialog.tsx`, `frontend/src/components/exportDialog.tsx`, `homeContent.tsx`
+- Test: `frontend/e2e/home.spec.ts`
+
+**Interfaces:**
+- Produces: `DialogDemo` gains `trigger?: ReactNode` (default: `<Button variant="quiet"><Upload/>Upload</Button>`) and `open`/`onOpenChange` passthrough so the hero `+` (Task 3) and `?upload=1` open the same dialog. `ExportDialog` default trigger = `Button variant="quiet" size="pill-icon" aria-label="Export"` with a download icon.
+
+- [ ] **Step 1: Write failing tests**: `upload dialog is light` — open it; computed `background-color` of `[role="dialog"]` has luminance > 0.9 (parse rgb); no element inside has class matching `neutral-9|#0b0612`. `Home buttons are quiet` — the Upload button's computed background is not `rgb(37, 99, 235)` (blue-600).
+- [ ] **Step 2: Run** — Expected: FAIL.
+- [ ] **Step 3: Implement**: dialog on Sky tokens (`bg-card`, `border-border`, `text-foreground/muted-foreground`), drop zone `border-dashed border-border bg-muted/40`, file rows `bg-muted/50`; keep all upload logic untouched.
+- [ ] **Step 4: Run** — Expected: PASS.
+- [ ] **Step 5: Commit** `feat: quiet Upload/Export and a light upload dialog`.
+
+### Task 8: Ask and chat §12 fixes
+
+**Files:**
+- Modify: `frontend/src/app/(app)/ask/thread-rail.tsx`, `frontend/src/components/app-sidebar.tsx` (render `AskPalette` outside `<Sidebar>`; lift `paletteOpen` into `app-shell.tsx` or a tiny context), `backend/routes/chat.py` (`_thread_for` + `_save_exchange` in one commit), `backend/api/agent.py` (409 text)
+- Test: `frontend/e2e/ask.spec.ts`, `frontend/e2e/shell.spec.ts`, `backend/tests/test_chat_threads.py` (or the existing chat test module), `backend/tests/test_agent_api.py` (existing proposals tests)
+
+**Interfaces:**
+- Backend: `_thread_for(user_id, thread_id, question)` no longer commits; the `/chat` handler commits once after `_save_exchange`. On a lost claim, both 409s say `"This proposal was already decided."`.
+
+- [ ] **Step 1: Write failing tests**:
+  - e2e ask: `rail actions wait for the answer` — with a delayed `/chat` route, while pending the thread's Delete button is disabled; opening the delete confirm moves focus to "Keep"; at 375px with the history sheet open the trash button is visible without hover.
+  - e2e shell: `ctrl+k works on a tablet with the sheet closed` — viewport 768×1024 (below the md sheet breakpoint if 768 is still sheet; else 767), press Control+k → palette dialog visible.
+  - backend: `test_chat_save_failure_leaves_no_empty_thread` — monkeypatch the message save to raise; after the failed POST, the user has 0 threads.
+  - backend: `test_lost_claim_says_already_decided` — approve twice concurrently (or claim then approve) → 409 with detail `"This proposal was already decided."`.
+- [ ] **Step 2: Run** them — Expected: FAIL.
+- [ ] **Step 3: Implement** the four fixes.
+- [ ] **Step 4: Run** `e2e/ask.spec.ts e2e/shell.spec.ts` and backend `pytest -q` — Expected: PASS.
+- [ ] **Step 5: Commit** `fix: Ask rail busy/focus/touch, palette outside the sheet, one-commit chat save, clear 409`.
+
+### Task 9: 5a docs, full checks, PR
+
+- [ ] **Step 1:** STORY.md entry `## 32.` (owner review round + Home v2: what was flagged, what changed, test counts), CODEBASE-GUIDE: `components/page/*`, `lib/chart.ts`, `/ask?draft=`; spec §12: tick the Phase 5 items done in 5a.
+- [ ] **Step 2:** Run backend `pytest -q`, `pytest -q -m eval`; frontend `npm run lint`, `npm run build` (dummy env), `npm run test:e2e`. Expected: all green.
+- [ ] **Step 3:** Screenshot `/home` at 1440 and 375 with seeded fixture data (throwaway `e2e/tmp/shot.spec.ts`) and compare with `home.html` side by side; fix visible drift.
+- [ ] **Step 4:** Push `ui-revamp/phase5-pages`, open PR into `refactor` (or stacked on `ui-revamp/polish` until #96 merges) with manual checks: Home matches the mockup on your seeded account; hero `+` and Upload open the same light dialog; "Ask why" fills Ask without sending; phone width has no overlapping ticks.
+
+---
+
+## Phase 5b — Spending (outline; detail when reached)
+Backend: none expected (transactions, categories, `/api/home/summary` findings exist); confirm category-update endpoint for the hover edit. Tasks: period control + compare toggle (layout-shift test); hero (cumulative + month bars inset; 3M/YTD bars as main chart); By category bars with click-to-filter (`?category=`); Lumen noticed (summary findings, no "first time" card); Transactions table (search, filters, hover category edit, `vendorChip`), Top merchants; Export CSV of the filtered view; remove the stacked old pages (single `<h1>`, no calendar/reminders). STORY 33.
+
+## Phase 5c — Bills & subscriptions (outline)
+Backend (TDD): `RecurringState` table (`user_id`, `vendor_key`, `state`, `changed_at`); `GET /api/bills/recurring` (wraps `find_recurring`, applies states: `not_a_bill` hidden, `cancelled` dimmed unless charged after `changed_at`); `POST /api/bills/recurring/state {vendor, state}`; Home's Coming up switches to it. Frontend: tiles, month calendar + Upcoming agenda (This week / Next week / Later), subscriptions table with tabs and actions (Mark as cancelled, Not a bill + Hidden undo, How to cancel → `/ask?draft=How do I cancel <vendor>?`). STORY 34.
+
+## Phase 5d — Budget page (outline)
+Backend (TDD): `Budget.effective_from` (migration + create_all column list; existing rows → created month); `get_budget(month)` = latest row per category with `effective_from <= month`; `GET /api/budget?month=YYYY-MM`, `GET /api/budget/history?months=6`; edits write rows effective from the current month; draft approval writes rows effective from the draft's month; `basis.months` only months with spend; draft buttons' accessible names include the category. Frontend: `/budget` page + sidebar Plan group; hero with even-pace tick and pace chart; category table with inline edit (no row height change); draft panel on the page (Home promo links here); last 6 months bars. STORY 35.
+
+## Phase 5e — Receipts & statements (outline)
+Backend (TDD): `StatementImport` table + write on import; `GET /api/statements/imports`. Frontend: header actions; Needs-your-review cards from the review queue with highlights from validation flags (replaces the Review tab); library list with filter chips (Statements = import rows) and search; Statement imports card; From your inbox card; Activity moves here from Home if it no longer fits. Old `/documents`, `/import`, `/review` routes redirect into `/receipts`. STORY 36, then the whole-branch review for Phase 5.
