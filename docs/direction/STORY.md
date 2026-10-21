@@ -351,7 +351,7 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   deterministic draft (3-month mean, rounded up) files one `set_budget` proposal per category, and approving one
   upserts the limit. The same path is exposed as an agent tool, so "make me a budget" in Ask Lumen gives the same
   approvable lines. Money travels as numbers with placeholders, so every amount shows in the user's currency.
-- **R:** 44 new backend tests (967 total passing) and 81 e2e checks, including per-user isolation, a double approve
+- **R:** 38 new backend tests (941 passing) and 81 e2e checks, including per-user isolation, a double approve
   returning 409 with one row, re-drafts retiring stale suggestions, and a user with no history. Home is still static
   (17.5 kB of route JS). Owner follow-up logged: make the rules smarter about one-off big purchases, measured against an
   eval set.
