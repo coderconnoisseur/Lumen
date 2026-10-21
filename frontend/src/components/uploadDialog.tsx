@@ -17,14 +17,28 @@ interface FileWithStatus {
 	extractedData?: any;
 }
 
-export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
+// Pass `open`/`onOpenChange` to open it from elsewhere too (Home's hero +); otherwise it manages itself.
+export function DialogDemo({
+	defaultOpen = false,
+	open: openProp,
+	onOpenChange,
+}: {
+	defaultOpen?: boolean;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+}) {
 	const [files, setFiles] = useState<FileWithStatus[]>([]);
 	const [uploading, setUploading] = useState(false);
-	const [open, setOpen] = useState(defaultOpen);
+	const [ownOpen, setOwnOpen] = useState(defaultOpen);
+	const open = openProp ?? ownOpen;
+	const setOpen = (next: boolean) => {
+		setOwnOpen(next);
+		onOpenChange?.(next);
+	};
 
 	useEffect(() => {
 		if (defaultOpen) {
-			setOpen(true);
+			setOwnOpen(true);
 		}
 	}, [defaultOpen]);
 

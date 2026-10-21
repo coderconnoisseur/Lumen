@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useProfile } from "@/components/profile/profile-provider";
 import { DialogDemo } from "@/components/uploadDialog";
@@ -38,6 +38,10 @@ export default function HomeContent() {
 	const { profile } = useProfile();
 	const money = useMoney();
 	const [range, setRange] = useState<Range>("1M");
+	const [uploadOpen, setUploadOpen] = useState(openUpload);
+	useEffect(() => {
+		if (openUpload) setUploadOpen(true);
+	}, [openUpload]);
 	const today = useMemo(() => {
 		const n = new Date();
 		return new Date(n.getFullYear(), n.getMonth(), n.getDate());
@@ -75,7 +79,7 @@ export default function HomeContent() {
 					actions={
 						<>
 							<ExportDialog />
-							<DialogDemo defaultOpen={openUpload} />
+							<DialogDemo open={uploadOpen} onOpenChange={setUploadOpen} />
 						</>
 					}
 				/>
@@ -84,6 +88,7 @@ export default function HomeContent() {
 						<SpendCard
 							range={range}
 							onRange={setRange}
+							onUpload={() => setUploadOpen(true)}
 							period={chart.current}
 							previous={chart.previous}
 							cur={cumulative(data.txns, chart.current)}

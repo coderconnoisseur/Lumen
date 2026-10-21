@@ -137,3 +137,6 @@ export function suggestedQuestions(found: { kind: string; subject: string | null
 	const fromFound = found.slice(0, 3).map((f) => ASK_ABOUT[f.kind]?.(f.subject)).filter((q): q is string => !!q);
 	return [...new Set([...fromFound, ...server])].slice(0, 4);
 }
+
+// "1st", "22nd", "13th"
+export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;

@@ -68,20 +68,23 @@ test("old dashboard is gone", async ({ page }) => {
 });
 
 const spend = (page: Page) => page.getByTestId("spend-card");
-const prevShort = new Date(Y, M - 1, 1).toLocaleString("en-US", { month: "short" });
+const prevLong = new Date(Y, M - 1, 1).toLocaleString("en-US", { month: "long" });
+const monthLong = new Date(Y, M, 1).toLocaleString("en-US", { month: "long" });
+const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
 const lastDay = new Date(Y, M + 1, 0).getDate();
 
 test("spend card shows total and delta", async ({ page }) => {
 	await openHome(page);
 	await expect(spend(page).getByText("₹18,412", { exact: true })).toBeVisible();
-	await expect(spend(page).getByTestId("spend-delta")).toHaveText(`↓ ₹1,868 vs ${prevShort} at this point`);
+	await expect(spend(page).getByTestId("spend-delta")).toHaveText(`−₹1,868 (9%) vs ${prevLong} by the ${ord(now.getDate())}`);
 });
 
 test("range chips switch period", async ({ page }) => {
 	await openHome(page);
-	await expect(spend(page)).toContainText("SPENT THIS MONTH", { ignoreCase: true });
+	await expect(spend(page)).toContainText(`Spent in ${monthLong}`);
+	await expect(spend(page).getByRole("link", { name: new RegExp(`Spent in ${monthLong}`) })).toHaveAttribute("href", "/spending");
 	await spend(page).getByRole("button", { name: "1W" }).click();
-	await expect(spend(page)).toContainText("SPENT THIS WEEK", { ignoreCase: true });
+	await expect(spend(page)).toContainText("Spent this week");
 	await expect(spend(page).getByRole("button", { name: "1W" })).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -96,6 +99,9 @@ test("forecast draws to month end", async ({ page }) => {
 	const dates = Array.from({ length: 31 }, (_, i) => ymd(Y, M, now.getDate() + 1 + i));
 	await openHome(page, { ...typical, forecast: { dates, values: dates.map(() => 100) } });
 	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(1);
+	// 18,412 so far + 100 for each day left in the month
+	const left = lastDay - now.getDate();
+	await expect(spend(page)).toContainText(`heading for ₹${(18412 + 100 * left).toLocaleString("en-IN")}`);
 });
 
 test("bill pins show upcoming bills", async ({ page }) => {
@@ -104,7 +110,8 @@ test("bill pins show upcoming bills", async ({ page }) => {
 		...typical,
 		reminders: [{ id: "n", vendor: "Netflix", amount: 649, date: thisMonth(now.getDate() + 1), type: "upcoming" }],
 	});
-	await expect(spend(page).getByTestId("bill-pin")).toHaveText("Netflix");
+	await expect(spend(page).getByTestId("bill-pin")).toHaveAttribute("title", "Netflix");
+	await expect(spend(page).getByTestId("bill-pin")).toHaveText("N");
 });
 
 test("new user sees empty states", async ({ page }) => {
@@ -228,6 +235,7 @@ test("a forecast with no matching days draws no line", async ({ page }) => {
 	await openHome(page, { ...typical, forecast: { dates: [lastMonth(2), lastMonth(3)], values: [500, 500] } });
 	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(1);
 	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
+	await expect(spend(page)).not.toContainText("heading for");
 });
 
 const dupe = { kind: "duplicate", tag: "DUPLICATES", headline: "Possible double charge: Croma {0}", detail: "Charged on 14 Oct and 15 Oct.",
@@ -348,4 +356,25 @@ test("home header keeps clear of the account menu", async ({ page }) => {
 			expect(overlaps(menu, box), `${String(name)} at ${width}px`).toBe(false);
 		}
 	}
+});
+
+test("hero shows an increase with its percent", async ({ page }) => {
+	await openHome(page, { txns: [tx("a", "Croma", thisMonth(1), 30000), tx("b", "Rent", lastMonth(1), 20000)] });
+	await expect(spend(page).getByTestId("spend-delta")).toHaveText(`+₹10,000 (50%) vs ${prevLong} by the ${ord(now.getDate())}`);
+});
+
+test("chart ticks never overlap at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openHome(page);
+	await expect(spend(page).getByTestId("tick").first()).toBeVisible();
+	const boxes = await spend(page).getByTestId("tick").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()));
+	expect(boxes.length).toBeGreaterThanOrEqual(2);
+	for (let i = 0; i < boxes.length; i++)
+		for (let j = i + 1; j < boxes.length; j++) expect(overlaps(boxes[i], boxes[j]), `ticks ${i} and ${j}`).toBe(false);
+});
+
+test("the hero + opens upload", async ({ page }) => {
+	await openHome(page);
+	await spend(page).getByRole("button", { name: "Upload a receipt" }).click();
+	await expect(page.getByRole("dialog")).toBeVisible();
 });
