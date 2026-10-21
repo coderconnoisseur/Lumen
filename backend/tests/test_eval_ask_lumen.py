@@ -53,6 +53,14 @@ def test_a_right_answer_passes():
     assert g == {"correct": "pass", "honest": True, "why": g["why"]}
 
 
+def test_gpt_oss_spaces_and_hyphens_count():
+    """The first recording wrote "2026‑27", "24 Oct" and "₹70 000"; plain text matches them."""
+    g = ask_lumen.grade(_out("Tax for FY 2026‑27 is ₹0, and the old ₹2.5 lakh slab hides here.",
+                             tools=["income_tax_india"]), _case("audit-C23"))
+    assert g["correct"] == "fail" and "2.5 lakh" in g["why"]  # a narrow space no longer hides a must_not
+    assert ask_lumen.grade(_out("You're under your ₹70 000 budget."), _case("audit-L11"))["correct"] == "pass"
+
+
 def test_old_slabs_and_missing_tool_fail():
     case = _case("audit-C23")
     g = ask_lumen.grade(_out("Income up to ₹2,50,000 is nil; tax for 2026-27 is ₹0 after rebate."), case)
