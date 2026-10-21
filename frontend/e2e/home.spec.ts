@@ -311,3 +311,25 @@ test("draft dialog ignores a double click", async ({ page }) => {
 	await page.waitForTimeout(300);
 	expect(approvals).toBe(2);
 });
+
+test("closing the draft dialog refreshes activity", async ({ page }) => {
+	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000)] });
+	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
+	await page.getByRole("dialog").getByRole("button", { name: "Approve all" }).click();
+	await expect(page.getByRole("dialog").getByText("Approved")).toHaveCount(1);
+	const summary = page.waitForRequest((r) => r.url().endsWith("/api/home/summary"));
+	await page.keyboard.press("Escape");
+	await summary;
+});
+
+test("a replaced draft says so", async ({ page }) => {
+	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)], replaced: ["p1"] });
+	let approvals = 0;
+	page.on("request", (r) => r.url().includes("/proposals/") && r.url().endsWith("/approve") && approvals++);
+	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
+	const dialog = page.getByRole("dialog");
+	await dialog.getByRole("button", { name: "Approve all" }).click();
+	await expect(dialog).toContainText("This draft was replaced. Draft again.");
+	await page.waitForTimeout(300);
+	expect(approvals).toBe(1);
+});

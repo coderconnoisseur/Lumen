@@ -31,7 +31,7 @@ export function ThreadRail({
 				type="button"
 				onClick={onNew}
 				disabled={disabled}
-				className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+				className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium transition-colors hover:bg-hover disabled:opacity-50"
 			>
 				<Plus className="size-4" /> New chat
 			</button>
@@ -41,7 +41,7 @@ export function ThreadRail({
 				{threads.map((t) => (
 					<li key={t.id} className="group relative">
 						{confirming === t.id ? (
-							<div className="flex items-center gap-1.5 rounded-lg bg-accent px-2 py-1.5 text-[13px]">
+							<div className="flex items-center gap-1.5 rounded-lg bg-hover px-2 py-1.5 text-[13px]">
 								<span className="min-w-0 flex-1 truncate">Delete this chat?</span>
 								<button type="button" className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-background" onClick={() => setConfirming(null)}>
 									Keep
@@ -66,8 +66,8 @@ export function ThreadRail({
 									disabled={disabled}
 									onClick={() => onSelect(t.id)}
 									className={cn(
-										"flex w-full flex-col rounded-lg px-2 py-1.5 pr-8 text-left transition-colors hover:bg-accent disabled:opacity-60",
-										t.id === activeId && "bg-accent",
+										"flex w-full flex-col rounded-lg px-2 py-1.5 pr-8 text-left transition-colors hover:bg-hover disabled:opacity-60",
+										t.id === activeId && "bg-hover-2",
 									)}
 								>
 									<span className="truncate text-[13px] text-foreground">{t.title}</span>

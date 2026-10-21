@@ -228,3 +228,11 @@ test("mobile: tapping a link closes the sidebar sheet", async ({ page }) => {
 	await expect(page).toHaveURL(/\/spending$/, { timeout: 20_000 }); // first dev compile of /spending is slow
 	await expect(sheet).toBeHidden();
 });
+
+test("sidebar never scrolls sideways", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	const content = page.locator('[data-sidebar="content"]');
+	await expect(content).toBeVisible();
+	expect(await content.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
+});

@@ -18,6 +18,8 @@ export type HomeFixture = {
 	/** POST /api/budget/draft proposals; default [] */
 	draft?: object[];
 	currency?: string;
+	/** proposal ids whose approve returns 409 (a newer draft replaced them) */
+	replaced?: string[];
 };
 
 export type ChatFixture = {
@@ -100,6 +102,8 @@ export async function signIn(
 			return route.fulfill({ json: { success: true, month: "", ...(home.budget ?? { monthly_budget: null, spent: 0, categories: [] }) } });
 		if (path === "/api/budget/draft") return route.fulfill({ json: { success: true, proposals: home.draft ?? [] } });
 		const proposal = path.match(/^\/api\/agent\/proposals\/([^/]+)\/(approve|reject)$/);
+		if (proposal && home.replaced?.includes(proposal[1]))
+			return route.fulfill({ status: 409, json: { detail: "Proposal is already rejected" } });
 		if (proposal) return route.fulfill({ json: { success: true, proposal: { id: proposal[1], status: `${proposal[2]}d` }, applied: null } });
 		const decided = path.match(/^\/api\/review\/([^/]+)\/(approve|reject)$/);
 		if (decided) {

@@ -113,3 +113,17 @@ test("thread rail does not move the conversation", async ({ page }) => {
 	expect(after!.x).toBeCloseTo(before!.x, 0);
 	expect(after!.width).toBeCloseTo(before!.width, 0);
 });
+
+test("the open thread is highlighted readably, not in the brand blue", async ({ page }) => {
+	await openAsk(page, old);
+	const row = rail(page).getByRole("button", { name: /^Food last month/ });
+	await row.click();
+	await expect(row).toHaveAttribute("aria-current", "page");
+	const [r, g, b] = await row.evaluate((e) => {
+		const x = document.createElement("canvas").getContext("2d")!;
+		x.fillStyle = getComputedStyle(e).backgroundColor;
+		x.fillRect(0, 0, 1, 1);
+		return Array.from(x.getImageData(0, 0, 1, 1).data.slice(0, 3));
+	});
+	expect(Math.min(r, g, b)).toBeGreaterThan(180); // a light tint, so the dark title and time stay readable
+});

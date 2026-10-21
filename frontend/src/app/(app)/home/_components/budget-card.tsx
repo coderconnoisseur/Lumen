@@ -64,12 +64,14 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 	const [busy, setBusy] = useState(false);
 	const [lines, setLines] = useState<Line[] | null>(null);
 	const [deciding, setDeciding] = useState(false);
+	const [replaced, setReplaced] = useState(false);
 	const inFlight = useRef(false); // a ref, so a double click is blocked before React re-renders
 
 	async function draft() {
 		setBusy(true);
 		try {
 			setLines(await budgetApi.draft());
+			setReplaced(false);
 			setOpen(true);
 		} catch {
 			toast.error("Couldn't draft a budget right now.");
@@ -87,8 +89,10 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 				await agentApi.decide(id, decision);
 				setLines((ls) => ls?.map((l) => (l.id === id ? { ...l, decided: decision } : l)) ?? ls);
 			}
-		} catch {
-			toast.error("Couldn't save that decision.");
+		} catch (error) {
+			// a newer draft (from here or from Ask Lumen) retired these lines
+			if ((error as { response?: { status?: number } })?.response?.status === 409) setReplaced(true);
+			else toast.error("Couldn't save that decision.");
 		} finally {
 			inFlight.current = false;
 			setDeciding(false);
@@ -154,9 +158,14 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 									</div>
 								))}
 							</div>
+							{replaced && (
+								<p role="status" className="text-[13px] text-bad">
+									This draft was replaced. Draft again.
+								</p>
+							)}
 							<button
 								type="button"
-								disabled={pending.length === 0 || deciding}
+								disabled={pending.length === 0 || deciding || replaced}
 								onClick={() => void decide(pending, "approve")}
 								className="mt-1 w-full rounded-lg bg-foreground py-2 text-sm text-background disabled:opacity-50"
 							>

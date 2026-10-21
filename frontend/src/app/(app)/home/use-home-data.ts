@@ -16,7 +16,8 @@ export type HomeData = {
 	forecast: Forecast;
 	summary: HomeSummary | null;
 	budget: BudgetState | null;
-	reloadBudget: () => void;
+	/** refetch the summary and the budget (after budget decisions) */
+	reload: () => void;
 };
 
 const ymd = (d: Date) =>
@@ -99,8 +100,11 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		};
 	}, [day]);
 
-	const reloadBudget = useCallback(() => {
-		budgetApi.get().then((budget) => setExtras((e) => (e ? { ...e, budget } : e)), () => {});
+	const reload = useCallback(() => {
+		// decisions are POSTs, which already cleared the cached summary, so this refetches it
+		Promise.allSettled([homeApi.summary(), budgetApi.get()]).then(([summary, budget]) =>
+			setExtras((e) => (e ? { ...e, summary: value(summary, e.summary), budget: value(budget, e.budget) } : e)),
+		);
 	}, []);
 
 	return {
@@ -112,7 +116,7 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		reminders: extras?.reminders ?? [],
 		summary: extras?.summary ?? null,
 		budget: extras?.budget ?? null,
-		reloadBudget,
+		reload,
 		forecast,
 	};
 }

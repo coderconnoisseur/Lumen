@@ -105,7 +105,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 						))}
 					</SidebarMenu>
 				</SidebarGroup>
-				<SidebarSeparator className="mx-3" />
+				<SidebarSeparator className="mx-3 data-[orientation=horizontal]:w-auto" />
 				<SidebarGroup>
 					<SidebarMenu>
 						<NavItem item={RECEIPTS}>
