@@ -144,12 +144,25 @@ class SpendingPattern(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ChatThread(db.Model):
+    """One Ask Lumen conversation (UI revamp Phase 4). Titled from its first question; legacy thread-less messages
+    are folded into an "Earlier chats" thread the first time the user lists threads (routes/chat.py)."""
+    __tablename__ = "chat_threads"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    title = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ChatMessage(db.Model):
-    """Persisted chat history per user."""
+    """Persisted chat history per user, grouped into threads (thread_id NULL = saved before threads existed)."""
     __tablename__ = "chat_messages"
 
     id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(String(36), nullable=False, index=True)
+    thread_id = db.Column(String(36), nullable=True, index=True)
     role = db.Column(db.String(20), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

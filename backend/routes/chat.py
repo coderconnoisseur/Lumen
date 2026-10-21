@@ -1,10 +1,12 @@
 # routes/chat.py
 import logging
 import uuid
+from datetime import datetime
 
-from flask import Blueprint, g, request, jsonify
+from flask import Blueprint, abort, g, request, jsonify
+from sqlalchemy import func
 
-from models import ChatMessage
+from models import ChatMessage, ChatThread
 from models.database import db
 from utils.auth import require_auth
 from utils.errors import KEY_MESSAGES, api_error, llm_api_error
@@ -72,16 +74,56 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
             "proposals": out["proposals"], "attachment": attachment}
 
 
-def _save_exchange(user_id: str, question: str, answer: str) -> None:
+TITLE_CHARS = 60
+
+
+def _title(question: str) -> str:
+    """The first question, cut at a word boundary (no LLM-written titles)."""
+    q = " ".join(question.split())
+    if len(q) <= TITLE_CHARS:
+        return q
+    cut = q[: TITLE_CHARS - 1].rsplit(" ", 1)[0] or q[: TITLE_CHARS - 1]
+    return cut.rstrip(" ,.;:-") + "\u2026"
+
+
+def _own_thread(user_id: str, thread_id: str) -> ChatThread:
+    """The caller's thread, or a 404 (another user's id looks exactly like a missing one)."""
+    thread = db.session.get(ChatThread, thread_id)
+    if thread is None or thread.user_id != user_id:
+        abort(404)
+    return thread
+
+
+def _thread_for(user_id: str, thread_id: str | None, question: str) -> ChatThread:
+    if thread_id:
+        return _own_thread(user_id, thread_id)
+    thread = ChatThread(id=str(uuid.uuid4()), user_id=user_id, title=_title(question) or "New chat")
+    db.session.add(thread)
+    db.session.commit()
+    return thread
+
+
+def _save_exchange(user_id: str, thread_id: str, question: str, answer: str) -> None:
     for role, content in (("user", question), ("assistant", answer)):
-        db.session.add(
-            ChatMessage(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
-                role=role,
-                content=content,
-            )
-        )
+        db.session.add(ChatMessage(id=str(uuid.uuid4()), user_id=user_id, thread_id=thread_id, role=role,
+                                   content=content))
+    thread = db.session.get(ChatThread, thread_id)
+    if thread is not None:
+        thread.updated_at = datetime.utcnow()
+    db.session.commit()
+
+
+def _fold_legacy(user_id: str) -> None:
+    """Messages saved before threads existed become one "Earlier chats" thread, once."""
+    legacy = ChatMessage.query.filter_by(user_id=user_id, thread_id=None)
+    if legacy.first() is None:
+        return
+    newest = db.session.query(func.max(ChatMessage.created_at)).filter(
+        ChatMessage.user_id == user_id, ChatMessage.thread_id.is_(None)).scalar() or datetime.utcnow()
+    thread = ChatThread(id=str(uuid.uuid4()), user_id=user_id, title="Earlier chats", created_at=newest,
+                        updated_at=newest)
+    db.session.add(thread)
+    legacy.update({"thread_id": thread.id})
     db.session.commit()
 
 
@@ -108,6 +150,10 @@ def chat():
         return jsonify({"error": "Query is required"}), 400
 
     user_id = str(g.user_id)
+    body = request.form if file else (request.get_json(silent=True) or {})
+    thread_id = body.get("thread_id") or None
+    if thread_id:
+        _own_thread(user_id, thread_id)  # 404 before anything is spent or saved
 
     from api.agent import count_platform_question
 
@@ -124,7 +170,10 @@ def chat():
         return api_error("Chat request failed", code="chat_failed", log=e)
 
     try:
-        _save_exchange(user_id, f"{query} [attached: {file.filename}]" if file else query, result["response"])
+        thread = _thread_for(user_id, thread_id, query)
+        result["thread_id"] = thread.id
+        _save_exchange(user_id, thread.id, f"{query} [attached: {file.filename}]" if file else query,
+                       result["response"])
     except Exception as e:
         # Losing history shouldn't cost the user their answer.
         db.session.rollback()
@@ -133,44 +182,44 @@ def chat():
     return jsonify({"success": True, "data": result}), 200
 
 
-@chat_bp.route("/chat/history", methods=["GET"])
+def _iso(d):
+    return d.isoformat() + "Z" if d else None  # stored as naive UTC
+
+
+@chat_bp.route("/chat/threads", methods=["GET"])
 @require_auth
-def chat_history():
-    """Return recent chat messages for the authenticated user."""
-    limit = min(int(request.args.get("limit", 50)), 200)
+def list_threads():
+    """The caller's conversations, newest first (max 50), with message counts."""
     user_id = str(g.user_id)
-
-    rows = (
-        ChatMessage.query.filter_by(user_id=user_id)
-        .order_by(ChatMessage.created_at.asc())
-        .limit(limit)
-        .all()
-    )
-
-    return jsonify(
-        {
-            "success": True,
-            "messages": [
-                {
-                    "id": row.id,
-                    "role": row.role,
-                    "content": row.content,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                }
-                for row in rows
-            ],
-        }
-    ), 200
+    _fold_legacy(user_id)
+    counts = dict(db.session.query(ChatMessage.thread_id, func.count()).filter(ChatMessage.user_id == user_id)
+                  .group_by(ChatMessage.thread_id).all())
+    threads = ChatThread.query.filter_by(user_id=user_id).order_by(ChatThread.updated_at.desc()).limit(50).all()
+    return jsonify({"success": True, "threads": [
+        {"id": t.id, "title": t.title, "message_count": counts.get(t.id, 0), "updated_at": _iso(t.updated_at)}
+        for t in threads]}), 200
 
 
-@chat_bp.route("/chat/history", methods=["DELETE"])
+@chat_bp.route("/chat/threads/<thread_id>", methods=["GET"])
 @require_auth
-def clear_chat_history():
-    """Clear chat history for the authenticated user."""
+def get_thread(thread_id):
     user_id = str(g.user_id)
-    ChatMessage.query.filter_by(user_id=user_id).delete()
+    thread = _own_thread(user_id, thread_id)
+    rows = ChatMessage.query.filter_by(user_id=user_id, thread_id=thread.id).order_by(
+        ChatMessage.created_at.asc(), ChatMessage.role.desc()).all()  # a question sorts before its same-instant answer
+    return jsonify({"success": True, "thread": {"id": thread.id, "title": thread.title}, "messages": [
+        {"id": r.id, "role": r.role, "content": r.content, "created_at": _iso(r.created_at)} for r in rows]}), 200
+
+
+@chat_bp.route("/chat/threads/<thread_id>", methods=["DELETE"])
+@require_auth
+def delete_thread(thread_id):
+    user_id = str(g.user_id)
+    thread = _own_thread(user_id, thread_id)
+    ChatMessage.query.filter_by(user_id=user_id, thread_id=thread.id).delete()
+    db.session.delete(thread)
     db.session.commit()
-    return jsonify({"success": True, "message": "Chat history cleared"}), 200
+    return jsonify({"success": True}), 200
 
 
 DEFAULT_SUGGESTIONS = [
