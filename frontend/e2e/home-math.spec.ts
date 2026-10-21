@@ -1,5 +1,6 @@
 // Node-only unit tests (no browser) for the Home calculations.
 import { test, expect } from "@playwright/test";
+import { pickTicks, smoothPath } from "../src/lib/chart";
 import {
 	briefSentence,
 	fill,
@@ -152,4 +153,43 @@ test("suggestedQuestions maps found items, dedupes, caps at 4", () => {
 		"Which vendor did I spend the most with?",
 	]);
 	expect(suggestedQuestions([], ["A", "B"])).toEqual(["A", "B"]);
+});
+
+// ---- lib/chart.ts (Phase 5) ----
+
+// y of each cubic segment of a path "M x y C x1 y1 x2 y2 x y C …" sampled at t
+function samples(d: string, ts = [0.25, 0.5, 0.75]): number[] {
+	const n = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+	let [x0, y0] = [n[0], n[1]];
+	const out: number[] = [];
+	for (let i = 2; i + 5 < n.length + 1; i += 6) {
+		const [, c1, , c2, x, y] = n.slice(i, i + 6);
+		for (const t of ts) out.push((1 - t) ** 3 * y0 + 3 * (1 - t) ** 2 * t * c1 + 3 * (1 - t) * t ** 2 * c2 + t ** 3 * y);
+		[x0, y0] = [x, y];
+	}
+	void x0;
+	return out;
+}
+
+test("smoothPath passes through every point", () => {
+	const d = smoothPath([[0, 10], [10, 20], [20, 20], [30, 40]]);
+	expect(d.startsWith("M0 10")).toBe(true);
+	expect(d).toContain("20 20");
+	expect(d.endsWith("30 40")).toBe(true);
+	expect(smoothPath([])).toBe("");
+	expect(smoothPath([[5, 6]])).toBe("M5 6");
+});
+
+test("smoothPath never overshoots a running total", () => {
+	const ys = samples(smoothPath([[0, 0], [10, 100], [20, 100], [30, 101]]));
+	for (let i = 0; i < ys.length; i++) {
+		expect(ys[i]).toBeLessThanOrEqual(101 + 1e-9);
+		if (i) expect(ys[i]).toBeGreaterThanOrEqual(ys[i - 1] - 1e-9);
+	}
+});
+
+test("pickTicks drops ticks that crowd a kept one", () => {
+	const t = (x: number, keep = false) => ({ i: x, x, label: String(x), keep });
+	expect(pickTicks([t(0, true), t(20), t(40), t(300, true), t(310, true)], 48).map((k) => k.label)).toEqual(["0", "300", "310"]);
+	expect(pickTicks([t(0, true), t(60), t(120), t(200, true)], 48).map((k) => k.label)).toEqual(["0", "60", "120", "200"]);
 });
