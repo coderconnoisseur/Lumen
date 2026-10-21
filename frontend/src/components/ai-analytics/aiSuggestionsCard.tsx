@@ -11,7 +11,7 @@ import {
 	Target,
 	Zap,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { aiAnalyticsApi } from "@/lib/api/client";

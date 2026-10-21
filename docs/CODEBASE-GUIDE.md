@@ -259,6 +259,19 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
 - There is no root `loading.tsx`: the pages are static and prefetched, and a full-screen spinner made every click
   look like a reload.
+- **Sky theme (UI revamp, `docs/superpowers/specs/2026-10-20-ui-revamp-design.md`).** `app/(app)/layout.tsx` wraps
+  the shell in `<div data-app-theme="sky" className="contents">`. In `globals.css`, `:root:has([data-app-theme="sky"])`
+  swaps every shadcn colour token to the light Sky palette, so portaled menus and dialogs match too. The
+  `dark:` variant is also switched off while the shell is mounted. Public pages keep the forced dark theme.
+  Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
+  `.label-mono` (IBM Plex Mono labels).
+- **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
+  margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
+  `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
+  production). Firefox is opt-in with `E2E_FIREFOX=1`.
+- **Motion:** use `motion/react` only (framer-motion was removed). Shared timings live in `lib/motion.ts`
+  (`DURATION`, `EASE_OUT`, `fadeUp`). Reduced motion is honoured globally by `MotionConfig reducedMotion="user"`
+  in the app layout and a CSS rule in `globals.css`.
 
 ## 7c. Ask Lumen screen (frontend, UI phase)
 - `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).

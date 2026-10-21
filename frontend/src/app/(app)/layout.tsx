@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
+import { MotionConfig } from "motion/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ProfileProvider } from "@/components/profile/profile-provider";
@@ -11,9 +12,12 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 // pages (URLs are unchanged; "(app)" is a route group), so only the content area swaps, like tabs on X.
 export default function AppLayout({ children }: { children: ReactNode }) {
 	return (
+		// Sky (globals.css) wraps everything, auth loader included, so the first server paint is already light.
+		<div data-app-theme="sky" className="contents">
 		<Suspense>
 			<AuthGuard>
 				<ProfileProvider>
+				<MotionConfig reducedMotion="user">
 				<SidebarProvider>
 					<AppSidebar />
 					<SidebarInset id="main" className="min-h-screen bg-transparent">
@@ -27,8 +31,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 						{children}
 					</SidebarInset>
 				</SidebarProvider>
+				</MotionConfig>
 				</ProfileProvider>
 			</AuthGuard>
 		</Suspense>
+		</div>
 	);
 }

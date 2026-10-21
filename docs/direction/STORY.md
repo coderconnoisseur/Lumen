@@ -311,3 +311,18 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   the old regime's slabs ("first ₹2.5 lakh at 0%"). Fixing that, and L05 (unused subscriptions) and L08 (savings
   goal), needs a prompt/tool change and a new recording. Story point: a grader bug can hide a dishonest answer
   as easily as it can fail a right one.
+
+## 27. Stopping overlays from nudging the page (UI revamp, Phase 0)
+- **S:** Opening the profile menu shifted the Ask Lumen chat column sideways. Every menu, dialog, select and sheet in
+  the app did the same, because Radix's scroll lock adds a margin equal to the scrollbar width.
+- **T:** Fix it once for the whole app, prove it stays fixed, and lay the light "Sky" theme over the signed-in app
+  without touching the dark public pages.
+- **A:** A dev-only harness page with one of each overlay and a Playwright check that measures the content column
+  before and after opening each one. The headless browser's hidden scrollbars first masked the bug, so the check
+  turns them back on. The fix is two CSS rules: a stable scrollbar gutter and cancelling the lock's margin. Sky tokens
+  are keyed on `:root:has([data-app-theme="sky"])`, so portaled menus match and the `dark:` variant switches off
+  in-app. One animation library instead of two, with reduced motion honoured globally.
+- **R:** Shift dropped from 7.5 px to 0 on 4 of the 5 overlays (the fifth, non-modal, was already fine).
+  12 e2e checks pass, including portal colours, AA contrast for muted text (4.9:1), login staying dark and
+  reduced motion. framer-motion was removed. Story point: reproduce in a test first. Here the test environment
+  was hiding the very bug.
