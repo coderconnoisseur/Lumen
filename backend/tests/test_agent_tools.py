@@ -247,6 +247,13 @@ def test_split_follow_up():
                   "If you'd like a breakdown, ask", "You can ask for last month"):
         assert split_follow_up(f"Done.\nNext: {lumen}")[1] is None
     assert split_follow_up("Done.\nNext: Tell me my top vendors")[1] == "Tell me my top vendors"
+    # owner report 2026-10-22: a step for the user is not a question for Lumen; clicking it sent it to the chat.
+    # Uploads stay a chip (the UI turns it into an "upload" button); other do-it-yourself steps stay in the answer.
+    assert split_follow_up("Empty.\nNext: Upload an invoice or receipt to get started.")[1] == \
+        "Upload an invoice or receipt to get started."
+    for step in ("Connect your Gmail in Settings", "Go to Receipts and import a statement", "Log in to your bank app",
+                 "Visit your bank's website", "Click Draft budget on Home"):
+        assert split_follow_up(f"Done.\nNext: {step}") == (f"Done.\n\n{step}", None)
     assert split_follow_up("Here it is.\nNext: Would you like last month or the last three?") == (
         "Here it is.\n\nWould you like last month or the last three?", None)
     assert split_follow_up("Done.\nNext: Can I afford a trip in December?") == (

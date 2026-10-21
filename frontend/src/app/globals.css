@@ -122,7 +122,7 @@
 	--color-bad: var(--bad);
 	--color-accent-soft: var(--accent-soft);
 	--font-serif: var(--font-newsreader), Georgia, serif;
-	--font-label: var(--font-plex-mono), ui-monospace, monospace;
+	--font-label: var(--font-ui), system-ui, sans-serif;
 	--font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, monospace;
 	--font-script: "Dancing Script", cursive;
@@ -232,11 +232,11 @@
 		animation: slide-out-to-right-full 0.2s ease-in;
 	}
 
-	.label-mono {
-		font-family: var(--font-plex-mono), ui-monospace, monospace;
-		font-size: 10.5px;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
+	/* card titles, tags and axis ticks: the UI font, sentence case, quiet (owner: no all-caps mono labels) */
+	.label-ui {
+		font-family: var(--font-ui), system-ui, sans-serif;
+		font-size: 12.5px;
+		letter-spacing: 0.01em;
 		font-weight: 500;
 	}
 

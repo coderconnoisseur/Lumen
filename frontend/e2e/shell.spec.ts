@@ -62,7 +62,10 @@ test("sidebar shows the new IA", async ({ page }) => {
 	await page.goto("/home");
 	const links = sidebar(page).locator('[data-sidebar="menu-button"]');
 	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
-	await expect(sidebar(page).getByText("Track", { exact: true })).toBeVisible();
+	// every group is labelled (owner, 2026-10-22)
+	for (const group of ["Overview", "Track", "Records", "Assistant"]) {
+		await expect(sidebar(page).getByText(group, { exact: true })).toBeVisible();
+	}
 	for (const old of ["Workspace", "Compare", "Financial command center"]) {
 		await expect(page.getByText(old, { exact: true })).toHaveCount(0);
 	}
@@ -83,6 +86,20 @@ test("ctrl+b collapses to a 56px rail with tooltips", async ({ page }) => {
 	await expect(sidebar(page).getByText("Spending", { exact: true })).toBeHidden();
 	await sidebar(page).locator('a[href="/spending"]').hover();
 	await expect(page.getByRole("tooltip")).toHaveText("Spending");
+});
+
+test("the collapse control sits in the sidebar header, with no top bar on desktop", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	const toggle = sidebar(page).getByRole("button", { name: "Toggle sidebar (Ctrl+B)" });
+	await toggle.click();
+	await expect.poll(() => railWidth(page)).toBeCloseTo(56, 0);
+	// on the rail the logo turns into the expand button on hover
+	await sidebar(page).locator('[data-sidebar="header"]').hover();
+	await toggle.click();
+	await expect.poll(() => railWidth(page)).toBeGreaterThan(200);
+	await expect(page.locator("#main > header")).toBeHidden();
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
 });
 
 test("collapsed state survives reload without a jump", async ({ page }) => {

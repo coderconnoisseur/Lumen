@@ -262,8 +262,10 @@ embeds the demo documents once per server and uploads the files in the backgroun
   in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
   client-side because the auth guard shows a loader on the server, so there's no jump and no server read. Shortcuts
   skip key presses in text fields (`isTypingTarget` in `lib/utils.ts`). **Account** (Settings, API keys, Log out) is the
-  top-right `components/avatar-menu.tsx`.
-  `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
+  top-right `components/avatar-menu.tsx`, floating over the page (there is no top bar on desktop; phones keep a slim
+  row with the sheet button). The collapse button lives in the sidebar header; on the 56px rail the logo turns into it
+  on hover. Every sidebar group is labelled (Overview, Track, Records, Assistant).
+  `app/(app)/layout.tsx` holds the auth guard and sidebar; they mount once and stay while you move between
   pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
   `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
 - There is no root `loading.tsx`: the pages are static and prefetched, and a full-screen spinner made every click
@@ -273,7 +275,7 @@ embeds the demo documents once per server and uploads the files in the backgroun
   swaps every shadcn colour token to the light Sky palette, so portaled menus and dialogs match too. The
   `dark:` variant is also switched off while the shell is mounted. Public pages keep the forced dark theme.
   Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
-  `.label-mono` (IBM Plex Mono labels).
+  `.label-ui` (card titles, tags, ticks: Funnel Sans, sentence case; the owner ruled out all-caps mono labels).
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in

@@ -17,7 +17,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarRail,
-	SidebarSeparator,
+	SidebarTrigger,
 	useSidebar,
 } from "@/components/ui/sidebar";
 import { AskPalette } from "@/components/ask-palette";
@@ -27,8 +27,8 @@ import { isTypingTarget } from "@/lib/utils";
 
 type Item = { label: string; url: string; icon: LucideIcon };
 
-// Spec section 3. Group labels say what you do, not what the backend is. Budget and Forecast (PLAN) join once
-// their pages exist.
+// Spec section 3. Every group is labelled (owner, 2026-10-22); labels say what you do, not what the backend is.
+// Budget and Forecast (Plan) join once their pages exist.
 const HOME: Item = { label: "Home", url: "/home", icon: House };
 const TRACK: Item[] = [
 	{ label: "Spending", url: "/spending", icon: ChartLine },
@@ -83,34 +83,52 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
 	return (
 		<Sidebar collapsible="icon" {...props} className="border-r border-sidebar-border/80">
-			<SidebarHeader className="px-3 py-4">
-				<Link href="/home" className="flex items-center gap-2.5 px-1">
-					<Image src="/lumen_logo.svg" alt="" width={24} height={24} className="size-6 shrink-0" />
-					<span className="text-[17px] font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-						Lumen
-					</span>
-				</Link>
+			{/* the collapse control lives here, not in a top bar (owner, 2026-10-22). On the icon rail the logo turns into
+			    the expand button on hover, so the rail stays 56px wide. */}
+			<SidebarHeader className="group/head px-3 py-4">
+				<div className="flex items-center gap-2.5 px-1">
+					<Link
+						href="/home"
+						aria-label="Lumen home"
+						className="flex items-center gap-2.5 group-data-[collapsible=icon]:group-hover/head:hidden"
+					>
+						<Image src="/lumen_logo.svg" alt="" width={24} height={24} className="size-6 shrink-0" />
+						<span className="text-[17px] font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+							Lumen
+						</span>
+					</Link>
+					<SidebarTrigger
+						aria-label="Toggle sidebar (Ctrl+B)"
+						className="ml-auto hidden text-muted-foreground hover:text-foreground md:inline-flex group-data-[collapsible=icon]:-ml-0.5 group-data-[collapsible=icon]:hidden group-data-[collapsible=icon]:group-hover/head:inline-flex"
+					/>
+				</div>
 			</SidebarHeader>
 			<SidebarContent className="px-1">
 				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Overview</SidebarGroupLabel>
 					<SidebarMenu>
 						<NavItem item={HOME} />
 					</SidebarMenu>
 				</SidebarGroup>
 				<SidebarGroup>
-					<SidebarGroupLabel className="label-mono">Track</SidebarGroupLabel>
+					<SidebarGroupLabel className="label-ui">Track</SidebarGroupLabel>
 					<SidebarMenu>
 						{TRACK.map((item) => (
 							<NavItem key={item.url} item={item} />
 						))}
 					</SidebarMenu>
 				</SidebarGroup>
-				<SidebarSeparator className="mx-3 data-[orientation=horizontal]:w-auto" />
 				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Records</SidebarGroupLabel>
 					<SidebarMenu>
 						<NavItem item={RECEIPTS}>
 							{toReview > 0 && <SidebarMenuBadge>{toReview}</SidebarMenuBadge>}
 						</NavItem>
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Assistant</SidebarGroupLabel>
+					<SidebarMenu>
 						<NavItem item={ASK} />
 					</SidebarMenu>
 				</SidebarGroup>
@@ -126,7 +144,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 								<span>Ask anything</span>
 							</SidebarMenuButton>
 							{/* fixed width: the label swaps to ⌘K on a Mac after mount without moving anything */}
-							<kbd className="label-mono pointer-events-none absolute top-1.5 right-1.5 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
+							<kbd className="label-ui pointer-events-none absolute top-1.5 right-1.5 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
 								{mac ? "⌘K" : "Ctrl K"}
 							</kbd>
 						</SidebarMenuItem>

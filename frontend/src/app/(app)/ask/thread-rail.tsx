@@ -35,7 +35,7 @@ export function ThreadRail({
 			>
 				<Plus className="size-4" /> New chat
 			</button>
-			<div className="label-mono px-1 pt-2 text-muted-foreground">Recent</div>
+			<div className="label-ui px-1 pt-2 text-muted-foreground">Recent</div>
 			<ul className="min-h-0 flex-1 overflow-y-auto">
 				{threads.length === 0 && <li className="px-2 py-1.5 text-[13px] text-muted-foreground">No past chats yet.</li>}
 				{threads.map((t) => (

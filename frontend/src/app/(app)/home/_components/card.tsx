@@ -25,7 +25,7 @@ export function HomeCard({
 }) {
 	return (
 		<section {...rest} className={cn("rounded-[14px] border border-border bg-card px-4 py-3.5", className)}>
-			<div className="label-mono mb-2.5 flex items-center text-muted-foreground">
+			<div className="label-ui mb-2.5 flex items-center text-muted-foreground">
 				{href ? (
 					<Link href={href} className="hover:text-foreground">
 						{title} ›

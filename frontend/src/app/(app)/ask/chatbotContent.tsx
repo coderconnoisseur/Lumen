@@ -183,7 +183,7 @@ export default function ChatbotContent() {
 
 	return (
 		<DashboardShell contentClassName="p-0 sm:p-0 lg:p-0 gap-0">
-			<div className="bui flex h-[calc(100dvh-3.5rem)]">
+			<div className="bui flex h-[calc(100dvh-3.5rem)] md:h-dvh">
 				<aside className="hidden w-[248px] shrink-0 border-r border-line lg:block">
 					<ThreadRail {...railProps} />
 				</aside>
@@ -194,7 +194,7 @@ export default function ChatbotContent() {
 					</SheetContent>
 				</Sheet>
 				<div className="relative flex min-w-0 flex-1 flex-col" data-testid="ask-column">
-				<div className="absolute top-3 right-4 z-10 flex gap-1.5 lg:hidden">
+				<div className="absolute top-3 right-4 z-10 flex gap-1.5 md:right-16 lg:hidden">
 					<Button variant="quiet" size="xs" onClick={() => setHistoryOpen(true)}>
 						<History className="size-3.5" /> History
 					</Button>

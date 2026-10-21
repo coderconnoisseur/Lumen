@@ -111,7 +111,7 @@ export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
 				type="button"
 				onClick={() => void draft()}
 				disabled={busy}
-				className="label-mono mt-2.5 rounded-full bg-foreground px-3.5 py-1.5 text-background transition-opacity disabled:opacity-60"
+				className="label-ui mt-2.5 rounded-full bg-foreground px-3.5 py-1.5 text-background transition-opacity disabled:opacity-60"
 			>
 				Draft budget
 			</button>

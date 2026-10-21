@@ -26,7 +26,7 @@ export function ReceiptsTabs() {
 						href={`?tab=${t.id}`}
 						aria-current={t.id === active.id ? "page" : undefined}
 						className={cn(
-							"label-mono border-b-2 pb-2 transition-colors",
+							"label-ui border-b-2 pb-2 transition-colors",
 							t.id === active.id
 								? "border-primary text-foreground"
 								: "border-transparent text-muted-foreground hover:text-foreground",

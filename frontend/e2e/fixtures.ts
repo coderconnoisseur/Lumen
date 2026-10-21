@@ -27,6 +27,8 @@ export type ChatFixture = {
 	threads?: { id: string; title: string; updated_at: string; message_count: number; messages?: { role: string; content: string }[] }[];
 	/** the answer text POST /chat returns (default "Answer to: <query>") */
 	answer?: string;
+	/** the "Next:" suggestion POST /chat returns (default none) */
+	followUp?: string;
 	suggestions?: string[];
 };
 
@@ -139,7 +141,7 @@ export async function signIn(
 			const response = opts.chat?.answer ?? `Answer to: ${body.query}`;
 			t.messages.push({ role: "user", content: body.query }, { role: "assistant", content: response });
 			return route.fulfill({
-				json: { success: true, data: { response, follow_up: null, sources: [], steps: [], proposals: [], stopped: "answer", thread_id: t.id } },
+				json: { success: true, data: { response, follow_up: opts.chat?.followUp ?? null, sources: [], steps: [], proposals: [], stopped: "answer", thread_id: t.id } },
 			});
 		}
 		if (path === "/api/profile")
