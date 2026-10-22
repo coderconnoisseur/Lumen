@@ -83,23 +83,23 @@ export default function HomeContent() {
 						</>
 					}
 				/>
-				<div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_330px]">
+				<SpendCard
+					range={range}
+					onRange={setRange}
+					onUpload={() => setUploadOpen(true)}
+					period={chart.current}
+					previous={chart.previous}
+					cur={cumulative(data.txns, chart.current)}
+					prev={cumulative(data.prevTxns, chart.previous)}
+					forecast={data.forecast}
+					reminders={data.reminders}
+					today={today}
+					loading={data.status === "loading"}
+				/>
+				<div className="mt-3.5 grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-main">
-						<SpendCard
-							range={range}
-							onRange={setRange}
-							onUpload={() => setUploadOpen(true)}
-							period={chart.current}
-							previous={chart.previous}
-							cur={cumulative(data.txns, chart.current)}
-							prev={cumulative(data.prevTxns, chart.previous)}
-							forecast={data.forecast}
-							reminders={data.reminders}
-							today={today}
-							loading={data.status === "loading"}
-						/>
-						<LumenFound summary={data.summary} loading={data.status === "loading"} />
 						<CalendarCard txns={data.monthTxns} reminders={data.reminders} period={month.current} today={today} loading={data.status === "loading"} />
+						<LumenFound summary={data.summary} loading={data.status === "loading"} />
 					</div>
 					<div className="flex min-w-0 flex-col gap-3.5" data-testid="home-side">
 						<BudgetCard budget={data.budget} monthName={monthName(today)} today={today} loading={data.status === "loading"} />

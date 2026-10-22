@@ -12,7 +12,8 @@ const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "nume
 const monthLong = (d: Date) => d.toLocaleString("en-US", { month: "long" });
 
 // This month day by day (spec 2026-10-22 §4.1): what each day cost, darker = more, today outlined, and the bills
-// still to come named on their days; the latest transactions beside it.
+// still to come named on their days; the latest transactions beside it. The card is always as tall as a six-week
+// month, so it never changes height between loading and loaded, or from one month to the next.
 export function CalendarCard({
 	txns,
 	reminders,
@@ -42,7 +43,7 @@ export function CalendarCard({
 	}
 
 	return (
-		<PageCard title={`${monthLong(period.start)}, day by day`} href="/spending" loading={loading} skeletonHeight={330} data-testid="calendar-card">
+		<PageCard title={`${monthLong(period.start)}, day by day`} href="/spending" loading={loading} skeletonHeight={386} data-testid="calendar-card">
 			<div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
 				<div className="min-w-0">
 					<div className="mb-3 text-[26px] leading-tight font-medium tracking-tight tabular-nums">

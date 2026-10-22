@@ -170,7 +170,7 @@ export function SpendCard({
 				</button>
 			}
 			loading={loading}
-			skeletonHeight={318}
+			skeletonHeight={348}
 			className="relative"
 			data-testid="spend-card"
 		>
@@ -196,7 +196,7 @@ export function SpendCard({
 			</div>
 
 			{empty ? (
-				<div className="mt-2 flex h-[224px] items-center justify-center text-center">
+				<div className="mt-2 flex h-[236px] items-center justify-center text-center">
 					<p className="max-w-sm font-serif text-[17px] text-muted-foreground">
 						Nothing spent yet this {range === "1W" ? "week" : range === "1M" ? "month" : range === "3M" ? "quarter" : "year"}.
 						Upload a receipt or import a statement and your spending will show up here.

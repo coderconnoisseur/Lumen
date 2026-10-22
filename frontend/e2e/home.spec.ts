@@ -168,12 +168,18 @@ test("long names truncate", async ({ page }) => {
 	expect(Math.abs(a!.height - b!.height)).toBeLessThanOrEqual(1);
 });
 
-test("bills card lists next three", async ({ page }) => {
+test("coming up lists the next four bills", async ({ page }) => {
 	const r = (id: string, vendor: string, n: number) => ({ id, vendor, amount: 100, date: inDays(n), type: "upcoming" });
-	await openHome(page, { ...typical, reminders: [r("4", "Rent", 9), r("1", "Netflix", 1), r("3", "Gym", 6), r("2", "Spotify", 3)] });
+	await openHome(page, {
+		...typical,
+		reminders: [r("4", "Rent", 9), r("1", "Netflix", 1), r("3", "Gym", 6), r("2", "Spotify", 3), r("5", "Jio", 12), r("6", "LIC", 20)],
+	});
 	const rows = page.getByTestId("bill-row");
-	await expect(rows).toHaveCount(3);
+	await expect(rows).toHaveCount(4);
 	await expect(rows.first()).toContainText("Netflix");
+	const d = new Date(Y, M, now.getDate() + 1);
+	await expect(rows.first().getByTestId("date-chip")).toHaveText(`${d.toLocaleString("en-GB", { weekday: "short" })}${d.getDate()}`);
+	await expect(page.getByRole("link", { name: /^Coming up/ })).toHaveAttribute("href", "/bills");
 });
 
 test("budget card is honest with no budget", async ({ page }) => {
@@ -198,7 +204,7 @@ test("side column order", async ({ page }) => {
 	const titles = await side.locator(":scope > section").evaluateAll((els) =>
 		els.map((e) => (e.querySelector("h2, h3, a")?.textContent ?? "").replace(" ›", "").trim().toLowerCase()),
 	);
-	expect(titles.map((t) => t.split(" · ")[0])).toEqual(["budget", "upcoming bills", "let lumen draft your budget", "activity"]);
+	expect(titles).toEqual([`budget in ${monthLong.toLowerCase()}`, "coming up", "let lumen draft your budget", "activity"]);
 });
 
 test("sky band is drawn behind the greeting", async ({ page }) => {
@@ -261,6 +267,7 @@ test("budget card shows progress against the monthly budget", async ({ page }) =
 	await openHome(page, { ...typical, budget: { monthly_budget: 28000, spent: 18412, categories: [{ category: "Food", limit: 8000, spent: 7480 }] } });
 	const card = page.getByTestId("budget-card");
 	await expect(card).toContainText("₹18,412 of ₹28,000");
+	await expect(card).toContainText("66%");
 	await expect(card).toContainText("₹9,588 left");
 	await expect(card).toContainText("Food");
 	await expect(page.getByText("Let Lumen draft your budget")).toHaveCount(0); // has category budgets already
@@ -404,4 +411,30 @@ test("lumen found rows do things", async ({ page }) => {
 	const ask = rows.nth(1).getByRole("link", { name: "Ask Lumen" });
 	await expect(ask).toHaveAttribute("href", /^\/ask\?draft=/);
 	expect(decodeURIComponent((await ask.getAttribute("href"))!.split("draft=")[1])).toBe("Tell me more about this: Food is up 35%");
+});
+
+test("budget card shows the top four categories by spend", async ({ page }) => {
+	const c = (category: string, limit: number, spent: number) => ({ category, limit, spent });
+	await openHome(page, {
+		...typical,
+		budget: { monthly_budget: 100000, spent: 62182, categories: [c("Travel", 5000, 2140), c("Rent", 25000, 25000), c("Shopping", 8000, 16840), c("Groceries", 12000, 8120), c("Food", 6000, 5930), c("Health", 3000, 640)] },
+	});
+	const rows = page.getByTestId("budget-cat");
+	await expect(rows).toHaveCount(4);
+	expect(await rows.evaluateAll((els) => els.map((e) => e.getAttribute("data-category")))).toEqual(["Rent", "Shopping", "Groceries", "Food"]);
+	await expect(rows.nth(1)).toHaveAttribute("data-over", "true");
+	await expect(rows.nth(0)).not.toHaveAttribute("data-over", "true");
+});
+
+test("an empty account keeps every card at its loading height", async ({ page }) => {
+	await openHome(page, { txns: [], delayMs: 1500 });
+	const cards = page.locator('[data-testid="home-main"] > section, [data-testid="home-side"] > section, [data-testid="spend-card"]');
+	await expect(cards.first()).toBeVisible();
+	const loading = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+	await expect(page.getByTestId("brief")).toBeVisible({ timeout: 15_000 });
+	await page.waitForTimeout(300);
+	const ready = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+	expect(ready.length).toBe(loading.length);
+	ready.forEach((h, i) => expect(Math.abs(h - loading[i]), `card ${i}`).toBeLessThanOrEqual(1));
+	await expect(page.locator("main")).not.toContainText(/NaN|of ₹0/);
 });
