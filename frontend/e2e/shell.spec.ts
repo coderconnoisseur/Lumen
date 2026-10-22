@@ -262,3 +262,16 @@ test("sidebar never scrolls sideways", async ({ page }) => {
 	await expect(content).toBeVisible();
 	expect(await content.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
 });
+
+test("spending and bills show no cards that can never load", async ({ page }) => {
+	await signIn(page, {
+		home: { reminders: [{ id: "n", vendor: "Netflix", amount: 649, date: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10), type: "upcoming" }] },
+	});
+	await page.goto("/spending");
+	await expect(page.getByText("Spending Comparison")).toBeVisible();
+	for (const dead of ["Could not load payment calendar.", "Could not load reminders.", "Spending Trends"])
+		await expect(page.getByText(dead, { exact: true })).toHaveCount(0);
+	await page.goto("/bills");
+	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
+	await expect(page.getByText(/Could not load/)).toHaveCount(0);
+});
