@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -34,6 +35,7 @@ def _migrate_transaction_unique_index(app: Flask) -> None:
 
 # Columns added after their table first shipped (create_all doesn't alter existing tables). All nullable.
 _ADDED_COLUMNS = {
+    "budgets": [("effective_from", "VARCHAR(7)")],  # UI revamp Phase 5d: budgets per month
     "chat_messages": [("thread_id", "VARCHAR(36)")],  # UI revamp Phase 4: chat threads
     "review_items": [("extracted", "TEXT")],  # SPEC-FEEDBACK
     "transactions": [("currency", "VARCHAR(3)"), ("po_number", "VARCHAR"), ("file_key", "VARCHAR"),
@@ -56,6 +58,35 @@ def _add_missing_columns() -> None:
                     logger.info("Added %s.%s", table, name)
         except Exception as e:
             logger.warning("Column migration for %s skipped: %s", table, e)
+
+
+def _migrate_budget_versions(engine) -> None:
+    """Phase 5d: budgets went from one row per (user, category) to one per month. Dates older rows by their last
+    update and swaps the unique constraint. SQLite can't drop a table constraint, so there the table is rebuilt.
+    Idempotent."""
+    insp = inspect(engine)
+    if "budgets" not in insp.get_table_names():
+        return
+    old = any(set(u["column_names"]) == {"user_id", "category"} for u in insp.get_unique_constraints("budgets"))
+    with engine.begin() as conn:
+        if old and engine.dialect.name == "sqlite":
+            conn.execute(text("ALTER TABLE budgets RENAME TO budgets_pre_5d"))
+            conn.execute(text("CREATE TABLE budgets (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) NOT NULL, "
+                              "category VARCHAR NOT NULL, monthly_limit FLOAT NOT NULL, effective_from VARCHAR(7), "
+                              "updated_at DATETIME)"))
+            have = {c["name"] for c in insp.get_columns("budgets_pre_5d")}
+            eff = "effective_from" if "effective_from" in have else "NULL"
+            conn.execute(text(f"INSERT INTO budgets (id, user_id, category, monthly_limit, effective_from, updated_at) "
+                              f"SELECT id, user_id, category, monthly_limit, {eff}, updated_at FROM budgets_pre_5d"))
+            conn.execute(text("DROP TABLE budgets_pre_5d"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_budgets_user_id ON budgets (user_id)"))
+        elif old:
+            conn.execute(text("ALTER TABLE budgets DROP CONSTRAINT IF EXISTS u_budget_user_category"))
+        for row_id, updated in conn.execute(text("SELECT id, updated_at FROM budgets WHERE effective_from IS NULL")).all():
+            conn.execute(text("UPDATE budgets SET effective_from = :m WHERE id = :i"),
+                         {"m": str(updated or datetime.utcnow())[:7], "i": row_id})
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS u_budget_user_category_month "
+                          "ON budgets (user_id, category, effective_from)"))
 
 
 RAG_TABLES = {"documents", "document_chunks"}
@@ -90,6 +121,10 @@ def init_db(app: Flask):
             db.metadata.create_all(db.engine, tables=tables)
             _migrate_transaction_unique_index(app)
             _add_missing_columns()
+            try:
+                _migrate_budget_versions(db.engine)
+            except Exception as e:
+                logger.warning("Budget versions migration skipped: %s", e)
             logger.info("Database connected and tables initialized")
     except Exception as e:
         logger.warning("Could not connect to database: %s", e)

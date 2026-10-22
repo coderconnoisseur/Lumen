@@ -195,3 +195,68 @@ def test_decide_claims_with_a_conditional_update(setup):
     claim = next(i for i, s in enumerate(statements) if s.startswith("update proposals") and "status = ?" in s.split("where", 1)[1])
     writes = [i for i, s in enumerate(statements) if s.startswith("insert into budgets") or s.startswith("insert into audit_events")]
     assert writes and claim < min(writes)
+
+
+def ym(n):
+    return months_back(n)[:7]
+
+
+def put_row(engine, user, category, limit, month):
+    from models import Budget
+
+    with Session(engine) as s, s.begin():
+        s.add(Budget(user_id=user, category=category, monthly_limit=limit, effective_from=month))
+
+
+def test_editing_this_month_keeps_last_months_limits(setup):
+    c, engine = setup
+    put_row(engine, A, "Food", 3000, ym(1))
+    seed(engine, A, [(months_back(1), 2500, "Food")])
+    c.put("/api/budget", headers=bearer(A), json={"categories": [{"category": "Food", "limit": 5000}]})
+    last = c.get(f"/api/budget?month={ym(1)}", headers=bearer(A)).json()
+    assert last["month"] == ym(1) and last["spent"] == 2500
+    assert last["categories"] == [{"category": "Food", "limit": 3000, "spent": 2500}]
+    assert c.get("/api/budget", headers=bearer(A)).json()["categories"][0]["limit"] == 5000
+
+
+def test_removing_a_category_only_applies_from_this_month(setup):
+    c, engine = setup
+    put_row(engine, A, "Food", 3000, ym(1))
+    body = c.put("/api/budget", headers=bearer(A), json={"categories": [{"category": "food", "limit": None}]}).json()
+    assert body["categories"] == []
+    assert c.get(f"/api/budget?month={ym(1)}", headers=bearer(A)).json()["categories"][0]["limit"] == 3000
+
+
+def test_a_bad_month_is_rejected(setup):
+    c, _ = setup
+    for bad in ("2026-13", "26-01", "2026-1", "x"):
+        assert c.get(f"/api/budget?month={bad}", headers=bearer(A)).status_code == 422
+    assert c.get("/api/budget/history?months=0", headers=bearer(A)).status_code == 422
+
+
+def test_history_compares_each_month_with_the_limits_then(setup):
+    c, engine = setup
+    put_row(engine, A, "Food", 3000, ym(2))
+    put_row(engine, A, "Food", 4000, ym(1))
+    seed(engine, A, [(months_back(3), 900, "Food"), (months_back(2), 3500, "Food"), (months_back(1), 1000, "Food")])
+    months = c.get("/api/budget/history?months=4", headers=bearer(A)).json()["months"]
+    assert months == [
+        {"month": ym(3), "budget": None, "spent": 900},  # before any budget: spend only
+        {"month": ym(2), "budget": 3000, "spent": 3500},
+        {"month": ym(1), "budget": 4000, "spent": 1000},
+        {"month": ym(0), "budget": 4000, "spent": 0},
+    ]
+    c.put("/api/budget", headers=bearer(A), json={"monthly_budget": 50000})
+    assert c.get("/api/budget/history?months=1", headers=bearer(A)).json()["months"][0]["budget"] == 50000
+
+
+def test_approving_a_draft_writes_it_from_the_drafts_month(setup):
+    from models import Budget
+
+    c, engine = setup
+    history(engine, A)
+    food = next(p for p in c.post("/api/budget/draft", headers=bearer(A)).json()["proposals"] if p["target"] == "Food")
+    assert food["payload"]["month"] == ym(0)
+    c.post(f"/api/agent/proposals/{food['id']}/approve", headers=bearer(A))
+    with Session(engine) as s:
+        assert [(b.category, b.effective_from) for b in s.scalars(select(Budget))] == [("Food", ym(0))]

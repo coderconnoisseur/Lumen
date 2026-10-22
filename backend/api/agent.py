@@ -158,16 +158,18 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         p.status, p.decided_at = decision, now
         applied = None
         if decision == "approved" and p.type == "set_budget":
-            from api.budget import upsert_budget
+            from api.budget import this_month, upsert_budget, valid_month
 
             # the agent can file set_budget with any payload: only a real positive limit is ever applied
             try:
-                limit = float(json.loads(p.payload or "{}")["limit"])
+                payload = json.loads(p.payload or "{}")
+                limit = float(payload["limit"])
             except (KeyError, TypeError, ValueError):
-                limit = math.nan
+                payload, limit = {}, math.nan
             if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
                 raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
-            upsert_budget(session, user_id, p.target.strip(), limit)
+            # from the month the draft was for (a draft made last month still starts there), else this month
+            upsert_budget(session, user_id, p.target.strip(), limit, valid_month(payload.get("month")) or this_month())
             applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")
