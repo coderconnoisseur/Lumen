@@ -245,5 +245,7 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [ ] **Later.** Budget page: "Safe per day" is left ÷ days left; subtract bills still due this month (the Bills data) once both are on the page. *(5d)*
 - [ ] **Later.** The overall monthly budget (`User.monthly_budget`) isn't versioned like category limits, so history uses today's total for past budgeted months. Version it if people change it often. *(5d)*
 - [ ] **Later.** Draft lines could show a small month-by-month glyph once `basis` carries per-month amounts. *(5d)*
+- [ ] **Later.** Receipts: tell receipts from invoices in the data so the library can have both chips; "Compare" on a duplicate needs the review item to carry the record it duplicates. *(5e)*
+- [ ] **Later.** Receipts library lists the latest 100 receipts; page through `/transactions` if people need older ones there. *(5e)*
 - [ ] **Later.** Spending: the category edit (pencil) is hidden below `sm`, so phones can't recategorise; and "Lumen noticed" wraps beside its pill at 375px. *(5b)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*
