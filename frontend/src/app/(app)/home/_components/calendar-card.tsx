@@ -6,8 +6,9 @@ import { calendarBuckets, dayIndex, heat, parseDay, type Period, type Txn } from
 import { cn } from "@/lib/utils";
 import type { Reminder } from "../use-home-data";
 
-// "₹2.2k" in the user's own currency: take the symbol from how useMoney prints zero
-const kShort = (n: number, symbol: string) => (n >= 1000 ? `${symbol}${(n / 1000).toFixed(1)}k` : `${symbol}${Math.round(n)}`);
+// "2.2k"; the user's currency symbol (from how useMoney prints zero) goes in front, except on phones, where a cell
+// is too narrow for "₹25.6k" and the card's total already says the currency
+const kShort = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${Math.round(n)}`);
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
 const monthLong = (d: Date) => d.toLocaleString("en-US", { month: "long" });
 
@@ -72,14 +73,19 @@ export function CalendarCard({
 									data-today={i === t || undefined}
 									data-future={future || undefined}
 									className={cn(
-										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 text-[10.5px] leading-tight text-muted-foreground",
+										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 max-sm:px-1 text-[10.5px] leading-tight text-muted-foreground",
 										future ? "border-dashed border-border" : "border-border/60",
 										i === t && "outline-[1.5px] outline-primary outline-solid -outline-offset-1",
 									)}
 									style={h ? { background: `color-mix(in srgb, var(--primary) ${Math.round(h * 100)}%, transparent)`, color: h > 0.5 ? "#fff" : undefined } : undefined}
 								>
 									{day}
-									{amount > 0 && <b className="truncate font-medium text-inherit">{kShort(amount, symbol)}</b>}
+									{amount > 0 && (
+										<b className="truncate font-medium text-inherit">
+											<span className="max-sm:hidden">{symbol}</span>
+											{kShort(amount)}
+										</b>
+									)}
 									{future && bill && <b className="truncate font-medium text-foreground/70">{bill}</b>}
 								</div>
 							);

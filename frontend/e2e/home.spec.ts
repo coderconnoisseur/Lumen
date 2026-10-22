@@ -438,3 +438,11 @@ test("an empty account keeps every card at its loading height", async ({ page })
 	ready.forEach((h, i) => expect(Math.abs(h - loading[i]), `card ${i}`).toBeLessThanOrEqual(1));
 	await expect(page.locator("main")).not.toContainText(/NaN|of ₹0/);
 });
+
+test("calendar amounts stay readable at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openHome(page, { ...typical, txns: [tx("big", "Rent", thisMonth(1), 25640), tx("b", "Rent", lastMonth(1), 20280)] });
+	const amount = page.getByTestId("cal-day-1").locator("b");
+	await expect(amount).toBeVisible();
+	expect(await amount.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+});
