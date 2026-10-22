@@ -314,6 +314,21 @@ class Budget(db.Model):
 
     __table_args__ = (db.UniqueConstraint("user_id", "category", name="u_budget_user_category"),)
 
+class RecurringState(db.Model):
+    """What the user said about a recurring charge on the Bills page (UI revamp Phase 5c): "cancelled" keeps it listed
+    (and flags a charge after the cancel), "not_a_bill" hides it. Keyed by ai.recurring._norm(vendor), the same key
+    the detection groups charges by. No row = active."""
+
+    __tablename__ = "recurring_states"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    vendor_key = db.Column(db.String, nullable=False)
+    state = db.Column(db.String(20), nullable=False)  # cancelled | not_a_bill
+    changed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "vendor_key", name="u_recurring_state_user_vendor"),)
+
 
 class AuditEvent(db.Model):
     """Append-only log of proposals and decisions (who, what, when)."""
