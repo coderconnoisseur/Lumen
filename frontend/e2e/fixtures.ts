@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 // - the `lumen_session` cookie gets past middleware.
 // - every backend call (NEXT_PUBLIC_BACKEND_URL in playwright.config.ts) is stubbed.
 export type HomeFixture = {
-	txns?: { id: string; vendor_name: string; date: string; total_amount: number; category: string | null; created_at: string | null }[];
+	txns?: { id: string; vendor_name: string; date: string; total_amount: number; category: string | null; created_at: string | null; source?: string | null; invoice_number?: string | null }[];
 	reminders?: { id: string; vendor: string; amount: number; date: string; type: string; category?: string }[];
 	/** GET /api/bills/recurring items as the API sends them; default: built from `reminders` (monthly, active) */
 	recurring?: Record<string, unknown>[];
@@ -28,6 +28,14 @@ export type HomeFixture = {
 	currency?: string;
 	/** proposal ids whose approve returns 409 (a newer draft replaced them) */
 	replaced?: string[];
+	/** the flagged review queue as GET /api/review sends it; default: `reviewCount` plain items */
+	review?: Record<string, unknown>[];
+	/** GET /api/documents; default [] (DELETE removes, POST adds) */
+	documents?: Record<string, unknown>[];
+	/** GET /api/statements/imports; default [] */
+	imports?: Record<string, unknown>[];
+	/** GET /api/v1/email-config/status; default not configured */
+	email?: Record<string, unknown>;
 };
 
 export type ChatFixture = {
@@ -68,20 +76,37 @@ export async function signIn(
 		);
 	});
 	// a tiny stateful review queue: approving/rejecting removes the item, so the sidebar badge can be checked
-	let queue = Array.from({ length: opts.reviewCount ?? 0 }, (_, i) => ({
+	const generated = Array.from({ length: opts.reviewCount ?? 0 }, (_, i) => ({
 		id: `r${i}`,
 		status: "flagged",
 		confidence: "low",
-		invoice: { vendor_name: `Vendor ${i}` },
-		flags: [],
+		invoice: { vendor_name: `Vendor ${i}` } as Record<string, unknown>,
+		flags: [] as unknown[],
 		transaction_id: null,
 		note: null,
-		created_at: null,
+		created_at: null as string | null,
 	}));
+	let queue = (home.review as typeof generated | undefined) ?? generated;
+	const documents = [...(home.documents ?? [])];
 	await page.route("http://127.0.0.1:9/**", async (route) => {
 		const url = new URL(route.request().url());
 		const path = url.pathname;
 		if (home.delayMs) await new Promise((r) => setTimeout(r, home.delayMs));
+		const method = route.request().method();
+		if (path === "/api/documents" && method === "GET") return route.fulfill({ json: { success: true, documents } });
+		if (path === "/api/documents" && method === "POST") {
+			const doc = { id: `d${documents.length + 1}`, title: "New document", doc_type: "other", filename: "new.pdf", chunk_count: 3, created_at: new Date().toISOString() };
+			documents.unshift(doc);
+			return route.fulfill({ json: { success: true, document: doc } });
+		}
+		const doc = path.match(/^\/api\/documents\/([^/]+)$/);
+		if (doc && method === "DELETE") {
+			documents.splice(documents.findIndex((d) => d.id === doc[1]), 1);
+			return route.fulfill({ json: { success: true } });
+		}
+		if (path === "/api/statements/imports") return route.fulfill({ json: { success: true, imports: home.imports ?? [] } });
+		if (path === "/api/v1/email-config/status") return route.fulfill({ json: home.email ?? { configured: false } });
+		if (path.startsWith("/api/v1/email-config/")) return route.fulfill({ json: { success: true } });
 		// recurring charges (api/bills.py): the fixture's items, or simple monthly ones built from `reminders`; state
 		// changes are kept, like the real table
 		if (path === "/api/bills/recurring" || path === "/api/bills/recurring/state") {
@@ -131,7 +156,7 @@ export async function signIn(
 		if (path === "/api/home/summary") {
 			const review = queue.length
 				? [{ kind: "review", tag: "RECEIPTS", headline: `${queue.length} ${queue.length === 1 ? "receipt needs" : "receipts need"} a glance`,
-					detail: "Lumen wasn't sure about these. Nothing is saved until you approve.", amounts: [], worth: null, href: "/receipts?tab=review" }]
+					detail: "Lumen wasn't sure about these. Nothing is saved until you approve.", amounts: [], worth: null, href: "/receipts" }]
 				: [];
 			const s = home.summary ?? { found: review };
 			return route.fulfill({ json: { success: true, more: 0, worth_total: 0, activity: [], ...s } });

@@ -32,8 +32,8 @@ const nextConfig = {
 			["/ai-analytics", "/spending"],
 			["/chatbot", "/ask"],
 			["/documents", "/receipts"],
-			["/import", "/receipts?tab=import"],
-			["/review", "/receipts?tab=review"],
+			["/import", "/receipts/import"],
+			["/review", "/receipts"],
 			["/upload", "/home?upload=1"],
 		].map(([source, destination]) => ({ source, destination, permanent: false }));
 		return [{ source: "/signin", destination: "/login", permanent: true }, ...moved];

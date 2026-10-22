@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { DialogTitle } from "@radix-ui/react-dialog";
-import { ocrApi } from "@/lib/api/client";
+import Link from "next/link";
+import { documentsApi, ocrApi } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import { eventBus, EVENTS } from "@/lib/events";
 
 import { logger } from "@/lib/logger";
@@ -17,7 +19,17 @@ interface FileWithStatus {
 	extractedData?: any;
 }
 
+const DOC_TYPES = [
+	{ value: "contract", label: "Contract" },
+	{ value: "policy", label: "Policy" },
+	{ value: "purchase_order", label: "Purchase order" },
+	{ value: "invoice", label: "Invoice" },
+	{ value: "other", label: "Other" },
+];
+
 // Pass `open`/`onOpenChange` to open it from elsewhere too (Home's hero +); otherwise it manages itself.
+// Receipts & invoices are read into transactions (/extract); Documents (PDF contracts, policies…) are indexed for
+// Ask Lumen's document search (/api/documents). Statements have their own import.
 export function DialogDemo({
 	defaultOpen = false,
 	open: openProp,
@@ -29,6 +41,8 @@ export function DialogDemo({
 }) {
 	const [files, setFiles] = useState<FileWithStatus[]>([]);
 	const [uploading, setUploading] = useState(false);
+	const [kind, setKind] = useState<"receipts" | "documents">("receipts");
+	const [docType, setDocType] = useState("contract");
 	const [ownOpen, setOwnOpen] = useState(defaultOpen);
 	const open = openProp ?? ownOpen;
 	const setOpen = (next: boolean) => {
@@ -87,7 +101,10 @@ export function DialogDemo({
 			try {
 				logger.debug("📤 Uploading file:", fileItem.file.name);
 				// Use OCR API to extract data - this saves to database automatically
-				const result = await ocrApi.extractInvoice(fileItem.file);
+				const result =
+					kind === "documents"
+						? { success: true, data: await documentsApi.upload(fileItem.file, docType), duplicate: false }
+						: await ocrApi.extractInvoice(fileItem.file);
 
 				logger.debug("📥 OCR API Response:", result);
 
@@ -185,7 +202,7 @@ export function DialogDemo({
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="max-w-3xl bg-card border-border">
-				<DialogTitle className="sr-only">Upload documents</DialogTitle>
+				<DialogTitle className="sr-only">Upload</DialogTitle>
 				<div className="flex items-start justify-between gap-4">
 					<div className="flex items-center gap-3">
 						<div className="p-2 rounded-xl bg-muted">
@@ -193,27 +210,63 @@ export function DialogDemo({
 						</div>
 						<div>
 							<h3 className="text-foreground text-2xl font-semibold">
-								Upload documents
+								Upload
 							</h3>
 							<p className="text-sm text-muted-foreground mt-1">
-								Drag & drop files here or click to browse.
-								Supported: PDF, PNG, JPG
+								{kind === "receipts"
+									? "Lumen reads each one into a transaction. PDF, PNG or JPG."
+									: "Contracts, policies and other PDFs, searchable from Ask Lumen."}
 							</p>
 						</div>
 					</div>
 
 				</div>
 
+				<div className="mt-5 flex flex-wrap items-center gap-3">
+					<div role="radiogroup" aria-label="What are you uploading?" className="flex gap-0.5 rounded-[9px] border border-border/60 bg-muted/40 p-0.5">
+						{([["receipts", "Receipts & invoices"], ["documents", "Documents"]] as const).map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								role="radio"
+								aria-checked={kind === value}
+								disabled={uploading}
+								onClick={() => setKind(value)}
+								className={cn("label-ui rounded-[7px] px-3 py-1", kind === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+					{kind === "documents" && (
+						<label className="flex items-center gap-2 text-sm text-muted-foreground">
+							Type
+							<select value={docType} onChange={(e) => setDocType(e.target.value)} className="h-8 rounded-md border border-border bg-card px-2 text-foreground">
+								{DOC_TYPES.map((t) => (
+									<option key={t.value} value={t.value}>{t.label}</option>
+								))}
+							</select>
+						</label>
+					)}
+				</div>
+				<p className="mt-2 text-[12.5px] text-muted-foreground">
+					Statements are CSV files:{" "}
+					<Link href="/receipts/import" onClick={() => setOpen(false)} className="text-foreground underline underline-offset-4">
+						import a statement
+					</Link>{" "}
+					instead.
+				</p>
+
 				<div
 					onDragOver={(e) => e.preventDefault()}
 					onDrop={handleDrop}
-					className="mt-6 rounded-xl border-2 border-dashed border-border p-6 flex flex-col items-center justify-center text-center bg-transparent"
+					className="mt-4 rounded-xl border-2 border-dashed border-border p-6 flex flex-col items-center justify-center text-center bg-transparent"
 				>
 					<input
 						id="file-input-dashboard"
 						type="file"
 						multiple
-						accept=".pdf,.png,.jpg,.jpeg"
+						accept={kind === "documents" ? ".pdf" : ".pdf,.png,.jpg,.jpeg"}
 						onChange={handleFileChange}
 						className="hidden"
 					/>

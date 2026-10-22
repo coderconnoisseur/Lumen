@@ -71,7 +71,7 @@ def test_order_and_review_item():
     assert kinds(items) == ["duplicate", "review", "spike", "price_rise"]
     assert items[1] == {"kind": "review", "tag": "RECEIPTS", "subject": None, "headline": "3 receipts need a glance",
                         "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
-                        "amounts": [], "worth": None, "href": "/receipts?tab=review"}
+                        "amounts": [], "worth": None, "href": "/receipts"}
     assert find_signals([], TODAY, 1, [])[0]["headline"] == "1 receipt needs a glance"
 
 

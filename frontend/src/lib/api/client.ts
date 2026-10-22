@@ -729,7 +729,7 @@ export const agentApi = {
 
 export interface ReviewFlag {
 	rule: string;
-	severity: "warn" | "fail";
+	severity: "warn" | "fail" | "note"; // note: a warning not raised because you kept approving it
 	detail: string;
 }
 
@@ -832,14 +832,31 @@ const upload = (file: File, extra: Record<string, string> = {}) => {
 	return form;
 };
 
+/** One statement import (GET /api/statements/imports); counts as the import returned them. */
+export interface StatementImport {
+	id: string;
+	file_name: string | null;
+	label: string | null;
+	period_from: string | null;
+	period_to: string | null;
+	lines: number;
+	imported: number;
+	matched: number;
+	duplicates: number;
+	credits: number;
+	unreadable: number;
+	created_at: string;
+}
+
 export const statementApi = {
+	imports: async (): Promise<StatementImport[]> => (await apiClient.get("/api/statements/imports")).data.imports,
 	preview: async (file: File): Promise<StatementPreview> =>
 		(await apiClient.post("/api/statements/preview", upload(file), { headers: { "Content-Type": undefined } })).data,
-	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number): Promise<StatementResult> =>
+	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number, label = ""): Promise<StatementResult> =>
 		(
 			await apiClient.post(
 				"/api/statements/import",
-				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine) }),
+				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine), ...(label.trim() ? { label: label.trim() } : {}) }),
 				{ headers: { "Content-Type": undefined } },
 			)
 		).data,
