@@ -22,15 +22,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 				    state straight from the cookie gives the right width on the sidebar's first paint: no jump, no SSR read. */}
 				<SidebarProvider defaultOpen={typeof document === "undefined" || !document.cookie.includes("sidebar_state=false")}>
 					<AppSidebar />
-					<SidebarInset id="main" className="min-h-screen bg-transparent">
-						<header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-							<div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
-								<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-								<div className="ml-auto">
-									<AvatarMenu />
-								</div>
+					<SidebarInset id="main" className="relative min-h-screen bg-transparent">
+						{/* no top bar on desktop: just the account menu, floating top-right over the page (owner, 2026-10-22).
+						    Phones keep a slim row, since the sidebar there is a sheet that needs a button to open. */}
+						<header className="flex h-14 items-center px-4 md:hidden">
+							<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
+							<div className="ml-auto">
+								<AvatarMenu />
 							</div>
 						</header>
+						<div className="absolute top-5 right-6 z-20 hidden md:block lg:right-8">
+							<AvatarMenu />
+						</div>
 						{children}
 					</SidebarInset>
 				</SidebarProvider>

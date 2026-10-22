@@ -68,7 +68,8 @@ export default function HomeContent() {
 		<div className="relative flex-1">
 			<div aria-hidden data-testid="sky-band" className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[image:var(--band)]" />
 			<div className="relative px-4 py-6 sm:px-6 lg:px-8">
-				<div className="flex flex-wrap items-center gap-3">
+				{/* md:pr-12 leaves room for the floating account menu (app-shell.tsx) */}
+				<div className="flex flex-wrap items-center gap-3 md:pr-12">
 					<h1 className="text-2xl font-medium tracking-tight">
 						{firstName ? `Good ${partOfDay(new Date().getHours())}, ${firstName}` : "Welcome back"}
 					</h1>

@@ -163,3 +163,22 @@ test("the send button looks different when it can send", async ({ page }) => {
 	const lum = (c: number[]) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * (c[3] / 255) + 244 * (1 - c[3] / 255);
 	expect(Math.abs(lum(on) - lum(off))).toBeGreaterThan(80); // a dark filled button vs a faint one on the light page
 });
+
+test("an upload suggestion opens the upload dialog instead of asking Lumen", async ({ page }) => {
+	await openAsk(page, { followUp: "Upload an invoice or receipt to get started." });
+	await composer(page).fill("Do I have invoices?");
+	await composer(page).press("Enter");
+	const chip = page.getByRole("link", { name: "Upload an invoice or receipt to get started" });
+	await expect(chip).toHaveAttribute("href", "/home?upload=1");
+	await chip.click();
+	await expect(page).toHaveURL(/\/home\?upload=1$/);
+	await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("a question suggestion is still sent to Lumen", async ({ page }) => {
+	await openAsk(page, { followUp: "Show last month by category" });
+	await composer(page).fill("How much did I spend?");
+	await composer(page).press("Enter");
+	await page.getByRole("button", { name: "Show last month by category" }).click();
+	await expect(page.getByText("Answer to: Show last month by category")).toBeVisible();
+});

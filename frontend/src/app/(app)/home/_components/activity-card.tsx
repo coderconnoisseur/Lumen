@@ -21,7 +21,7 @@ export function ActivityCard({ items, now, loading }: { items: ActivityItem[]; n
 				items.map((a, i) => (
 					<div key={i} className="flex gap-2 py-1 text-[12.5px]">
 						<span className="min-w-0 flex-1 truncate">{fill(a.text, a.amounts, money)}</span>
-						<span className="label-mono shrink-0 text-muted-foreground">{relativeTime(a.at, now)}</span>
+						<span className="label-ui shrink-0 text-muted-foreground">{relativeTime(a.at, now)}</span>
 					</div>
 				))
 			)}

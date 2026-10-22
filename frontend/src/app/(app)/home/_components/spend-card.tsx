@@ -109,7 +109,7 @@ export function SpendCard({
 						)}
 					</div>
 				</div>
-				<div className="label-mono ml-auto hidden gap-3 text-muted-foreground sm:flex">
+				<div className="label-ui ml-auto hidden gap-3 text-muted-foreground sm:flex">
 					<span>— now</span>
 					<span>┄ before</span>
 					{fc.length > 0 && <span>· forecast</span>}
@@ -149,7 +149,7 @@ export function SpendCard({
 					const i = dayIndex(period, parseDay(p.date));
 					return (
 						<span key={p.id} className="absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${(x(i) / W) * 100}%`, top: 0 }}>
-							<span data-testid="bill-pin" className="label-mono max-w-24 truncate text-muted-foreground">
+							<span data-testid="bill-pin" className="label-ui max-w-24 truncate text-muted-foreground">
 								{p.vendor}
 							</span>
 							<span className="mt-0.5 size-2 rounded-full border-2 border-bad bg-card" />
@@ -157,7 +157,7 @@ export function SpendCard({
 					);
 				})}
 			</div>
-			<div className="label-mono relative mt-1 h-4 text-muted-foreground">
+			<div className="label-ui relative mt-1 h-4 text-muted-foreground">
 				{ticks.map((i) => (
 					<span key={i} className="absolute -translate-x-1/2 whitespace-nowrap first:translate-x-0 last:-translate-x-full" style={{ left: `${(x(i) / W) * 100}%` }}>
 						{i === t ? "today" : tick(new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i))}
@@ -174,7 +174,7 @@ export function SpendCard({
 						aria-pressed={r === range}
 						onClick={() => onRange(r)}
 						className={cn(
-							"label-mono rounded-md px-2.5 py-1 transition-colors",
+							"label-ui rounded-md px-2.5 py-1 transition-colors",
 							r === range ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
 						)}
 					>

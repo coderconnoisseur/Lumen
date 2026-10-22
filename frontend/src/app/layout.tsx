@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Inter, JetBrains_Mono, Newsreader } from "next/font/google";
+import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
@@ -24,13 +24,6 @@ const newsreader = Newsreader({
 	weight: ["300", "400", "500"],
 	style: ["normal", "italic"],
 	variable: "--font-newsreader",
-});
-
-// In-app card titles, tags and axis ticks (the `.label-mono` / `font-label` style).
-const plexMono = IBM_Plex_Mono({
-	subsets: ["latin"],
-	weight: ["400", "500"],
-	variable: "--font-plex-mono",
 });
 
 // Funnel Sans (OFL, self-hosted from @fontsource-variable/funnel-sans): text, buttons and labels on the landing,
@@ -141,7 +134,7 @@ export default function RootLayout({
 		<html
 			lang="en"
 			style={{ colorScheme: "dark" }}
-			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${plexMono.variable} ${funnelSans.variable} dark`}
+			className={`${inter.variable} ${jetBrainsMono.variable} ${newsreader.variable} ${funnelSans.variable} dark`}
 		>
 			<head>
 				{/* every signed-in page talks to these two right away */}

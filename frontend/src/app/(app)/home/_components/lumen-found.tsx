@@ -25,11 +25,12 @@ export function LumenFound({ summary, loading }: { summary: HomeSummary | null; 
 					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
 						{found.map((f, i) => (
 							<div key={i} data-testid="found-tile" className="flex flex-col rounded-xl border border-border bg-background p-3">
-								<div className="label-mono text-primary">{f.tag}</div>
+								{/* the API sends tags in caps ("RECEIPTS"); labels are sentence case */}
+								<div className="label-ui text-primary">{f.tag.charAt(0) + f.tag.slice(1).toLowerCase()}</div>
 								<p className="my-1 font-serif text-[17px] leading-tight">{fill(f.headline, f.amounts, money)}</p>
 								<p className="text-[12.5px] leading-snug text-muted-foreground">{fill(f.detail, f.amounts, money)}</p>
 								{f.href && (
-									<Link href={f.href} className="label-mono mt-auto pt-2 underline underline-offset-4">
+									<Link href={f.href} className="label-ui mt-auto pt-2 underline underline-offset-4">
 										{f.kind === "review" ? "Review →" : "See →"}
 									</Link>
 								)}

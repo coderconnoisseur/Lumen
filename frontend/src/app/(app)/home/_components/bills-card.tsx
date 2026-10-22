@@ -19,7 +19,7 @@ export function BillsCard({ reminders, today, loading }: { reminders: Reminder[]
 					const d = parseDay(r.date);
 					return (
 						<div key={r.id} data-testid="bill-row" className="flex items-center gap-2.5 py-1.5 text-[13px]">
-							<span className="label-mono w-9 shrink-0 rounded-md border border-border py-0.5 text-center text-muted-foreground">
+							<span className="label-ui w-9 shrink-0 rounded-md border border-border py-0.5 text-center text-muted-foreground">
 								{d.toLocaleString("en-GB", { weekday: "short" })}
 								<b className="block text-[13px] text-foreground">{String(d.getDate()).padStart(2, "0")}</b>
 							</span>

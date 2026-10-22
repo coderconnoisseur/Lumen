@@ -38,7 +38,7 @@ export function CalendarCard({ txns, period, loading }: { txns: Txn[]; period: P
 					})}
 				</div>
 				<div className="min-w-0">
-					<div className="label-mono mb-1 text-muted-foreground">Recent transactions</div>
+					<div className="label-ui mb-1 text-muted-foreground">Recent transactions</div>
 					{recent.length === 0 ? (
 						<p className="text-sm text-muted-foreground">No transactions this month yet.</p>
 					) : (
