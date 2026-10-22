@@ -673,6 +673,32 @@ export interface BudgetState {
 	categories: { category: string; limit: number; spent: number }[];
 }
 
+/** One recurring charge (backend ai/recurring.find_recurring) with the user's saved choice (api/bills.py). */
+export interface RecurringItem {
+	vendor: string;
+	category: string | null;
+	cadence: "weekly" | "monthly" | "yearly";
+	typical_amount: number;
+	last_charge_date: string;
+	next_due_date: string;
+	charges_count: number;
+	price_change: { previous: number; latest: number; percent: number } | null;
+	kind: "subscription" | "bill" | "recurring";
+	possibly_stopped: boolean;
+	state: "active" | "cancelled" | "charged_again";
+}
+export interface RecurringState {
+	items: RecurringItem[];
+	/** vendors the user marked "not a bill" */
+	hidden: { vendor: string; vendor_key: string }[];
+}
+
+export const billsApi = {
+	recurring: (): Promise<RecurringState> => cached("/api/bills/recurring", async () => (await apiClient.get("/api/bills/recurring")).data),
+	setState: async (vendor: string, state: "cancelled" | "not_a_bill" | "active"): Promise<RecurringState> =>
+		(await apiClient.post("/api/bills/recurring/state", { vendor, state })).data,
+};
+
 export const homeApi = {
 	summary: (): Promise<HomeSummary> => cached("/api/home/summary", async () => (await apiClient.get("/api/home/summary")).data),
 };

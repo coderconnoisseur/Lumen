@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { aiAnalyticsApi } from "@/lib/api/client";
+import { billsApi } from "@/lib/api/client";
 import { BillsCard } from "../home/_components/bills-card";
-import { toReminders, type Reminder } from "../home/use-home-data";
+import { toBills, type Reminder } from "../home/use-home-data";
 
-// Interim Bills (until UI revamp Phase 5c): the same upcoming-bills list as Home, over the next two months.
+// Interim Bills (replaced in UI revamp Phase 5c Task C3): the same upcoming-bills list as Home.
 export function UpcomingBills() {
-	const [reminders, setReminders] = useState<Reminder[] | null>(null);
-	useEffect(() => {
-		aiAnalyticsApi.getReminders(62).then(
-			(r: { reminders?: Parameters<typeof toReminders>[0] }) => setReminders(toReminders(r.reminders ?? [])),
-			() => setReminders([]),
-		);
-	}, []);
+	const [bills, setBills] = useState<Reminder[] | null>(null);
 	const today = new Date();
-	return <BillsCard reminders={reminders ?? []} today={new Date(today.getFullYear(), today.getMonth(), today.getDate())} loading={reminders === null} />;
+	const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+	useEffect(() => {
+		billsApi.recurring().then((r) => setBills(toBills(r.items, day)), () => setBills([]));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	return <BillsCard reminders={bills ?? []} today={day} loading={bills === null} />;
 }
