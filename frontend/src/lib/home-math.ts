@@ -21,7 +21,7 @@ export const parseDay = (s: string) => {
 // round() absorbs the 23h/25h days around daylight-saving changes
 export const dayIndex = (p: Period, day: Date) => Math.round((day.getTime() - p.start.getTime()) / DAY);
 
-const period = (start: Date, end: Date): Period => ({ start, end, days: Math.round((end.getTime() - start.getTime()) / DAY) + 1 });
+export const period = (start: Date, end: Date): Period => ({ start, end, days: Math.round((end.getTime() - start.getTime()) / DAY) + 1 });
 const months = (y: number, m: number, n: number) => period(new Date(y, m, 1), new Date(y, m + n, 0));
 
 export function periods(range: Range, today: Date): { current: Period; previous: Period } {
