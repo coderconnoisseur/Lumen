@@ -266,8 +266,30 @@ Branch: `ui-revamp/phase5c-bills`, stacked on `ui-revamp/phase5b-spending` (#98)
 - STORY 34, guide (Bills), spec §12 (tick the 5c item).
 - Full checks green, screenshot vs `bills.html` at 1440 and 375, PR stacked on #98.
 
-## Phase 5d — Budget page (outline)
-Backend (TDD): `Budget.effective_from` (migration + create_all column list; existing rows → created month); `get_budget(month)` = latest row per category with `effective_from <= month`; `GET /api/budget?month=YYYY-MM`, `GET /api/budget/history?months=6`; edits write rows effective from the current month; draft approval writes rows effective from the draft's month; `basis.months` only months with spend; draft buttons' accessible names include the category. Frontend: `/budget` page + sidebar Plan group; hero with even-pace tick and pace chart; category table with inline edit (no row height change); draft panel on the page (Home promo links here); last 6 months bars. STORY 35.
+## Phase 5d — Budget page (detailed)
+
+Branch: `ui-revamp/phase5d-budget`, stacked on `ui-revamp/phase5c-bills` (#99). Mockup `budget.html`; spec §4.4 and the builder-check decision "budgets are versioned by month".
+
+### Task D1: budgets per month (backend, TDD)
+- `Budget.effective_from` = `"YYYY-MM"` (String(7)); unique (user_id, category, effective_from) as `u_budget_user_category_month`. `models/database.py`: `_migrate_budget_versions(engine)` after `_add_missing_columns` (column in `_ADDED_COLUMNS`): fills NULLs with the row's `updated_at` month, drops the old `u_budget_user_category` (Postgres: `DROP CONSTRAINT IF EXISTS`; SQLite: rebuild the table, since its autoindex can't be dropped), creates the new unique index. Idempotent.
+- `api/budget.py`: `limits_in_force(rows, month) -> {key: (category, limit)}` = latest row per case-folded category with `effective_from <= month`; a `monthly_limit <= 0` row is a removal (PUT with `limit: null` writes one for the current month). `upsert_budget(session, user_id, category, limit, month)`.
+- `GET /api/budget?month=YYYY-MM` (default current; 422 on a bad month) → the existing shape for that month. `GET /api/budget/history?months=6` (1–12) → `{success, months: [{month, budget, spent}]}` oldest first ending this month; `budget` = `monthly_budget` or the sum of limits in force, `null` for a past month with no limit in force.
+- Draft: `payload.month` = current month; approving writes rows effective from `payload.month` (current month if missing/bad). `draft_budget`'s `basis.months` lists only months with spend (§12).
+- Tests: `test_api_budget.py` — editing this month leaves last month's limits; history budget/spent per month and `null` before any budget; removal hides the category only from this month on; approve writes `effective_from`; bad month 422; `test_budget.py` — basis months skip an empty month; unique index allows two months; migration on an old-schema SQLite file keeps rows, fills `effective_from`, and allows a second month.
+
+### Task D2: the Budget page (frontend)
+- `budgetApi.get(month?)`, `budgetApi.history(months)`; type `BudgetMonth {month, budget: number|null, spent}`. `lib/budget-math.ts`: `pace(total, spent, today, month)` → `{pct, evenPct|null, left, daysLeft, perDay}` (evenPct/perDay only for the current month); `usedTone(spent, limit)` → `"good"|"warn"|"bad"` (warn ≥ 90%).
+- `app/(app)/budget/` + sidebar **Plan · Budget** between Track and Records. Header "Budget", ‹ month › switcher (next disabled at the current month), actions on the current month only: "Edit budget" (quiet; edits the overall total in place) and "Let Lumen draft" (dark). Brief from real numbers ("You're on track: ₹X under an even pace." / "₹X over an even pace." / "₹X over budget."). Past months read-only.
+- Hero: spent of total, bar with even-pace tick, Left / Days left / Safe per day (= left ÷ days left), pace chart = `CumulativeChart` with the even line passed as the dashed series.
+- By category table: Budget / Spent / Left / Used bar (green, amber ≥90%, red over). Clicking the budget amount (current month) swaps it for an input of the same height: Enter saves (`PUT`), Esc cancels. Footer "Categories add up to X · Y of your Z is unassigned" (only with an overall total) + Add category (inline name + amount row).
+- Draft panel on the page: shows pending `set_budget` proposals (loaded on open, or filed by "Let Lumen draft"; `?draft=1` drafts on arrival). Each line: category, proposed amount, "was X" / "new", basis sentence, Skip / Approve with aria-labels "Skip <category>" / "Approve <category> at <amount>", decided state in place, "Approve remaining N", 409 → "This draft was replaced. Draft again." No month-bars glyph (basis has no per-month amounts; hidden, not faked).
+- Last 6 months: dashed budget outline + actual bar (green under, red over), the current month "so far" with a pale run-rate projection; "N of M months under" over past months that had a budget.
+- Home: the promo becomes a link to `/budget?draft=1` (dialog removed); the budget card title links to `/budget`.
+- Tests (`budget.spec.ts`, `budget-math.spec.ts`): hero numbers and pace tick; month switch requests `?month=` and hides edit actions; inline edit PUTs and the row's box doesn't change; Esc cancels; draft panel approve/skip names, approve-remaining, 409 message; history bars over/under; CLS < 0.01; phone width no sideways scroll. Home's draft-dialog tests move here.
+
+### Task D3: docs, checks, PR
+- STORY 35, guide (Budget), spec §12 ticks (draft accessible names, `basis.months`).
+- Full checks green, screenshot vs `budget.html` at 1440 and 375, PR stacked on #99.
 
 ## Phase 5e — Receipts & statements (outline)
 Backend (TDD): `StatementImport` table + write on import; `GET /api/statements/imports`. Frontend: header actions; Needs-your-review cards from the review queue with highlights from validation flags (replaces the Review tab); library list with filter chips (Statements = import rows) and search; Statement imports card; From your inbox card; Activity moves here from Home if it no longer fits. Old `/documents`, `/import`, `/review` routes redirect into `/receipts`. STORY 36, then the whole-branch review for Phase 5.
