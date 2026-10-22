@@ -459,3 +459,45 @@ test("a restock reminder (no vendor) neither crashes Home nor shows as a bill", 
 	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
 	await expect(page.getByTestId("calendar-card")).toBeVisible();
 });
+
+// relative luminance of an element's background; the theme uses oklch(), so let a canvas turn it into sRGB first
+const bgLuminance = (el: import("@playwright/test").Locator) =>
+	el.evaluate((e) => {
+		const ctx = document.createElement("canvas").getContext("2d")!;
+		ctx.fillStyle = getComputedStyle(e).backgroundColor;
+		ctx.fillRect(0, 0, 1, 1);
+		const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => {
+			const x = v / 255;
+			return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+		});
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	});
+
+test("Home's actions are quiet, not loud blue", async ({ page }) => {
+	await openHome(page);
+	const upload = page.getByRole("button", { name: "Upload", exact: true });
+	await expect(upload).toBeVisible();
+	expect(await upload.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe("rgb(37, 99, 235)");
+	const exp = page.getByRole("button", { name: "Export", exact: true });
+	await expect(exp).toBeVisible();
+	await expect(exp).toHaveText("");
+});
+
+test("upload and export dialogs are light", async ({ page }) => {
+	await openHome(page);
+	for (const name of ["Upload", "Export"]) {
+		await page.getByRole("button", { name, exact: true }).click();
+		const dialog = page.getByRole("dialog");
+		await expect(dialog).toBeVisible();
+		expect(await bgLuminance(dialog), `${name} dialog`).toBeGreaterThan(0.85);
+		expect(await dialog.evaluate((e) => e.outerHTML.match(/neutral-[89]00|#0b0612|text-white/g))).toBeNull();
+		await page.keyboard.press("Escape");
+		await expect(dialog).toBeHidden();
+	}
+});
+
+test("the upload dialog has one close button", async ({ page }) => {
+	await openHome(page);
+	await page.getByRole("button", { name: "Upload", exact: true }).click();
+	await expect(page.getByRole("dialog").locator("button:has(svg.lucide-x)")).toHaveCount(1);
+});
