@@ -605,3 +605,19 @@ def test_the_original_upload_is_kept_and_linked_from_the_transaction(client, ocr
     listed = client.get("/transactions", headers=AUTH).get_json()
     [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
     assert tx["file_key"] == key
+
+
+def test_the_transaction_list_says_where_each_row_came_from(client, ocr):
+    # Spending's table shows whether a row came from a receipt or a statement import (UI revamp Phase 5b)
+    from models import Transaction, db
+
+    body = _upload(client, _png_bytes()).get_json()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["source"] is None
+    with client.application.app_context():
+        db.session.get(Transaction, body["transaction_id"]).source = "statement"
+        db.session.commit()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["source"] == "statement"
