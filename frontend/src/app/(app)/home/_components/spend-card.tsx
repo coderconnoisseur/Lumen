@@ -120,19 +120,32 @@ export function SpendCard({
 		return i > t && i < period.days;
 	});
 
-	// first, today and last always show unless they'd crowd today; the weekly ones in between only where they fit
+	// Today always shows; the two ends unless they'd touch it; the dates in between only where they fit. 1W/1M label
+	// those by day number, 3M by day and month, YTD by the 1st of each month. Widths are estimated (12.5px UI font).
 	const px = (i: number) => (x(i) / W) * width;
-	const minGap = 48;
+	const at = (i: number) => new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i);
+	const last = period.days - 1;
+	const middle = (i: number) =>
+		range === "YTD" ? at(i).getDate() === 1 : i % 7 === 0;
 	const ticks = pickTicks(
 		Array.from({ length: period.days }, (_, i) => i)
-			.filter((i) => i === 0 || i === t || i === period.days - 1 || i % 7 === 0)
-			.map((i) => ({
-				i,
-				x: px(i),
-				keep: i === t || ((i === 0 || i === period.days - 1) && Math.abs(px(i) - px(t)) >= minGap),
-				label: i === t ? "Today" : i === 0 || i === period.days - 1 ? dayMonth(new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i)) : String(new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i).getDate()),
-			})),
-		minGap,
+			.filter((i) => i === 0 || i === t || i === last || middle(i))
+			.map((i) => {
+				const label =
+					i === t ? "Today"
+					: i === 0 || i === last || range === "3M" ? dayMonth(at(i))
+					: range === "YTD" ? at(i).toLocaleString("en-GB", { month: "short" })
+					: String(at(i).getDate());
+				return {
+					i,
+					label,
+					x: px(i),
+					w: label.length * 7 + 2,
+					anchor: (i === 0 ? "start" : i === last ? "end" : "middle") as "start" | "end" | "middle",
+					rank: i === t ? 0 : i === 0 || i === last ? 1 : 2,
+				};
+			}),
+		8,
 	);
 
 	const legend = (

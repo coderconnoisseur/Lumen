@@ -35,14 +35,22 @@ export function smoothPath(points: [number, number][]): string {
 	return d;
 }
 
-// Axis labels that never overlap: `keep` ticks (first, today, last) always stay; any other tick is dropped when it
-// sits closer than `minGap` px to a tick already shown.
-export function pickTicks<T extends { x: number; keep?: boolean }>(candidates: T[], minGap: number): T[] {
-	const kept = candidates.filter((c) => c.keep);
-	const shown = [...kept];
-	for (const c of candidates) {
-		if (c.keep) continue;
-		if (shown.every((s) => Math.abs(s.x - c.x) >= minGap)) shown.push(c);
+// Axis labels that never overlap. Each label knows its position, width and how it is anchored (the first label hangs
+// right of its point, the last left of it, the rest are centred), so the check compares real edges. Labels are taken
+// by rank (0 = Today, 1 = the two ends, 2 = the dates in between); one that would come within `gap` px of a label
+// already taken is dropped. Returned in their original order.
+export type Tick = { x: number; w: number; anchor: "start" | "middle" | "end"; rank: number };
+const edges = (t: Tick) => (t.anchor === "start" ? [t.x, t.x + t.w] : t.anchor === "end" ? [t.x - t.w, t.x] : [t.x - t.w / 2, t.x + t.w / 2]);
+
+export function pickTicks<T extends Tick>(candidates: T[], gap: number): T[] {
+	const taken: T[] = [];
+	for (const c of [...candidates].sort((a, b) => a.rank - b.rank)) {
+		const [l, r] = edges(c);
+		if (taken.every((t) => {
+			const [tl, tr] = edges(t);
+			return r + gap <= tl || tr + gap <= l;
+		}))
+			taken.push(c);
 	}
-	return candidates.filter((c) => shown.includes(c));
+	return candidates.filter((c) => taken.includes(c));
 }

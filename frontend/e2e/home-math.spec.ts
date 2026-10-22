@@ -189,10 +189,10 @@ test("smoothPath never overshoots a running total", () => {
 	}
 });
 
-test("pickTicks drops ticks that crowd a kept one", () => {
-	const t = (x: number, keep = false) => ({ i: x, x, label: String(x), keep });
-	expect(pickTicks([t(0, true), t(20), t(40), t(300, true), t(310, true)], 48).map((k) => k.label)).toEqual(["0", "300", "310"]);
-	expect(pickTicks([t(0, true), t(60), t(120), t(200, true)], 48).map((k) => k.label)).toEqual(["0", "60", "120", "200"]);
+test("pickTicks drops ticks that crowd a higher-ranked one", () => {
+	const t = (x: number, rank: number) => ({ x, w: 10, anchor: "middle" as const, rank, label: String(x) });
+	expect(pickTicks([t(0, 1), t(20, 2), t(40, 2), t(300, 0), t(310, 1)], 30).map((k) => k.label)).toEqual(["0", "40", "300"]);
+	expect(pickTicks([t(0, 1), t(60, 2), t(120, 2), t(200, 1)], 30).map((k) => k.label)).toEqual(["0", "60", "120", "200"]);
 });
 
 test("vendorChip gives two initials and a stable hue", () => {
@@ -200,4 +200,15 @@ test("vendorChip gives two initials and a stable hue", () => {
 	expect(vendorChip("swiggy").initials).toBe("SW");
 	expect(vendorChip("Swiggy Instamart").hue).toBe(vendorChip("Swiggy Instamart").hue);
 	expect(vendorChip("").initials).toBe("?");
+});
+
+test("pickTicks compares real label edges, not centres", () => {
+	// "1 Oct" is left-anchored (covers 0–32), "Today" centred at 50 (covers 32–68): they touch, so the edge label goes
+	const t = (x: number, w: number, anchor: "start" | "middle" | "end", label: string, rank: number) => ({ x, w, anchor, label, rank });
+	const shown = pickTicks([t(0, 32, "start", "1 Oct", 1), t(50, 36, "middle", "Today", 0), t(300, 38, "end", "31 Oct", 1)], 6);
+	expect(shown.map((s) => s.label)).toEqual(["Today", "31 Oct"]);
+	// right edge: "31 Oct" covers 262–300, "Today" at 250 covers 232–268
+	expect(pickTicks([t(0, 32, "start", "1 Oct", 1), t(250, 36, "middle", "Today", 0), t(300, 38, "end", "31 Oct", 1)], 6).map((s) => s.label)).toEqual(["1 Oct", "Today"]);
+	// middle ticks give way to the higher-ranked ones and to each other
+	expect(pickTicks([t(0, 32, "start", "1 Oct", 1), t(36, 20, "middle", "8", 2), t(120, 20, "middle", "15", 2), t(200, 36, "middle", "Today", 0)], 6).map((s) => s.label)).toEqual(["1 Oct", "15", "Today"]);
 });

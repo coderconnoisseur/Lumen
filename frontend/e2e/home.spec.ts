@@ -501,3 +501,25 @@ test("the upload dialog has one close button", async ({ page }) => {
 	await page.getByRole("button", { name: "Upload", exact: true }).click();
 	await expect(page.getByRole("dialog").locator("button:has(svg.lucide-x)")).toHaveCount(1);
 });
+
+// Review fix: labels are anchored at the edges, so "Today" near the start or end of the axis used to collide.
+for (const [day, range] of [["2026-10-26", "1M"], ["2026-10-04", "1M"], ["2026-10-29", "1M"], ["2026-10-27", "1W"], ["2026-10-26", "3M"]] as const) {
+	test(`ticks don't overlap on ${day} (${range}) at phone width`, async ({ page }) => {
+		await page.clock.setFixedTime(new Date(`${day}T12:00:00`));
+		await page.setViewportSize({ width: 375, height: 812 });
+		const [y, m] = day.split("-").map(Number);
+		const at = (mm: number, dd: number) => `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+		await openHome(page, { txns: [tx("a", "Swiggy", at(m, 1), 18412), tx("t", "Uber", day, 300), tx("b", "Rent", at(m - 1, 1), 20280), tx("c", "Rent", at(m - 3, 1), 20280)] });
+		if (range !== "1M") await spend(page).getByRole("button", { name: range }).click();
+		await expect(spend(page).getByTestId("tick").first()).toBeVisible();
+		await page.waitForTimeout(300);
+		const boxes = await spend(page).getByTestId("tick").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()));
+		for (let i = 0; i < boxes.length; i++)
+			for (let j = i + 1; j < boxes.length; j++) expect(overlaps(boxes[i], boxes[j]), `ticks ${i} and ${j}`).toBe(false);
+		if (range === "3M") {
+			// every label names its month, so "14" can't mean any month
+			const labels = await spend(page).getByTestId("tick").allTextContents();
+			for (const l of labels) expect(l, l).toMatch(/Today|[A-Z][a-z]{2}/);
+		}
+	});
+}
