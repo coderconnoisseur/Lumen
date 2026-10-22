@@ -92,6 +92,7 @@ def get_transactions(user_id=None):
                 'currency': txn.currency,
                 'po_number': txn.po_number,
                 'file_key': txn.file_key,
+                'source': txn.source,  # "statement" for imported rows, None for receipts
                 'created_at': txn.created_at.isoformat() if txn.created_at else None,
                 'items': [
                     {

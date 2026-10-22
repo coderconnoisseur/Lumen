@@ -289,6 +289,15 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `lib/home-math.ts`). Buttons on these pages use the `quiet` and `ink` variants, never the default blue. Charts use
   `lib/chart.ts`: `smoothPath` (monotone cubic, so a running total never dips between days) and `pickTicks`
   (axis labels that never overlap at any width). Approved mockups: `docs/superpowers/specs/2026-10-22-phase5/`.
+- **Spending** (`app/(app)/spending/`, Phase 5b): "where did my money go, and is anything off?" A period control
+  (This month / Last month / 3M / YTD / Custom with two native date inputs) and a "Compare with" switch drive
+  everything. Hero: total, change vs the previous period, the shared `CumulativeChart` (or month bars for 3M/YTD)
+  and the last six months as bars. By category (click a row = `?category=`, "Sort them now" = Uncategorised),
+  Lumen noticed (Home's `LumenFound` with a title), Transactions (search, source filter, the category pill edits
+  in place via `PUT /transactions/<id>`, CSV export of exactly the rows shown) and Top merchants. All maths is
+  pure in `lib/spending-math.ts` (tests: `e2e/spending-math.spec.ts`); data from `GET /transactions` (which now
+  includes `source`) and `/api/home/summary` (spikes link to `/spending?category=<name>`). The old Analytics and
+  AI Insights pages, their components and the API calls only they used are gone.
 - **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
   Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
   period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,

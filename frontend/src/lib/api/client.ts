@@ -17,7 +17,6 @@ export const warmApi = (): void => {
 // identical requests fired together share one call. Any write clears it, and so does signing out.
 // ponytail: in-memory per tab (a reload refetches); move to sessionStorage if reloads matter.
 const CACHE_MS = 5 * 60_000;
-const READ_ONLY_POSTS = ["/api/analytics/analyze"];
 const cache = new Map<string, { at: number; data: Promise<unknown> }>();
 
 export const clearApiCache = (): void => cache.clear();
@@ -110,8 +109,7 @@ const createApiClient = (): AxiosInstance => {
 
 	client.interceptors.response.use(
 		(response) => {
-			const { method, url = "" } = response.config;
-			if (method !== "get" && !READ_ONLY_POSTS.includes(url)) cache.clear();
+			if (response.config.method !== "get") cache.clear();
 			return response;
 		},
 		async (error: AxiosError) => {
@@ -472,27 +470,6 @@ export const keysApi = {
 	},
 };
 
-/** Analytics — backend derives user from JWT. */
-export const analyticsApi = {
-	getTimeRangeAnalytics: async (
-		timeRange: "weekly" | "monthly" | "yearly",
-		year: number,
-		month?: number,
-		week?: number
-	) => {
-		const queryParams = new URLSearchParams();
-		queryParams.append("time_range", timeRange);
-		queryParams.append("year", year.toString());
-		if (month !== undefined) queryParams.append("month", month.toString());
-		if (week !== undefined) queryParams.append("week", week.toString());
-		const url = `/analytics/summary?${queryParams.toString()}`;
-		return cached(url, async () => (await apiClient.get(url)).data);
-	},
-
-	getAllTimeSummary: () =>
-		cached("/analytics/summary", async () => (await apiClient.get("/analytics/summary")).data),
-};
-
 export const transactionApi = {
 	getTransactions: async (params?: {
 		page?: number;
@@ -581,28 +558,8 @@ export const transactionApi = {
 	},
 };
 
+// Analytics the redesigned pages still read: upcoming bills (Home, interim Bills) and the forecast line (Home).
 export const aiAnalyticsApi = {
-	getDashboard: () =>
-		cached("/api/analytics/dashboard", async () => (await apiClient.get("/api/analytics/dashboard")).data),
-
-	runAnalysis: async (
-		options: {
-			includeFraud?: boolean;
-			includeForecast?: boolean;
-			includeRisk?: boolean;
-			useLlm?: boolean;
-		} = {}
-	) => {
-		const body = {
-			include_fraud: options.includeFraud ?? true,
-			include_forecast: options.includeForecast ?? true,
-			include_risk: options.includeRisk ?? true,
-			use_llm: options.useLlm ?? false,
-		};
-		return cached(`/api/analytics/analyze ${JSON.stringify(body)}`,
-			async () => (await apiClient.post("/api/analytics/analyze", body)).data);
-	},
-
 	getReminders: async (daysAhead: number = 7) => {
 		const response = await apiClient.get("/api/analytics/reminders", {
 			params: { days_ahead: daysAhead },
@@ -610,55 +567,12 @@ export const aiAnalyticsApi = {
 		return response.data;
 	},
 
-	getAnomalies: (riskLevel?: string) =>
-		cached(`/api/analytics/anomalies ${riskLevel ?? ""}`, async () => (await apiClient.get("/api/analytics/anomalies", {
-			params: riskLevel ? { risk_level: riskLevel } : {},
-		})).data),
-
 	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
 	getForecast: (daysAhead: number = 30, insights = true) =>
 		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
 			(await apiClient.get("/api/analytics/forecast", {
 				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
 			})).data),
-
-	getRiskScore: async () => {
-		const response = await apiClient.get("/api/analytics/risk-score");
-		return response.data;
-	},
-
-	getInsights: async (options: {
-		type?: string;
-		severity?: string;
-		limit?: number;
-	} = {}) => {
-		const params = {
-			...(options.type && { type: options.type }),
-			...(options.severity && { severity: options.severity }),
-			limit: options.limit || 20,
-		};
-		return cached(`/api/analytics/insights ${JSON.stringify(params)}`,
-			async () => (await apiClient.get("/api/analytics/insights", { params })).data);
-	},
-
-	markInsightRead: async (insightId: number) => {
-		const response = await apiClient.post(
-			`/api/analytics/insights/${insightId}/read`
-		);
-		return response.data;
-	},
-
-	getPatterns: async (patternType?: string) => {
-		const response = await apiClient.get("/api/analytics/patterns", {
-			params: patternType ? { pattern_type: patternType } : {},
-		});
-		return response.data;
-	},
-
-	healthCheck: async () => {
-		const response = await apiClient.get("/api/analytics/health");
-		return response.data;
-	},
 };
 
 export const isAuthenticated = (): boolean => {

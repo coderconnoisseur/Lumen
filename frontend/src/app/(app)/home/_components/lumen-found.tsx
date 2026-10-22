@@ -19,13 +19,13 @@ export const askAbout = (item: FoundItem, money: (n: number) => string) =>
 
 // "Lumen found": duplicates, receipts to review, spending spikes and price rises (GET /api/home/summary, rule-based).
 // A money "worth" is only claimed for things you may get back (duplicates).
-export function LumenFound({ summary, loading }: { summary: HomeSummary | null; loading: boolean }) {
+export function LumenFound({ summary, loading, title = "Lumen found" }: { summary: HomeSummary | null; loading: boolean; title?: string }) {
 	const money = useMoney();
 	const found = summary?.found ?? [];
 	const total = found.length + (summary?.more ?? 0);
 	return (
 		<PageCard
-			title="Lumen found"
+			title={title}
 			extra={
 				found.length > 0 && (
 					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] text-primary">

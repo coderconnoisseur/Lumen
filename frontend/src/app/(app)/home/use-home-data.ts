@@ -47,7 +47,7 @@ const ymd = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 // The API returns at most 100 rows a page, so follow has_next; a period's totals need every row.
 // ponytail: client-side paging, capped at 50 pages (5,000 rows); Phase 3's summary endpoint sums on the server.
-async function fetchTxns(from: Date, to: Date): Promise<Txn[]> {
+export async function fetchTxns(from: Date, to: Date): Promise<Txn[]> {
 	const rows: Txn[] = [];
 	for (let page = 1; page <= 50; page++) {
 		const r: { data?: Txn[]; pagination?: { has_next?: boolean } } = await transactionApi.getTransactions({

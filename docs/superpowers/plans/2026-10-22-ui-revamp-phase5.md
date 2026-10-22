@@ -190,8 +190,53 @@ Branch: `ui-revamp/phase5-pages` (contains the spec commit; stacked on `ui-revam
 
 ---
 
-## Phase 5b — Spending (outline; detail when reached)
-Backend: none expected (transactions, categories, `/api/home/summary` findings exist); confirm category-update endpoint for the hover edit. Tasks: period control + compare toggle (layout-shift test); hero (cumulative + month bars inset; 3M/YTD bars as main chart); By category bars with click-to-filter (`?category=`); Lumen noticed (summary findings, no "first time" card); Transactions table (search, filters, hover category edit, `vendorChip`), Top merchants; Export CSV of the filtered view; remove the stacked old pages (single `<h1>`, no calendar/reminders). STORY 33.
+## Phase 5b — Spending (detailed)
+
+Branch: `ui-revamp/phase5b-spending`, stacked on `ui-revamp/phase5-pages` (#97). Mockup: `docs/superpowers/specs/2026-10-22-phase5/spending.html`; spec §4.2.
+
+**Decided here:** everything is computed client-side from `GET /transactions` (date-filtered, paged like Home's `fetchTxns`) plus `GET /api/home/summary` findings. The only backend change is `source` in the transactions list. The "first time at a merchant" card is dropped (spec §4.2). "Always file X here" is omitted (no rule store). The old `/analytics` and `/ai-analytics` pages and their components go once nothing imports them (both URLs already redirect to `/spending`).
+
+### Task B1: transactions list says where each row came from
+- Modify `backend/routes/database_query.py` (list response adds `'source': txn.source`); test in the existing transactions route tests (`grep -l "/transactions" backend/tests`): a statement-imported row lists `source == "statement"`, a receipt row `None`.
+- Commit `feat: transactions list includes source`.
+
+### Task B2: spending maths (pure)
+- Create `frontend/src/lib/spending-math.ts`, tests `frontend/e2e/spending-math.spec.ts`.
+- Produces:
+  - `type Choice = "this-month" | "last-month" | "3M" | "YTD" | { from: Date; to: Date }`
+  - `spendPeriods(choice: Choice, today: Date): { current: Period; previous: Period; label: string; prevLabel: string }`: previous is the same length immediately before; last-month = the whole previous calendar month vs the one before; custom = inclusive dates.
+  - `byCategory(cur: Txn[], prev: Txn[]): { category: string; amount: number; share: number; change: number }[]`: sorted by amount desc; null/"" → "Uncategorised"; share of the period total; change = amount − prev amount.
+  - `topMerchants(txns: Txn[], n: number): { vendor: string; amount: number; count: number; category: string | null }[]`
+  - `monthlyTotals(txns: Txn[], today: Date, months: number): { month: Date; total: number }[]`: oldest first, includes the current month.
+  - `needsCategory(txns: Txn[]): number`: category null, "", "Other" or "Uncategorised".
+- Tests: one per function with exact numbers (e.g. 3 categories incl. a null one → shares summing to 1, change vs prev; last-month in January → December vs November; YTD previous = same span last year).
+
+### Task B3: Spending page shell, data and period control
+- Replace `frontend/src/app/(app)/spending/page.tsx` (single `<h1>` via `PageHeader`); create `spending/spending-content.tsx`, `spending/use-spending-data.ts` (period + previous txns, last 6 months for the bars, summary findings; skeletons only on first load, like Home).
+- Period control: segmented This month / Last month / 3M / YTD / Custom (Custom shows two native `<input type="date">`), a "Compare with <prev>" switch (hides the previous line and change columns when off), and the date range text.
+- Brief: "<Top category> is most of the change, and <largest single txn vendor> is <money> of it." only when the change is up and the top category explains > 40% of it; otherwise "You've spent <total> so far in <period>." Real numbers only.
+- Tests (`frontend/e2e/spending.spec.ts`, fixture `home.txns`): one `<h1>` "Spending"; switching period chips keeps the hero card's box (bounding-box test); Custom shows two date inputs; old content gone ("Spending Analytics", "AI Insights" not present).
+
+### Task B4: hero card
+- Extract Home's chart body into `frontend/src/components/page/cumulative-chart.tsx` (`CumulativeChart({ period, previous, cur, prev, forecast?, pins?, today, showPrevious })`), used by both `SpendCard` and the Spending hero, so Home's tests stay green unchanged.
+- Spending hero: "Spent in <label>", total, change vs previous (same format as Home), cumulative chart; right inset "Month by month" bars for the last 6 months with the average; for 3M/YTD the bars replace the line as the main chart.
+- Tests: total and delta text; 6 bars with the current month highlighted; 3M shows bars as the main chart.
+
+### Task B5: By category + Lumen noticed
+- By category card: horizontal bars (amount, share, change vs previous when comparing); clicking a row sets `?category=` and the filter pill "Filtering transactions: X" with Clear; footer "N transactions still need a category → Sort them now" (scrolls to the table filtered to Uncategorised) only when N > 0.
+- Lumen noticed: `LumenFound` with a `title` prop ("Lumen noticed"), same rows and actions.
+- Tests: clicking Shopping filters the table to Shopping rows and the URL has `category=Shopping`; Clear restores; footer count matches uncategorised rows.
+
+### Task B6: Transactions table, Top merchants, Export
+- Table: search box (vendor substring, client-side), category pill filter, source filter (All / Statement / Receipt), columns date, merchant (`VendorChip`), category pill, source, amount; 25 rows then "Show more". Hover/focus shows a pencil; the menu lists known categories and saves via `transactionApi.updateTransaction(id, { category })`, updating the row in place (no row height change).
+- Top merchants: top 7 with count and category.
+- Export: the quiet icon button downloads a CSV of the current filtered rows (client-side `Blob`), filename `lumen-spending-<from>-<to>.csv`.
+- Tests: search narrows rows; editing a category sends the PUT and the pill changes without the row's box changing; CSV download has a header row and the filtered rows.
+
+### Task B7: remove the old pages, docs, checks, PR
+- Delete `app/(app)/analytics`, `app/(app)/ai-analytics`, and `components/analytics/*`, `components/ai-analytics/*` that nothing else imports (grep first).
+- STORY 34, codebase guide (Spending section), spec §12 tick (two `<h1>`s).
+- Full checks (backend, eval, lint, build into `.next-build`, e2e) green, screenshot vs `spending.html` at 1440 and 375, then PR into `ui-revamp/phase5-pages` (retarget to `refactor` as the stack lands).
 
 ## Phase 5c — Bills & subscriptions (outline)
 Backend (TDD): `RecurringState` table (`user_id`, `vendor_key`, `state`, `changed_at`); `GET /api/bills/recurring` (wraps `find_recurring`, applies states: `not_a_bill` hidden, `cancelled` dimmed unless charged after `changed_at`); `POST /api/bills/recurring/state {vendor, state}`; Home's Coming up switches to it. Frontend: tiles, month calendar + Upcoming agenda (This week / Next week / Later), subscriptions table with tabs and actions (Mark as cancelled, Not a bill + Hidden undo, How to cancel → `/ask?draft=How do I cancel <vendor>?`). STORY 34.
