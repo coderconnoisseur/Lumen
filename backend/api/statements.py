@@ -70,10 +70,14 @@ def preview(file: UploadFile = File(...), claims: dict = Depends(current_user)):
 
 @router.post("/import", dependencies=[Depends(rate_limit("10 per minute"))])
 def import_statement(file: UploadFile = File(...), mapping: str = Form(...), currency: str | None = Form(None),
-                     header_line: int | None = Form(None), claims: dict = Depends(current_user),
-                     engine: Engine = Depends(get_engine)):
+                     header_line: int | None = Form(None), label: str | None = Form(None),
+                     claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
     from config import Config
-    from models import Transaction, User
+    from models import StatementImport, Transaction, User
+
+    label = (label or "").strip() or None
+    if label and len(label) > 60:
+        raise HTTPException(400, "The account name is too long (60 characters at most).")
 
     try:
         parsed, header = _load(file)
@@ -127,6 +131,26 @@ def import_statement(file: UploadFile = File(...), mapping: str = Form(...), cur
                                     category=vendor.category(name), currency=code, source="statement",
                                     import_key=key, invoice_number=None))
             imported += 1
+        days = sorted(ln.date for ln in ok)
+        session.add(StatementImport(user_id=user_id, file_name=file.filename, label=label,
+                                    period_from=days[0] if days else None, period_to=days[-1] if days else None,
+                                    lines=len(lines), imported=imported, matched=matched, duplicates=duplicates,
+                                    credits=credits, unreadable=len(unreadable)))
         session.commit()
     return {"success": True, "imported": imported, "duplicates": duplicates, "matched": matched,
             "credits": credits, "unreadable": unreadable}
+
+
+@router.get("/imports", dependencies=[Depends(rate_limit())])
+def imports(claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
+    """The user's statement imports, newest first (Receipts & statements page)."""
+    from models import StatementImport
+
+    with Session(engine) as session:
+        rows = session.scalars(select(StatementImport).where(StatementImport.user_id == claims["sub"])
+                               .order_by(StatementImport.created_at.desc())).all()
+        return {"success": True, "imports": [
+            {"id": r.id, "file_name": r.file_name, "label": r.label, "period_from": r.period_from,
+             "period_to": r.period_to, "lines": r.lines, "imported": r.imported, "matched": r.matched,
+             "duplicates": r.duplicates, "credits": r.credits, "unreadable": r.unreadable,
+             "created_at": r.created_at.isoformat()} for r in rows]}

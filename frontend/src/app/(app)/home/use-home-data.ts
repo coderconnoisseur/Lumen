@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { aiAnalyticsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary } from "@/lib/api/client";
-import { periods, type Range, type Txn } from "@/lib/home-math";
+import { useEffect, useState } from "react";
+import { aiAnalyticsApi, billsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary, type RecurringItem } from "@/lib/api/client";
+import { parseDay, periods, type Range, type Txn } from "@/lib/home-math";
 
 export type Reminder = { id: string | number; vendor: string; amount: number | null; date: string; type: string; category?: string };
+import { toBills } from "@/lib/bills-math";
 export type Forecast = { dates: string[]; values: number[] } | null;
 export type HomeData = {
 	status: "loading" | "ready";
@@ -16,15 +17,13 @@ export type HomeData = {
 	forecast: Forecast;
 	summary: HomeSummary | null;
 	budget: BudgetState | null;
-	/** refetch the summary and the budget (after budget decisions) */
-	reload: () => void;
 };
 
 const ymd = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 // The API returns at most 100 rows a page, so follow has_next; a period's totals need every row.
 // ponytail: client-side paging, capped at 50 pages (5,000 rows); Phase 3's summary endpoint sums on the server.
-async function fetchTxns(from: Date, to: Date): Promise<Txn[]> {
+export async function fetchTxns(from: Date, to: Date): Promise<Txn[]> {
 	const rows: Txn[] = [];
 	for (let page = 1; page <= 50; page++) {
 		const r: { data?: Txn[]; pagination?: { has_next?: boolean } } = await transactionApi.getTransactions({
@@ -83,9 +82,9 @@ export function useHomeData(range: Range, today: Date): HomeData {
 	useEffect(() => {
 		let live = true;
 		Promise.allSettled([
-			aiAnalyticsApi.getReminders(31).then((r: { reminders?: Reminder[] }) => r.reminders ?? []),
+			billsApi.recurring().then((r) => toBills(r.items, today)),
 			homeApi.summary(),
-			budgetApi.get(),
+			budgetApi.get(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`),
 		]).then(([reminders, summary, budget]) => {
 			if (live) setExtras({ reminders: value(reminders, []), summary: value(summary, null), budget: value(budget, null) });
 		});
@@ -98,14 +97,9 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		return () => {
 			live = false;
 		};
+		// today is a fresh Date each render; the day is what matters
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [day]);
-
-	const reload = useCallback(() => {
-		// decisions are POSTs, which already cleared the cached summary, so this refetches it
-		Promise.allSettled([homeApi.summary(), budgetApi.get()]).then(([summary, budget]) =>
-			setExtras((e) => (e ? { ...e, summary: value(summary, e.summary), budget: value(budget, e.budget) } : e)),
-		);
-	}, []);
 
 	return {
 		status: txns && extras ? "ready" : "loading",
@@ -116,7 +110,6 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		reminders: extras?.reminders ?? [],
 		summary: extras?.summary ?? null,
 		budget: extras?.budget ?? null,
-		reload,
 		forecast,
 	};
 }

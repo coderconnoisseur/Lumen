@@ -37,7 +37,7 @@ def test_spike_needs_30pct_and_floor():
     [s] = find_signals(big, TODAY, 0, [])
     assert s == {"kind": "spike", "tag": "SPENDING", "subject": "Food", "headline": "Food is up 35%",
                  "detail": "{0} so far vs {1} by this point last month.", "amounts": [6750, 5000], "worth": None,
-                 "href": "/spending"}
+                 "href": "/spending?category=Food"}
 
 
 def test_spike_only_counts_days_up_to_today():
@@ -71,7 +71,7 @@ def test_order_and_review_item():
     assert kinds(items) == ["duplicate", "review", "spike", "price_rise"]
     assert items[1] == {"kind": "review", "tag": "RECEIPTS", "subject": None, "headline": "3 receipts need a glance",
                         "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
-                        "amounts": [], "worth": None, "href": "/receipts?tab=review"}
+                        "amounts": [], "worth": None, "href": "/receipts"}
     assert find_signals([], TODAY, 1, [])[0]["headline"] == "1 receipt needs a glance"
 
 
@@ -128,3 +128,10 @@ def test_found_items_carry_their_subject():
             t("2026-09-05", 5000, "S", "food"), t("2026-10-05", 6750, "S", "food")]
     assert [(i["kind"], i["subject"]) for i in find_signals(txns, TODAY, 2, rec)] == [
         ("duplicate", "Croma"), ("review", None), ("spike", "food"), ("price_rise", "Spotify")]
+
+
+def test_spike_links_to_spending_filtered_to_its_category():
+    # Spending opens filtered to the category (UI revamp Phase 5b); names are URL-encoded
+    big = [t("2026-09-05", 5000, "X", "Food & Dining"), t("2026-10-05", 6750, "X", "Food & Dining")]
+    [s] = find_signals(big, TODAY, 0, [])
+    assert s["href"] == "/spending?category=Food%20%26%20Dining"

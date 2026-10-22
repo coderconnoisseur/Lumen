@@ -1,19 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CumulativeChart } from "@/components/page/cumulative-chart";
 import { animate } from "motion/react";
+import { Plus } from "lucide-react";
+import { PageCard } from "@/components/page/page-card";
 import { useMoney } from "@/lib/format";
-import { dayIndex, parseDay, sameDayDelta, type Period, type Range } from "@/lib/home-math";
+import { dayIndex, ordinal, parseDay, sameDayDelta, type Period, type Range } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 import type { Forecast, Reminder } from "../use-home-data";
-import { HomeCard } from "./card";
 
 const RANGES: Range[] = ["1W", "1M", "3M", "YTD"];
-const TITLE: Record<Range, string> = { "1W": "Spent this week", "1M": "Spent this month", "3M": "Spent this quarter", YTD: "Spent this year" };
-const W = 860;
-const H = 160;
-const short = (d: Date) => d.toLocaleString("en-US", { month: "short" }); // "Sep", not en-GB's "Sept"
-const tick = (d: Date) => d.toLocaleString("en-GB", { day: "2-digit", month: "short" });
+const monthLong = (d: Date) => d.toLocaleString("en-US", { month: "long" });
+
+function title(range: Range, period: Period) {
+	if (range === "1M") return `Spent in ${monthLong(period.start)}`;
+	if (range === "YTD") return `Spent in ${period.start.getFullYear()}`;
+	return range === "1W" ? "Spent this week" : "Spent this quarter";
+}
+
+function compared(range: Range, previous: Period, today: Date) {
+	if (range === "1M") return `vs ${monthLong(previous.start)} by the ${ordinal(today.getDate())}`;
+	if (range === "YTD") return `vs ${previous.start.getFullYear()} at this point`;
+	return range === "1W" ? "vs last week at this point" : "vs last quarter at this point";
+}
 
 // Counts up once per browser session, then shows the number straight away (motion rule: no replay on revisits).
 function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
@@ -32,9 +42,12 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
 	return <>{format(shown)}</>;
 }
 
+// Home's hero (spec 2026-10-22 §4.1, Origin style): the period's total, how it compares, where it's heading, and the
+// running total as a smooth line against the previous period, with upcoming bills pinned on the axis.
 export function SpendCard({
 	range,
 	onRange,
+	onUpload,
 	period,
 	previous,
 	cur,
@@ -46,6 +59,7 @@ export function SpendCard({
 }: {
 	range: Range;
 	onRange: (r: Range) => void;
+	onUpload: () => void;
 	period: Period;
 	previous: Period;
 	cur: number[];
@@ -76,95 +90,89 @@ export function SpendCard({
 		if (!matched) fc.length = 0;
 	}
 	const empty = total === 0 && !prev.some((v) => v > 0);
-	const max = Math.max(total, prev[prev.length - 1] ?? 0, fc[fc.length - 1] ?? 0, 1);
-	const x = (i: number) => (period.days > 1 ? (i / (period.days - 1)) * W : 0);
-	const y = (v: number) => H - (v / max) * (H - 20);
-	const line = (vals: number[], from = 0) => vals.map((v, i) => `${i ? "L" : "M"}${x(i + from).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
-	const actual = cur.slice(0, t + 1);
-
 	const pins = reminders.filter((r) => {
 		if (r.type !== "upcoming") return false;
 		const i = dayIndex(period, parseDay(r.date));
 		return i > t && i < period.days;
 	});
 
-	const ticks = [0, Math.round((period.days - 1) * 0.25), Math.round((period.days - 1) * 0.5), t, period.days - 1]
-		.filter((v, i, a) => a.indexOf(v) === i)
-		.sort((a, b) => a - b);
-	const vsLabel =
-		range === "1M" ? `vs ${short(previous.start)} at this point` : range === "YTD" ? `vs ${previous.start.getFullYear()} at this point` : "vs last period at this point";
+	const legend = (
+		<span className="ml-auto mr-2 hidden items-center gap-4 sm:flex">
+			<span className="flex items-center gap-1.5">
+				<i className="inline-block w-4 border-t-2 border-primary" />
+				Now
+			</span>
+			<span className="flex items-center gap-1.5">
+				<i className="inline-block w-4 border-t-2 border-dashed border-muted-foreground/50" />
+				Before
+			</span>
+			{fc.length > 0 && (
+				<span className="flex items-center gap-1.5">
+					<i className="inline-block w-4 border-t-2 border-dotted border-primary/60" />
+					Forecast
+				</span>
+			)}
+		</span>
+	);
 
 	return (
-		<HomeCard title={TITLE[range]} loading={loading} skeletonHeight={262} className="relative" data-testid="spend-card">
-			<div className="flex items-end gap-4">
-				<div>
-					<div className="text-[28px] font-medium tracking-tight">
-						<CountUp value={Math.round(total)} format={(n) => money(n)} />
-					</div>
-					<div className="h-[18px] text-[12.5px]">
-						{delta && Math.round(delta.abs) !== 0 && (
-							<span data-testid="spend-delta" className={delta.abs < 0 ? "text-good" : "text-bad"}>
-								{delta.abs < 0 ? "↓" : "↑"} {money(Math.abs(Math.round(delta.abs)))} {vsLabel}
-							</span>
-						)}
-					</div>
-				</div>
-				<div className="label-mono ml-auto hidden gap-3 text-muted-foreground sm:flex">
-					<span>— now</span>
-					<span>┄ before</span>
-					{fc.length > 0 && <span>· forecast</span>}
-				</div>
+		<PageCard
+			title={title(range, period)}
+			href="/spending"
+			extra={legend}
+			action={
+				<button
+					type="button"
+					aria-label="Upload a receipt"
+					onClick={onUpload}
+					className="flex size-7 items-center justify-center rounded-lg border border-border text-primary transition-colors hover:bg-muted"
+				>
+					<Plus className="size-4" />
+				</button>
+			}
+			loading={loading}
+			skeletonHeight={348}
+			className="relative"
+			data-testid="spend-card"
+		>
+			<div className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">
+				<CountUp value={Math.round(total)} format={(n) => money(n)} />
+			</div>
+			<div className="h-5 text-[13px] text-muted-foreground">
+				{delta && Math.round(delta.abs) !== 0 && (
+					<span data-testid="spend-delta">
+						<b className={cn("font-medium", delta.abs < 0 ? "text-good" : "text-bad")}>
+							{delta.abs < 0 ? "−" : "+"}
+							{money(Math.abs(Math.round(delta.abs)))} ({Math.abs(Math.round(delta.pct))}%)
+						</b>{" "}
+						{compared(range, previous, today)}
+					</span>
+				)}
+				{fc.length > 0 && (
+					<span>
+						{delta && Math.round(delta.abs) !== 0 && " · "}heading for{" "}
+						<b className="font-medium text-foreground/80">{money(Math.round(fc[fc.length - 1]))}</b>
+					</span>
+				)}
 			</div>
 
 			{empty ? (
-				<div className="mt-2 flex h-[170px] items-center justify-center text-center">
+				<div className="mt-2 flex h-[236px] items-center justify-center text-center">
 					<p className="max-w-sm font-serif text-[17px] text-muted-foreground">
 						Nothing spent yet this {range === "1W" ? "week" : range === "1M" ? "month" : range === "3M" ? "quarter" : "year"}.
 						Upload a receipt or import a statement and your spending will show up here.
 					</p>
 				</div>
 			) : (
-			<>
-			<div className="relative mt-2 h-[150px]">
-				<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-					<defs>
-						<linearGradient id="spend-fill" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0" stopColor="var(--primary)" stopOpacity=".25" />
-							<stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-						</linearGradient>
-					</defs>
-					{prev.length > 1 && (
-						<path data-series="previous" d={line(prev.slice(0, period.days))} fill="none" stroke="var(--muted-foreground)" strokeOpacity=".5" strokeWidth="1.5" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
-					)}
-					<path d={`${line(actual)} L${x(t)} ${H} L0 ${H}Z`} fill="url(#spend-fill)" />
-					<path data-series="current" d={line(actual)} fill="none" stroke="var(--primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-					{fc.length > 0 && (
-						<path data-series="forecast" d={line([total, ...fc], t)} fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeDasharray="2 5" vectorEffect="non-scaling-stroke" />
-					)}
-					<line x1={x(t)} x2={x(t)} y1={y(total)} y2={H} stroke="var(--border)" vectorEffect="non-scaling-stroke" />
-				</svg>
-				{/* HTML overlays keep text and dots crisp while the svg stretches */}
-				<span className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" style={{ left: `${(x(t) / W) * 100}%`, top: `${(y(total) / H) * 100}%` }} />
-				{pins.map((p) => {
-					const i = dayIndex(period, parseDay(p.date));
-					return (
-						<span key={p.id} className="absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${(x(i) / W) * 100}%`, top: 0 }}>
-							<span data-testid="bill-pin" className="label-mono max-w-24 truncate text-muted-foreground">
-								{p.vendor}
-							</span>
-							<span className="mt-0.5 size-2 rounded-full border-2 border-bad bg-card" />
-						</span>
-					);
-				})}
-			</div>
-			<div className="label-mono relative mt-1 h-4 text-muted-foreground">
-				{ticks.map((i) => (
-					<span key={i} className="absolute -translate-x-1/2 whitespace-nowrap first:translate-x-0 last:-translate-x-full" style={{ left: `${(x(i) / W) * 100}%` }}>
-						{i === t ? "today" : tick(new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i))}
-					</span>
-				))}
-			</div>
-			</>
+				<CumulativeChart
+					period={period}
+					cur={cur}
+					prev={prev}
+					forecast={fc}
+					t={t}
+					pins={pins}
+					ticks={range === "YTD" ? "month" : range === "3M" ? "dayMonth" : "day"}
+				/>
 			)}
 			<div className="mt-3 flex justify-center gap-1.5">
 				{RANGES.map((r) => (
@@ -174,14 +182,14 @@ export function SpendCard({
 						aria-pressed={r === range}
 						onClick={() => onRange(r)}
 						className={cn(
-							"label-mono rounded-md px-2.5 py-1 transition-colors",
-							r === range ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
+							"label-ui rounded-lg px-3.5 py-1 transition-colors",
+							r === range ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
 						)}
 					>
 						{r}
 					</button>
 				))}
 			</div>
-		</HomeCard>
+		</PageCard>
 	);
 }

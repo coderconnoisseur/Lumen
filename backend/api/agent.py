@@ -120,7 +120,7 @@ def _save_invoice(proposal_id: str, user_id: str, deps: AgentDeps) -> dict | Non
         if not session.execute(update(Proposal).where(
                 Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
                 .values(status="saving")).rowcount:
-            raise HTTPException(409, f"Proposal is already {p.status}")
+            raise HTTPException(409, "This proposal was already decided.")
         payload = json.loads(p.payload or "{}")
     try:
         item = submit_invoice(deps.engine, user_id, payload, warnings_seen=True)
@@ -148,25 +148,28 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         if p is None:
             raise HTTPException(404, "Proposal not found")
         # claim it first (UPDATE ... WHERE status = 'pending'): of two concurrent decisions only one can apply;
-        # anything raised below rolls the claim back with the rest of the transaction
+        # anything raised below rolls the claim back with the rest of the transaction. The 409 doesn't name p.status:
+        # it was read before the claim, so the loser of a race would still see "pending"
         now = datetime.utcnow()
         if not session.execute(update(Proposal).where(
                 Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
                 .values(status=decision, decided_at=now).execution_options(synchronize_session=False)).rowcount:
-            raise HTTPException(409, f"Proposal is already {p.status}")
+            raise HTTPException(409, "This proposal was already decided.")
         p.status, p.decided_at = decision, now
         applied = None
         if decision == "approved" and p.type == "set_budget":
-            from api.budget import upsert_budget
+            from api.budget import this_month, upsert_budget, valid_month
 
             # the agent can file set_budget with any payload: only a real positive limit is ever applied
             try:
-                limit = float(json.loads(p.payload or "{}")["limit"])
+                payload = json.loads(p.payload or "{}")
+                limit = float(payload["limit"])
             except (KeyError, TypeError, ValueError):
-                limit = math.nan
+                payload, limit = {}, math.nan
             if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
                 raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
-            upsert_budget(session, user_id, p.target.strip(), limit)
+            # from the month the draft was for, but never earlier than this one: past months stay as they were
+            upsert_budget(session, user_id, p.target.strip(), limit, max(valid_month(payload.get("month")) or "", this_month()))
             applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")

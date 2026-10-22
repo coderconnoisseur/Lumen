@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Upload, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { DialogTitle } from "@radix-ui/react-dialog";
-import { ocrApi } from "@/lib/api/client";
+import Link from "next/link";
+import { documentsApi, ocrApi } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import { eventBus, EVENTS } from "@/lib/events";
 
 import { logger } from "@/lib/logger";
@@ -17,14 +19,40 @@ interface FileWithStatus {
 	extractedData?: any;
 }
 
-export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
+const DOC_TYPES = [
+	{ value: "contract", label: "Contract" },
+	{ value: "policy", label: "Policy" },
+	{ value: "purchase_order", label: "Purchase order" },
+	{ value: "invoice", label: "Invoice" },
+	{ value: "other", label: "Other" },
+];
+
+// Pass `open`/`onOpenChange` to open it from elsewhere too (Home's hero +); otherwise it manages itself.
+// Receipts & invoices are read into transactions (/extract); Documents (PDF contracts, policies…) are indexed for
+// Ask Lumen's document search (/api/documents). Statements have their own import.
+export function DialogDemo({
+	defaultOpen = false,
+	open: openProp,
+	onOpenChange,
+}: {
+	defaultOpen?: boolean;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+}) {
 	const [files, setFiles] = useState<FileWithStatus[]>([]);
 	const [uploading, setUploading] = useState(false);
-	const [open, setOpen] = useState(defaultOpen);
+	const [kind, setKind] = useState<"receipts" | "documents">("receipts");
+	const [docType, setDocType] = useState("contract");
+	const [ownOpen, setOwnOpen] = useState(defaultOpen);
+	const open = openProp ?? ownOpen;
+	const setOpen = (next: boolean) => {
+		setOwnOpen(next);
+		onOpenChange?.(next);
+	};
 
 	useEffect(() => {
 		if (defaultOpen) {
-			setOpen(true);
+			setOwnOpen(true);
 		}
 	}, [defaultOpen]);
 
@@ -73,7 +101,10 @@ export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
 			try {
 				logger.debug("📤 Uploading file:", fileItem.file.name);
 				// Use OCR API to extract data - this saves to database automatically
-				const result = await ocrApi.extractInvoice(fileItem.file);
+				const result =
+					kind === "documents"
+						? { success: true, data: await documentsApi.upload(fileItem.file, docType), duplicate: false }
+						: await ocrApi.extractInvoice(fileItem.file);
 
 				logger.debug("📥 OCR API Response:", result);
 
@@ -154,9 +185,9 @@ export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
 					<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
 				);
 			case "success":
-				return <CheckCircle className="w-4 h-4 text-green-500" />;
+				return <CheckCircle className="w-4 h-4 text-good" />;
 			case "error":
-				return <AlertCircle className="w-4 h-4 text-red-500" />;
+				return <AlertCircle className="w-4 h-4 text-bad" />;
 			default:
 				return null;
 		}
@@ -165,44 +196,77 @@ export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button>Upload Documents</Button>
+				<Button variant="quiet">
+					<Upload />
+					Upload
+				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-w-3xl bg-linear-to-b from-[#0b0612] to-[#05020a] border-neutral-800">
-				<DialogTitle className="sr-only">Upload documents</DialogTitle>
+			<DialogContent className="max-w-3xl bg-card border-border">
+				<DialogTitle className="sr-only">Upload</DialogTitle>
 				<div className="flex items-start justify-between gap-4">
 					<div className="flex items-center gap-3">
-						<div className="p-2 rounded-xl bg-neutral-800/50">
-							<Upload className="w-5 h-5 text-neutral-300" />
+						<div className="p-2 rounded-xl bg-muted">
+							<Upload className="w-5 h-5 text-muted-foreground" />
 						</div>
 						<div>
-							<h3 className="text-white text-2xl font-semibold">
-								Upload documents
+							<h3 className="text-foreground text-2xl font-semibold">
+								Upload
 							</h3>
-							<p className="text-sm text-neutral-300 mt-1">
-								Drag & drop files here or click to browse.
-								Supported: PDF, PNG, JPG
+							<p className="text-sm text-muted-foreground mt-1">
+								{kind === "receipts"
+									? "Lumen reads each one into a transaction. PDF, PNG or JPG."
+									: "Contracts, policies and other PDFs, searchable from Ask Lumen."}
 							</p>
 						</div>
 					</div>
 
-					<button
-						onClick={() => setOpen(false)}
-						className="p-2 rounded-lg hover:bg-neutral-800/50 transition-colors"
-					>
-						<X className="w-5 h-5 text-neutral-400 hover:text-white" />
-					</button>
 				</div>
+
+				<div className="mt-5 flex flex-wrap items-center gap-3">
+					<div role="radiogroup" aria-label="What are you uploading?" className="flex gap-0.5 rounded-[9px] border border-border/60 bg-muted/40 p-0.5">
+						{([["receipts", "Receipts & invoices"], ["documents", "Documents"]] as const).map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								role="radio"
+								aria-checked={kind === value}
+								disabled={uploading}
+								onClick={() => setKind(value)}
+								className={cn("label-ui rounded-[7px] px-3 py-1", kind === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+					{kind === "documents" && (
+						<label className="flex items-center gap-2 text-sm text-muted-foreground">
+							Type
+							<select value={docType} onChange={(e) => setDocType(e.target.value)} className="h-8 rounded-md border border-border bg-card px-2 text-foreground">
+								{DOC_TYPES.map((t) => (
+									<option key={t.value} value={t.value}>{t.label}</option>
+								))}
+							</select>
+						</label>
+					)}
+				</div>
+				<p className="mt-2 text-[12.5px] text-muted-foreground">
+					Statements are CSV files:{" "}
+					<Link href="/receipts/import" onClick={() => setOpen(false)} className="text-foreground underline underline-offset-4">
+						import a statement
+					</Link>{" "}
+					instead.
+				</p>
 
 				<div
 					onDragOver={(e) => e.preventDefault()}
 					onDrop={handleDrop}
-					className="mt-6 rounded-xl border-2 border-dashed border-neutral-700 p-6 flex flex-col items-center justify-center text-center bg-transparent"
+					className="mt-4 rounded-xl border-2 border-dashed border-border p-6 flex flex-col items-center justify-center text-center bg-transparent"
 				>
 					<input
 						id="file-input-dashboard"
 						type="file"
 						multiple
-						accept=".pdf,.png,.jpg,.jpeg"
+						accept={kind === "documents" ? ".pdf" : ".pdf,.png,.jpg,.jpeg"}
 						onChange={handleFileChange}
 						className="hidden"
 					/>
@@ -210,18 +274,18 @@ export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
 						htmlFor="file-input-dashboard"
 						className="cursor-pointer w-full"
 					>
-						<div className="text-white text-lg font-medium mb-2">
+						<div className="text-foreground text-lg font-medium mb-2">
 							Drop files here
 						</div>
-						<div className="text-neutral-400 mb-4">
+						<div className="text-muted-foreground mb-4">
 							or click to select files
 						</div>
 						<div className="flex gap-3 justify-center">
-							<Button asChild type="button">
+							<Button asChild type="button" variant="quiet">
 								<span className="px-4 py-2">Browse</span>
 							</Button>
 							<Button
-								variant="secondary"
+								variant="ink"
 								onClick={handleUpload}
 								disabled={uploading || files.length === 0}
 								type="button"
@@ -233,42 +297,42 @@ export function DialogDemo({ defaultOpen = false }: { defaultOpen?: boolean }) {
 				</div>
 
 				<div className="mt-6">
-					<h4 className="text-white text-sm font-medium mb-2">
+					<h4 className="text-foreground text-sm font-medium mb-2">
 						Files
 					</h4>
 					<div className="flex flex-col gap-2 max-h-48 overflow-auto">
 						{files.length === 0 && (
-							<div className="text-neutral-500 text-sm">
+							<div className="text-muted-foreground text-sm">
 								No files selected
 							</div>
 						)}
 						{files.map((fileItem, i) => (
 							<div
 								key={i}
-								className="flex items-center justify-between gap-4 bg-neutral-900/50 p-2 rounded-md"
+								className="flex items-center justify-between gap-4 bg-muted/50 p-2 rounded-md"
 							>
 								<div className="flex items-center gap-2 flex-1 min-w-0">
 									{getStatusIcon(fileItem.status)}
-									<div className="truncate text-sm text-white">
+									<div className="truncate text-sm text-foreground">
 										{fileItem.file.name}
 									</div>
 								</div>
 								<div className="flex items-center gap-2">
-									<div className="text-xs text-neutral-400">
+									<div className="text-xs text-muted-foreground">
 										{(fileItem.file.size / 1024).toFixed(1)}{" "}
 										KB
 									</div>
 									{fileItem.status === "error" &&
 										fileItem.error && (
 											<div
-												className="text-xs text-red-400 max-w-[150px] truncate"
+												className="text-xs text-bad max-w-[150px] truncate"
 												title={fileItem.error}
 											>
 												{fileItem.error}
 											</div>
 										)}
 									{fileItem.note && (
-										<div className="text-xs text-neutral-400">
+										<div className="text-xs text-muted-foreground">
 											{fileItem.note}
 										</div>
 									)}

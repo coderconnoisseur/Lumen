@@ -605,3 +605,34 @@ def test_the_original_upload_is_kept_and_linked_from_the_transaction(client, ocr
     listed = client.get("/transactions", headers=AUTH).get_json()
     [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
     assert tx["file_key"] == key
+
+
+def test_the_transaction_list_says_where_each_row_came_from(client, ocr):
+    # Spending's table shows whether a row came from a receipt or a statement import (UI revamp Phase 5b)
+    from models import Transaction, db
+
+    body = _upload(client, _png_bytes()).get_json()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["source"] is None
+    with client.application.app_context():
+        db.session.get(Transaction, body["transaction_id"]).source = "statement"
+        db.session.commit()
+    listed = client.get("/transactions", headers=AUTH).get_json()
+    [tx] = [t for t in listed["data"] if t["id"] == body["transaction_id"]]
+    assert tx["source"] == "statement"
+
+
+def test_the_list_can_leave_out_statement_lines(client, ocr):
+    # Receipts & statements lists files, not bank lines: one big import must not push the receipts off the page
+    from models import Transaction, db
+
+    body = _upload(client, _png_bytes()).get_json()
+    with client.application.app_context():
+        for i in range(3):
+            db.session.add(Transaction(user_id=db.session.get(Transaction, body["transaction_id"]).user_id,
+                                       vendor_name=f"Line {i}", date="2026-10-01", total_amount=1, source="statement",
+                                       import_key=f"k{i}"))
+        db.session.commit()
+    listed = client.get("/transactions?exclude_source=statement&page_size=2", headers=AUTH).get_json()
+    assert [t["id"] for t in listed["data"]] == [body["transaction_id"]]

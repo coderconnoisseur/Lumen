@@ -17,8 +17,8 @@ const moved: [string, string][] = [
 	["/ai-analytics", "/spending"],
 	["/chatbot", "/ask"],
 	["/documents", "/receipts"],
-	["/import", "/receipts?tab=import"],
-	["/review", "/receipts?tab=review"],
+	["/import", "/receipts/import"],
+	["/review", "/receipts"],
 	["/upload", "/home?upload=1"],
 ];
 
@@ -44,7 +44,7 @@ test("new pages render for a signed-in user", async ({ page }) => {
 		["/spending", "Spending"],
 		["/bills", "Bills & subscriptions"],
 		["/receipts", "Receipts & statements"],
-		["/receipts?tab=review", "Receipts & statements"],
+		["/receipts/import", "Import a statement"],
 		["/ask", "Ask Lumen"],
 	];
 	for (const [p, title] of pages) {
@@ -61,8 +61,11 @@ test("sidebar shows the new IA", async ({ page }) => {
 	await signIn(page);
 	await page.goto("/home");
 	const links = sidebar(page).locator('[data-sidebar="menu-button"]');
-	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
-	await expect(sidebar(page).getByText("Track", { exact: true })).toBeVisible();
+	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Budget", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
+	// every group is labelled (owner, 2026-10-22)
+	for (const group of ["Overview", "Track", "Plan", "Records", "Assistant"]) {
+		await expect(sidebar(page).getByText(group, { exact: true })).toBeVisible();
+	}
 	for (const old of ["Workspace", "Compare", "Financial command center"]) {
 		await expect(page.getByText(old, { exact: true })).toHaveCount(0);
 	}
@@ -83,6 +86,20 @@ test("ctrl+b collapses to a 56px rail with tooltips", async ({ page }) => {
 	await expect(sidebar(page).getByText("Spending", { exact: true })).toBeHidden();
 	await sidebar(page).locator('a[href="/spending"]').hover();
 	await expect(page.getByRole("tooltip")).toHaveText("Spending");
+});
+
+test("the collapse control sits in the sidebar header, with no top bar on desktop", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/home");
+	const toggle = sidebar(page).getByRole("button", { name: "Toggle sidebar (Ctrl+B)" });
+	await toggle.click();
+	await expect.poll(() => railWidth(page)).toBeCloseTo(56, 0);
+	// on the rail the logo turns into the expand button on hover
+	await sidebar(page).locator('[data-sidebar="header"]').hover();
+	await toggle.click();
+	await expect.poll(() => railWidth(page)).toBeGreaterThan(200);
+	await expect(page.locator("#main > header")).toBeHidden();
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
 });
 
 test("collapsed state survives reload without a jump", async ({ page }) => {
@@ -121,6 +138,15 @@ test("ctrl+k opens the ask palette and enter hands off", async ({ page }) => {
 	await expect(page).toHaveURL(/\/ask$/);
 	await expect(page.getByText("Answer to: Where did my money go")).toBeVisible();
 	expect(posts).toEqual(["Where did my money go"]);
+});
+
+test("ctrl+k works below md with the sheet closed", async ({ page }) => {
+	await page.setViewportSize({ width: 767, height: 1024 });
+	await signIn(page);
+	await page.goto("/home");
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+	await page.keyboard.press("Control+k");
+	await expect(palette(page)).toBeVisible();
 });
 
 test("palette works with caps lock", async ({ page }) => {
@@ -210,7 +236,7 @@ test("body is never its own scroll container (it would lose its scrollbar when a
 
 test("review badge updates after a decision on the same page", async ({ page }) => {
 	await signIn(page, { reviewCount: 2 });
-	await page.goto("/receipts?tab=review");
+	await page.goto("/receipts");
 	const badge = sidebar(page).locator('[data-sidebar="menu-badge"]');
 	await expect(badge).toHaveText("2");
 	await page.getByRole("button", { name: "Approve" }).first().click();
@@ -235,4 +261,17 @@ test("sidebar never scrolls sideways", async ({ page }) => {
 	const content = page.locator('[data-sidebar="content"]');
 	await expect(content).toBeVisible();
 	expect(await content.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test("spending and bills show no cards that can never load", async ({ page }) => {
+	await signIn(page, {
+		home: { reminders: [{ id: "n", vendor: "Netflix", amount: 649, date: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10), type: "upcoming" }] },
+	});
+	await page.goto("/spending");
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Spending");
+	for (const dead of ["Could not load payment calendar.", "Could not load reminders.", "Spending Trends"])
+		await expect(page.getByText(dead, { exact: true })).toHaveCount(0);
+	await page.goto("/bills");
+	await expect(page.getByTestId("recurring-table")).toContainText("Netflix");
+	await expect(page.getByText(/Could not load/)).toHaveCount(0);
 });

@@ -53,6 +53,10 @@ _NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next[ \t]*[:：\-–—][*
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
                         r"anything else|let me know|how about i|you could|you can|tell me (which|if|whether)|if you('d| would) like|"
                         r"feel free)\b", re.IGNORECASE)
+# A step the user does themselves ("Connect your Gmail…") isn't a request to Lumen either: as a chip it was sent to the
+# chat (owner report, 2026-10-22). Uploads are the exception: the UI turns an "Upload…" chip into the upload button.
+_USER_STEP = re.compile(r"(connect|go to|log ?in|sign ?in|visit|click|tap|open (the|your)|check your|forward)\b",
+                        re.IGNORECASE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:
@@ -65,7 +69,7 @@ def split_follow_up(text: str) -> tuple[str, str | None]:
     answer, follow_up = (text[:m.start()] + text[m.end():]).strip(), m.group(1).strip(" \t*_\"'“”‘’")
     if not follow_up:  # a bare "Next:"
         return answer, None
-    if _ASKS_USER.match(follow_up):
+    if _ASKS_USER.match(follow_up) or _USER_STEP.match(follow_up):
         return f"{answer}\n\n{follow_up}", None
     return answer, follow_up
 

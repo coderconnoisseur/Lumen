@@ -3,17 +3,25 @@
 // An Ask Lumen answer: markdown with inline citation chips, an action row and the cited passages.
 // Visuals adapted from Beautiful UI's Streaming Text and Context Cards (beautifului.dev, MIT).
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUpRight, Check, Copy, FileText, Globe, Info, RotateCcw } from "lucide-react";
+import { ArrowUpRight, Check, Copy, FileText, Globe, Info, RotateCcw, Upload } from "lucide-react";
 import { filesApi, type ChatAttachment, type ChatSource } from "@/lib/api/client";
 import { InvoiceCard } from "./invoice-card";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
+const CHIP =
+	"self-start rounded-full border border-line px-3.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:bg-hover hover:text-ink";
+
 // Same shape the agent cites with (backend agent/graph.py _CITATION).
 const CITATION = /[[【]\s*([^[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]/g;
 const CITE_PREFIX = "#cite-";
+// A suggested next step that is an upload is something you do, not something to ask: the chip opens the upload dialog
+// instead of sending the sentence to Lumen (owner report, 2026-10-22). Other do-it-yourself steps never become chips
+// (backend agent/graph.py _USER_STEP).
+const UPLOAD_STEP = /^(upload|import|add|attach|scan)\b.*\b(receipt|invoice|statement|document|bill|file)s?\b/i;
 
 function openOriginal(key: string) {
 	filesApi.open(key).catch(() => toast.error("Couldn't open the original document."));
@@ -166,15 +174,16 @@ export function Answer({
 
 			{children}
 
-			{followUp && onFollowUp && (
-				<button
-					type="button"
-					onClick={() => onFollowUp(followUp)}
-					className="self-start rounded-full border border-line px-3.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:bg-hover hover:text-ink"
-				>
+			{followUp && onFollowUp && (UPLOAD_STEP.test(followUp) ? (
+				<Link href="/home?upload=1" className={cn(CHIP, "inline-flex items-center gap-1.5")}>
+					<Upload className="size-3.5" />
+					{followUp.replace(/[.!]$/, "")}
+				</Link>
+			) : (
+				<button type="button" onClick={() => onFollowUp(followUp)} className={CHIP}>
 					{followUp}
 				</button>
-			)}
+			))}
 
 			<div className="flex items-center gap-0.5">
 				<button

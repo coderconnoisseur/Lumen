@@ -8,6 +8,8 @@ export type Txn = {
 	total_amount: number | null;
 	category: string | null;
 	created_at: string | null;
+	/** "statement" for imported rows; null/absent for receipts */
+	source?: string | null;
 };
 export type Range = "1W" | "1M" | "3M" | "YTD";
 export type Period = { start: Date; end: Date; days: number }; // inclusive, local midnight
@@ -21,7 +23,7 @@ export const parseDay = (s: string) => {
 // round() absorbs the 23h/25h days around daylight-saving changes
 export const dayIndex = (p: Period, day: Date) => Math.round((day.getTime() - p.start.getTime()) / DAY);
 
-const period = (start: Date, end: Date): Period => ({ start, end, days: Math.round((end.getTime() - start.getTime()) / DAY) + 1 });
+export const period = (start: Date, end: Date): Period => ({ start, end, days: Math.round((end.getTime() - start.getTime()) / DAY) + 1 });
 const months = (y: number, m: number, n: number) => period(new Date(y, m, 1), new Date(y, m + n, 0));
 
 export function periods(range: Range, today: Date): { current: Period; previous: Period } {
@@ -136,4 +138,24 @@ const ASK_ABOUT: Record<string, (subject: string | null) => string> = {
 export function suggestedQuestions(found: { kind: string; subject: string | null }[], server: string[]): string[] {
 	const fromFound = found.slice(0, 3).map((f) => ASK_ABOUT[f.kind]?.(f.subject)).filter((q): q is string => !!q);
 	return [...new Set([...fromFound, ...server])].slice(0, 4);
+}
+
+// "1st", "22nd", "13th"
+export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
+
+// The little initials chip shown for a vendor: two letters ("Swiggy Instamart" → "SI", "Swiggy" → "SW") and a hue
+// that's the same every time for the same name, so a vendor keeps its colour across pages.
+export function vendorChip(name: string): { initials: string; hue: number } {
+	const words = name.trim().split(/\s+/).filter(Boolean);
+	const initials = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "").slice(0, 2)).toUpperCase() || "?";
+	let hash = 0;
+	for (const ch of name.toLowerCase()) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+	return { initials, hue: hash };
+}
+
+// The backend sends naive UTC timestamps ("2026-10-22T10:00:00"): read them as UTC, not local time. Plain dates stay
+// local calendar days; a timestamp that names its zone is read as it says.
+export function parseUtc(s: string): Date {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return parseDay(s);
+	return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`);
 }

@@ -15,17 +15,8 @@ import { FileDown, Filter } from "lucide-react";
 import { invoiceApi } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 
-interface ExportDialogProps {
-  variant?: "default" | "secondary";
-  size?: "default" | "sm" | "lg" | "icon";
-  className?: string;
-}
-
-export function ExportDialog({
-  variant = "default",
-  size = "sm",
-  className = "",
-}: ExportDialogProps) {
+// Opened from a quiet round icon button (Phase 5 pages: no loud blue actions).
+export function ExportDialog() {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [exporting, setExporting] = useState(false);
@@ -91,14 +82,13 @@ export function ExportDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={variant} size={size} className={className}>
-          <FileDown className="w-4 h-4 mr-2" />
-          Export
+        <Button variant="quiet" size="pill-icon" aria-label="Export" title="Export">
+          <FileDown className="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl bg-linear-to-b from-[#0b0612] to-[#05020a] border-neutral-800">
+      <DialogContent className="max-w-2xl bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-white flex items-center gap-2">
+          <DialogTitle className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <FileDown className="w-6 h-6" />
             Export Invoices
           </DialogTitle>
@@ -107,13 +97,13 @@ export function ExportDialog({
         <div className="space-y-6 mt-4">
           {/* Format Selection */}
           <div className="space-y-2">
-            <Label className="text-white text-sm font-medium">
+            <Label className="text-foreground text-sm font-medium">
               Export Format
             </Label>
             <div className="flex gap-3">
               <Button
                 type="button"
-                variant={format === "csv" ? "default" : "outline"}
+                variant={format === "csv" ? "ink" : "quiet"}
                 onClick={() => setFormat("csv")}
                 className="flex-1"
               >
@@ -121,7 +111,7 @@ export function ExportDialog({
               </Button>
               <Button
                 type="button"
-                variant={format === "json" ? "default" : "outline"}
+                variant={format === "json" ? "ink" : "quiet"}
                 onClick={() => setFormat("json")}
                 className="flex-1"
               >
@@ -131,10 +121,10 @@ export function ExportDialog({
           </div>
 
           {/* Filters Section */}
-          <div className="border-t border-neutral-700 pt-4">
+          <div className="border-t border-border pt-4">
             <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-4 h-4 text-neutral-400" />
-              <h3 className="text-white text-sm font-medium">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-foreground text-sm font-medium">
                 Filters (Optional)
               </h3>
             </div>
@@ -142,11 +132,11 @@ export function ExportDialog({
             <div className="grid grid-cols-2 gap-4">
               {/* Status Filter */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">Status</Label>
+                <Label className="text-muted-foreground text-sm">Status</Label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">All</option>
                   <option value="completed">Completed</option>
@@ -158,71 +148,71 @@ export function ExportDialog({
 
               {/* Vendor Name Filter */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">Vendor Name</Label>
+                <Label className="text-muted-foreground text-sm">Vendor Name</Label>
                 <Input
                   type="text"
                   value={vendorName}
                   onChange={(e) => setVendorName(e.target.value)}
                   placeholder="Search vendor..."
-                  className="bg-neutral-900 border-neutral-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                 />
               </div>
 
               {/* Start Date */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">Start Date</Label>
+                <Label className="text-muted-foreground text-sm">Start Date</Label>
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-neutral-900 border-neutral-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                 />
               </div>
 
               {/* End Date */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">End Date</Label>
+                <Label className="text-muted-foreground text-sm">End Date</Label>
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-neutral-900 border-neutral-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                 />
               </div>
 
               {/* Min Amount */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">Min Amount</Label>
+                <Label className="text-muted-foreground text-sm">Min Amount</Label>
                 <Input
                   type="number"
                   value={minAmount}
                   onChange={(e) => setMinAmount(e.target.value)}
                   placeholder="0.00"
                   step="0.01"
-                  className="bg-neutral-900 border-neutral-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                 />
               </div>
 
               {/* Max Amount */}
               <div className="space-y-2">
-                <Label className="text-neutral-300 text-sm">Max Amount</Label>
+                <Label className="text-muted-foreground text-sm">Max Amount</Label>
                 <Input
                   type="number"
                   value={maxAmount}
                   onChange={(e) => setMaxAmount(e.target.value)}
                   placeholder="0.00"
                   step="0.01"
-                  className="bg-neutral-900 border-neutral-700 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                 />
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-neutral-700">
+          <div className="flex gap-3 pt-4 border-t border-border">
             <Button
               type="button"
-              variant="outline"
+              variant="quiet"
               onClick={resetFilters}
               className="flex-1"
             >
@@ -230,6 +220,7 @@ export function ExportDialog({
             </Button>
             <Button
               type="button"
+              variant="ink"
               onClick={handleExport}
               disabled={exporting}
               className="flex-1"

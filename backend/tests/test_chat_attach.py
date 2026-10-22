@@ -84,7 +84,7 @@ def test_approve_save_invoice_records_once(env):
     assert out["proposal"]["status"] == "approved"
     with pytest.raises(HTTPException) as e:
         _decide(pid, "user-1", "approved", deps)
-    assert e.value.status_code == 409
+    assert (e.value.status_code, e.value.detail) == (409, "This proposal was already decided.")
     assert _count(engine, ReviewItem) == 1  # one submission (auto-approved: its transaction, else queued for review)
     assert _count(engine, Transaction) == 1
 

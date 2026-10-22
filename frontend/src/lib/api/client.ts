@@ -17,7 +17,6 @@ export const warmApi = (): void => {
 // identical requests fired together share one call. Any write clears it, and so does signing out.
 // ponytail: in-memory per tab (a reload refetches); move to sessionStorage if reloads matter.
 const CACHE_MS = 5 * 60_000;
-const READ_ONLY_POSTS = ["/api/analytics/analyze"];
 const cache = new Map<string, { at: number; data: Promise<unknown> }>();
 
 export const clearApiCache = (): void => cache.clear();
@@ -110,8 +109,7 @@ const createApiClient = (): AxiosInstance => {
 
 	client.interceptors.response.use(
 		(response) => {
-			const { method, url = "" } = response.config;
-			if (method !== "get" && !READ_ONLY_POSTS.includes(url)) cache.clear();
+			if (response.config.method !== "get") cache.clear();
 			return response;
 		},
 		async (error: AxiosError) => {
@@ -472,27 +470,6 @@ export const keysApi = {
 	},
 };
 
-/** Analytics — backend derives user from JWT. */
-export const analyticsApi = {
-	getTimeRangeAnalytics: async (
-		timeRange: "weekly" | "monthly" | "yearly",
-		year: number,
-		month?: number,
-		week?: number
-	) => {
-		const queryParams = new URLSearchParams();
-		queryParams.append("time_range", timeRange);
-		queryParams.append("year", year.toString());
-		if (month !== undefined) queryParams.append("month", month.toString());
-		if (week !== undefined) queryParams.append("week", week.toString());
-		const url = `/analytics/summary?${queryParams.toString()}`;
-		return cached(url, async () => (await apiClient.get(url)).data);
-	},
-
-	getAllTimeSummary: () =>
-		cached("/analytics/summary", async () => (await apiClient.get("/analytics/summary")).data),
-};
-
 export const transactionApi = {
 	getTransactions: async (params?: {
 		page?: number;
@@ -505,8 +482,11 @@ export const transactionApi = {
 		max_amount?: number;
 		sort_by?: string;
 		sort_order?: "asc" | "desc";
+		/** e.g. "statement": leave out imported bank lines */
+		exclude_source?: string;
 	}) => {
 		const queryParams = new URLSearchParams();
+		if (params?.exclude_source) queryParams.append("exclude_source", params.exclude_source);
 		if (params?.page) queryParams.append("page", params.page.toString());
 		if (params?.page_size)
 			queryParams.append("page_size", params.page_size.toString());
@@ -581,84 +561,14 @@ export const transactionApi = {
 	},
 };
 
+// Analytics the redesigned pages still read: the forecast line on Home.
 export const aiAnalyticsApi = {
-	getDashboard: () =>
-		cached("/api/analytics/dashboard", async () => (await apiClient.get("/api/analytics/dashboard")).data),
-
-	runAnalysis: async (
-		options: {
-			includeFraud?: boolean;
-			includeForecast?: boolean;
-			includeRisk?: boolean;
-			useLlm?: boolean;
-		} = {}
-	) => {
-		const body = {
-			include_fraud: options.includeFraud ?? true,
-			include_forecast: options.includeForecast ?? true,
-			include_risk: options.includeRisk ?? true,
-			use_llm: options.useLlm ?? false,
-		};
-		return cached(`/api/analytics/analyze ${JSON.stringify(body)}`,
-			async () => (await apiClient.post("/api/analytics/analyze", body)).data);
-	},
-
-	getReminders: async (daysAhead: number = 7) => {
-		const response = await apiClient.get("/api/analytics/reminders", {
-			params: { days_ahead: daysAhead },
-		});
-		return response.data;
-	},
-
-	getAnomalies: (riskLevel?: string) =>
-		cached(`/api/analytics/anomalies ${riskLevel ?? ""}`, async () => (await apiClient.get("/api/analytics/anomalies", {
-			params: riskLevel ? { risk_level: riskLevel } : {},
-		})).data),
-
 	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
 	getForecast: (daysAhead: number = 30, insights = true) =>
 		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
 			(await apiClient.get("/api/analytics/forecast", {
 				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
 			})).data),
-
-	getRiskScore: async () => {
-		const response = await apiClient.get("/api/analytics/risk-score");
-		return response.data;
-	},
-
-	getInsights: async (options: {
-		type?: string;
-		severity?: string;
-		limit?: number;
-	} = {}) => {
-		const params = {
-			...(options.type && { type: options.type }),
-			...(options.severity && { severity: options.severity }),
-			limit: options.limit || 20,
-		};
-		return cached(`/api/analytics/insights ${JSON.stringify(params)}`,
-			async () => (await apiClient.get("/api/analytics/insights", { params })).data);
-	},
-
-	markInsightRead: async (insightId: number) => {
-		const response = await apiClient.post(
-			`/api/analytics/insights/${insightId}/read`
-		);
-		return response.data;
-	},
-
-	getPatterns: async (patternType?: string) => {
-		const response = await apiClient.get("/api/analytics/patterns", {
-			params: patternType ? { pattern_type: patternType } : {},
-		});
-		return response.data;
-	},
-
-	healthCheck: async () => {
-		const response = await apiClient.get("/api/analytics/health");
-		return response.data;
-	},
 };
 
 export const isAuthenticated = (): boolean => {
@@ -759,13 +669,49 @@ export interface BudgetState {
 	categories: { category: string; limit: number; spent: number }[];
 }
 
+/** One recurring charge (backend ai/recurring.find_recurring) with the user's saved choice (api/bills.py). */
+export interface RecurringItem {
+	vendor: string;
+	category: string | null;
+	cadence: "weekly" | "monthly" | "yearly";
+	typical_amount: number;
+	last_charge_date: string;
+	next_due_date: string;
+	charges_count: number;
+	price_change: { previous: number; latest: number; percent: number } | null;
+	kind: "subscription" | "bill" | "recurring";
+	possibly_stopped: boolean;
+	state: "active" | "cancelled" | "charged_again";
+}
+export interface RecurringState {
+	items: RecurringItem[];
+	/** vendors the user marked "not a bill" */
+	hidden: { vendor: string; vendor_key: string }[];
+}
+
+export const billsApi = {
+	recurring: (): Promise<RecurringState> => cached("/api/bills/recurring", async () => (await apiClient.get("/api/bills/recurring")).data),
+	setState: async (vendor: string, state: "cancelled" | "not_a_bill" | "active"): Promise<RecurringState> =>
+		(await apiClient.post("/api/bills/recurring/state", { vendor, state })).data,
+};
+
 export const homeApi = {
 	summary: (): Promise<HomeSummary> => cached("/api/home/summary", async () => (await apiClient.get("/api/home/summary")).data),
 };
 
+/** One month of GET /api/budget/history: `budget` is null for a past month that had none. */
+export interface BudgetMonth {
+	month: string;
+	budget: number | null;
+	spent: number;
+}
+
 export const budgetApi = {
-	get: async (): Promise<BudgetState> => (await apiClient.get("/api/budget")).data,
-	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
+	/** `month` "YYYY-MM"; default the current month. Limits are the ones in force that month. */
+	// Every call names the browser's month: around midnight on the 1st the server's (UTC) date can be a month off.
+	get: async (month: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: { month } })).data,
+	history: async (months: number, to: string): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months, to } })).data.months,
+	put: async (body: { month: string; monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
 		(await apiClient.put("/api/budget", body)).data,
 	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */
 	draft: async (): Promise<Proposal[]> => (await apiClient.post("/api/budget/draft")).data.proposals,
@@ -787,7 +733,7 @@ export const agentApi = {
 
 export interface ReviewFlag {
 	rule: string;
-	severity: "warn" | "fail";
+	severity: "warn" | "fail" | "note"; // note: a warning not raised because you kept approving it
 	detail: string;
 }
 
@@ -890,14 +836,31 @@ const upload = (file: File, extra: Record<string, string> = {}) => {
 	return form;
 };
 
+/** One statement import (GET /api/statements/imports); counts as the import returned them. */
+export interface StatementImport {
+	id: string;
+	file_name: string | null;
+	label: string | null;
+	period_from: string | null;
+	period_to: string | null;
+	lines: number;
+	imported: number;
+	matched: number;
+	duplicates: number;
+	credits: number;
+	unreadable: number;
+	created_at: string;
+}
+
 export const statementApi = {
+	imports: async (): Promise<StatementImport[]> => (await apiClient.get("/api/statements/imports")).data.imports,
 	preview: async (file: File): Promise<StatementPreview> =>
 		(await apiClient.post("/api/statements/preview", upload(file), { headers: { "Content-Type": undefined } })).data,
-	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number): Promise<StatementResult> =>
+	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number, label = ""): Promise<StatementResult> =>
 		(
 			await apiClient.post(
 				"/api/statements/import",
-				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine) }),
+				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine), ...(label.trim() ? { label: label.trim() } : {}) }),
 				{ headers: { "Content-Type": undefined } },
 			)
 		).data,

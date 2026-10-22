@@ -385,3 +385,104 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   never on reload, a rail that doesn't move the conversation, and Caps-Lock-proof ⌘K. Screenshots caught two bugs the
   tests then pinned: an unreadable blue selected thread and a 24 px sidebar overflow left over from Phase 1.
 
+## 32. The owner runs the revamp and Home becomes Origin-like (UI revamp, review round + Phase 5a)
+- **S:** Running Phases 0–4 locally, the owner found the app still felt like the old one: Home didn't resemble the
+  inspiration (Origin's app home), labels used a generic all-caps mono font, only one sidebar group was labelled, the
+  collapse button sat in an empty top bar, and an "Upload an invoice…" chip sent that sentence to the AI as a question.
+  `/spending` had cards that never loaded, and Home then crashed on real data.
+- **T:** Fix what the owner flagged, agree a look for Home and the four inner pages from mockups first, then rebuild
+  Home on one shared page skeleton without breaking the zero layout-shift rule.
+- **A:** Labelled every sidebar group, moved the collapse control into the sidebar header (no desktop top bar), and
+  switched labels to Funnel Sans in sentence case. Upload follow-ups became an upload button; other "do it yourself"
+  steps stay in the answer text. Mocked Home plus Spending, Bills, Budget and Receipts in the Origin style (four
+  mockups built in parallel by subagents) and wrote the Phase 5 spec and plan. Built `PageHeader`/`PageCard`, a
+  monotone curve and collision-free axis ticks, then the new Home: hero chart with "heading for", a day-by-day calendar
+  with amounts and bill names, Lumen found as a list whose links act (`/ask?draft=` types a question without sending
+  it), budget categories and Coming up. Upload and Export went quiet and their dialogs light. Ask fixes ran in
+  parallel in a separate worktree. Root causes found while testing on the owner's data: Home expected a bills shape the
+  API never sent (so bills never showed, and the new calendar crashed), three Spending cards read fields no backend
+  code produces (removed until 5b/5c rebuild them), and the e2e server shared the dev server's `.next` folder.
+- **R:** Backend 979 passed (chat thread and its messages saved in one commit; a clear 409 on a lost approval race).
+  Frontend 128 e2e checks (up from 102): every Home card measured to the same height loading and loaded, ticks that
+  never overlap at 375 px, light dialogs, a draft that never sends itself, and the real reminders shape in the
+  fixtures. Screenshots caught three bugs the tests then pinned: a width observer that never attached, cut-off
+  calendar amounts on phones, and a doubled close button.
+
+## 33. Spending answers "where did my money go?" (UI revamp, Phase 5b)
+- **S:** `/spending` was two old pages stacked: two headings, cards that never loaded, and AI widgets that only showed
+  results saved by a heavy analysis run, so most users saw empty boxes.
+- **T:** One calm page built from data Lumen already has: what was spent, against what, where it went, what looks off,
+  and every transaction, with nothing faked and nothing moving when a filter changes.
+- **A:** Pure maths in `lib/spending-math.ts` (periods incl. custom ranges, categories with share and change, top
+  merchants, monthly totals) under unit tests first. Pulled Home's chart out into a shared `CumulativeChart` so both
+  heroes use one implementation; 3M/YTD switch to month bars of the same height. The category filter lives in the URL,
+  spikes found on Home now deep-link to it, and the table edits a category in place and exports exactly the rows shown
+  as CSV. The backend's only change: the transactions list says whether a row came from a statement. Deleted the old
+  Analytics/AI Insights pages, six components and ten unused API calls (about 1,900 lines).
+- **R:** 13 Spending e2e checks (one heading, period switches keep the hero's box, CLS under 0.01 while loading,
+  filter/search/source, in-place edit without the row moving, CSV contents, chips on one line at 375 px) plus 5 maths
+  tests; the e2e fixture now copies its data per test after a PUT leaked between tests. A screenshot against the
+  approved mockup caught the wrapping period chips on phones, which a test then pinned.
+
+## 34. Bills & subscriptions you can act on (UI revamp, Phase 5c)
+- **S:** Bills had only the payment calendar and reminders cards, which read fields the backend never sent, and Home's
+  "Coming up" only had rows after a heavy analysis had run. Lumen already detected recurring charges well, but only the
+  agent and Home's signals used it.
+- **T:** One page answering "what's due, what recurs, what can I cut?" from that detection, where telling Lumen
+  "cancelled" or "that's not a bill" is remembered, and noticing when a cancel didn't stick.
+- **A:** A small `/api/bills` (TDD): recurring charges plus a `recurring_states` table keyed by the detection's own
+  normalised vendor, so "NETFLIX.com" and "Netflix com" are one choice; a charge after the cancel day flips the row to
+  "charged again". Home's bills switched to it. Pure maths (`lib/bills-math.ts`: monthly equivalents, projected due days
+  per cadence, a 30-day agenda, the tiles) under unit tests, then the page: tiles, a six-row month calendar that never
+  changes height, Upcoming, and a table whose actions save in place, with Undo for cancelled and hidden vendors and
+  "How to cancel" opening Ask with the question typed. Removed the interim list and the last caller of the old reminders.
+- **R:** Backend 986 passed (5 new: per-user states, cancel → charged again, hide/restore, vendor spelling,
+  validation). Frontend: 10 Bills e2e checks (tiles, the calendar across months without moving, groups, tabs, cancel and
+  undo, hide and undo, the Ask link, CLS under 0.01, tabs on one line at 375 px) and 4 maths tests. A screenshot against
+  the mockup caught the wrapping tabs on phones, now pinned by a test.
+
+## 35. A budget you can plan with (UI revamp, Phase 5d)
+- **S:** Budgets were one limit per category with no history: changing one rewrote every past month, there was no
+  way to look back, and the only place to approve Lumen's draft was a dialog on Home with buttons named just
+  "Approve" / "Skip".
+- **T:** A Budget page that answers "am I on track, and what should my plan be?", where past months stay as they were
+  and the draft lives on the page.
+- **A:** Budgets became versioned by month (TDD): an `effective_from` column, reads that take each category's latest
+  row from that month or before, writes from the current month on, and a migration that dates old rows and swaps the
+  unique constraint (rebuilding the table on SQLite, where a constraint can't be dropped). New `?month=` and
+  `/history` endpoints; approved drafts write from the month they were for; `basis.months` lists only months with
+  spend. Pure maths (`lib/budget-math.ts`), then the page: a pace hero with the even-pace tick and safe per day, six
+  months of budget-vs-actual, a category table edited in place, and the draft panel with category-named buttons. A
+  Plan group joined the sidebar; Home's promo now links to the page.
+- **R:** Backend 993 passed (8 new: last month's limits survive an edit, removal only from this month, history with
+  and without a budget, draft month, bad input, the old-schema migration, basis months). Frontend: 17 Budget e2e
+  checks (hero numbers, month switch read-only, inline edit without the row moving, Esc, add category, edit total,
+  draft skip/approve/approve-remaining/double click/409/`?draft=1`/no history, history bars, CLS under 0.01, phone fit)
+  and 4 maths tests. A phone screenshot showed buttons and bars clipped past the screen edge, which the old
+  "no sideways scroll" check missed; the test now checks every header button, bar and table cell ends on screen.
+
+## 36. One place for everything you've given Lumen (UI revamp, Phase 5e)
+- **S:** Receipts & statements was three old pages as tabs (Documents, Import, Review). The review queue showed raw
+  rule text and a "correct total" box; statement imports left no trace once the result line was gone; and connecting
+  Gmail had no entry point in the app at all since the old dashboard was removed.
+- **T:** One page that answers "what have I given Lumen, and what needs my OK?", with the review as cards that point at
+  the doubtful field, and a history of statement imports.
+- **A:** A `statement_imports` table written by every import (file, optional account name, period, counts as returned)
+  and `GET /api/statements/imports` (TDD). The page: review cards that map each validation flag to the field it doubts
+  and a plain reason, Edit that sends only changed fields, Keep both for duplicates; one library of receipts, review
+  items, documents and imports with chips and search; Statement imports and From your inbox cards (Check now, Pause,
+  Connect with Google). The upload dialog now files PDFs as documents too. The import flow moved to
+  `/receipts/import`; the old routes redirect, and the three old pages were deleted.
+- **R:** Backend 995 passed (2 new: history per import with period and counts, re-import as its own row, per-user,
+  label limit). Frontend: 15 Receipts e2e checks (brief, highlights and reasons, edit-and-approve body, reject and the
+  sidebar badge, empty queue, library mix, chips, search, delete, imports counts, inbox both ways, document upload,
+  import link, redirects, CLS under 0.01, nothing past the edge at 375 px). A screenshot pass fixed raw ISO dates on the
+  cards.
+- **Phase 5 review:** one fresh reviewer read all 43 commits of Phase 5. No Critical issues; 8 Important ones, plus a
+  CSV-formula risk upgraded to Important, all fixed test-first: receipts lost behind a big statement import (now
+  filtered server-side), a past month showing today's overall budget, a stale draft writing into last month, the
+  first night of a month (browser and UTC server a month apart; every budget call now names the browser's month,
+  writes only within one month of the server's), late bills vanishing from "what's due" (now "Not seen yet"), no way
+  to open the original receipt, the wrong error text, an edit that could approve a ₹0 total (now refused by the API
+  too), and spreadsheet formulas in the CSV export. Backend 1004 passed, e2e 207. Nine minors went to the backlog.
+

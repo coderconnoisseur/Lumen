@@ -98,11 +98,12 @@ def _own_thread(user_id: str, thread_id) -> ChatThread:
 
 
 def _thread_for(user_id: str, thread_id: str | None, question: str) -> ChatThread:
+    """The thread to save into. A new one is only added to the session: _save_exchange commits it together with its
+    messages, so a failed save leaves no empty titled thread behind."""
     if thread_id:
         return _own_thread(user_id, thread_id)
     thread = ChatThread(id=str(uuid.uuid4()), user_id=user_id, title=_title(question) or "New chat")
     db.session.add(thread)
-    db.session.commit()
     return thread
 
 
@@ -193,8 +194,10 @@ def chat():
         _save_exchange(user_id, thread.id, f"{query} [attached: {file.filename}]" if file else query,
                        result["response"])
     except Exception as e:
-        # Losing history shouldn't cost the user their answer.
+        # Losing history shouldn't cost the user their answer. A new thread was rolled back with it: don't hand out its id.
         db.session.rollback()
+        if not thread_id:
+            result.pop("thread_id", None)
         logger.exception("Failed to save chat history for user=%s: %s", user_id, e)
 
     return jsonify({"success": True, "data": result}), 200

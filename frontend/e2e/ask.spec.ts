@@ -73,6 +73,28 @@ test("deleting a thread removes it", async ({ page }) => {
 	await expect(rail(page).getByRole("button", { name: /^Bills due/ })).toHaveCount(0);
 });
 
+test("rail actions wait for the answer", async ({ page }) => {
+	await openAsk(page, { ...old, delayMs: 1500 });
+	await rail(page).getByRole("button", { name: "Delete chat: Bills due" }).click();
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeFocused();
+	await composer(page).fill("Slow one");
+	await composer(page).press("Enter");
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeDisabled();
+	await expect(rail(page).getByRole("button", { name: "Confirm delete" })).toBeDisabled();
+	await expect(rail(page).getByRole("button", { name: "Delete chat: Food last month" })).toBeDisabled();
+	await expect(page.getByText("Answer to: Slow one")).toBeVisible();
+	await expect(rail(page).getByRole("button", { name: "Keep" })).toBeEnabled();
+});
+
+test("the trash button shows without hover at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openAsk(page, old);
+	await page.getByRole("button", { name: "History" }).click();
+	const trash = rail(page).getByRole("button", { name: "Delete chat: Bills due" });
+	await expect(trash).toBeVisible();
+	await expect(trash).toHaveCSS("opacity", "1");
+});
+
 test("handoff sends once", async ({ page }) => {
 	const posts: string[] = [];
 	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON().query));
@@ -162,4 +184,74 @@ test("the send button looks different when it can send", async ({ page }) => {
 	const on = await bg();
 	const lum = (c: number[]) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) * (c[3] / 255) + 244 * (1 - c[3] / 255);
 	expect(Math.abs(lum(on) - lum(off))).toBeGreaterThan(80); // a dark filled button vs a faint one on the light page
+});
+
+test("an upload suggestion opens the upload dialog instead of asking Lumen", async ({ page }) => {
+	await openAsk(page, { followUp: "Upload an invoice or receipt to get started." });
+	await composer(page).fill("Do I have invoices?");
+	await composer(page).press("Enter");
+	const chip = page.getByRole("link", { name: "Upload an invoice or receipt to get started" });
+	await expect(chip).toHaveAttribute("href", "/home?upload=1");
+	await chip.click();
+	await expect(page).toHaveURL(/\/home\?upload=1$/);
+	await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("a question suggestion is still sent to Lumen", async ({ page }) => {
+	await openAsk(page, { followUp: "Show last month by category" });
+	await composer(page).fill("How much did I spend?");
+	await composer(page).press("Enter");
+	await page.getByRole("button", { name: "Show last month by category" }).click();
+	await expect(page.getByText("Answer to: Show last month by category")).toBeVisible();
+});
+
+test("draft prefills the composer without sending", async ({ page }) => {
+	const posts: string[] = [];
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push("x"));
+	await openAsk(page, {}, "/ask?draft=Why%20is%20Food%20up%3F");
+	await expect(composer(page)).toHaveValue("Why is Food up?");
+	await expect(composer(page)).toBeFocused();
+	await expect(page).toHaveURL(/\/ask$/);
+	await page.waitForTimeout(500);
+	expect(posts).toHaveLength(0);
+	await page.reload();
+	await expect(composer(page)).toHaveValue("");
+});
+
+test("a sent draft doesn't come back in the follow-up box", async ({ page }) => {
+	await openAsk(page, {}, "/ask?draft=Why%20is%20Food%20up%3F");
+	await composer(page).press("Enter");
+	await expect(page.getByText("Answer to: Why is Food up?")).toBeVisible();
+	await expect(composer(page)).toHaveValue("");
+});
+
+test("a late answer can't take over a chat started after it", async ({ page }) => {
+	const posts: { query: string; thread_id?: string | null }[] = [];
+	const threadOf: Record<string, string> = {};
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON()));
+	page.on("response", async (r) => {
+		if (r.request().method() === "POST" && r.url().endsWith("/chat"))
+			threadOf[r.request().postDataJSON().query] = (await r.json()).data.thread_id;
+	});
+	// the first question answers after the second one
+	await openAsk(page, { delayMs: (q) => (q === "Slow one" ? 2500 : 100) });
+	await composer(page).fill("Slow one");
+	await composer(page).press("Enter");
+	// the Ask anything palette hands off to /ask?q= in the same page: a new chat while the first answer is in flight
+	await page.getByRole("button", { name: /^Ask anything/ }).click();
+	const palette = page.getByRole("dialog", { name: "Ask anything" });
+	await palette.getByRole("textbox").fill("Fast one");
+	await palette.getByRole("textbox").press("Enter");
+	await expect(page.getByText("Answer to: Fast one")).toBeVisible();
+	await page.waitForTimeout(3000); // the slow answer lands now
+	await expect(page.getByText("Answer to: Slow one")).toHaveCount(0);
+	await composer(page).fill("And a follow-up");
+	await composer(page).press("Enter");
+	await expect(page.getByText("Answer to: And a follow-up")).toBeVisible();
+	const fast = posts.find((p) => p.query === "Fast one")!;
+	const follow = posts.find((p) => p.query === "And a follow-up")!;
+	expect(fast.thread_id ?? null).toBeNull();
+	// the follow-up goes into the Fast chat's thread, never the slow one's
+	expect(follow.thread_id).toBe(threadOf["Fast one"]);
+	expect(threadOf["Fast one"]).not.toBe(threadOf["Slow one"]);
 });

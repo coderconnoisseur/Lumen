@@ -42,7 +42,7 @@ export function AskPalette({ open, onOpenChange }: { open: boolean; onOpenChange
 						className="h-11 w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground"
 					/>
 				</form>
-				<DialogDescription id="ask-palette-hint" className="label-mono px-1 text-muted-foreground">
+				<DialogDescription id="ask-palette-hint" className="label-ui px-1 text-muted-foreground">
 					Enter to ask · Esc to close
 				</DialogDescription>
 			</DialogContent>
