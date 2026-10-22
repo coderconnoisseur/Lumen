@@ -52,8 +52,8 @@ export function ByCategory({
 							key={r.category}
 							type="button"
 							data-testid="category-row"
-							aria-pressed={selected === r.category}
-							onClick={() => onSelect(selected === r.category ? null : r.category)}
+							aria-pressed={selected?.toLowerCase() === r.category.toLowerCase()}
+							onClick={() => onSelect(selected?.toLowerCase() === r.category.toLowerCase() ? null : r.category)}
 							className={cn(
 								"-mx-2 grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-3 rounded-lg px-2 py-2 text-left text-[13px] transition-colors sm:grid-cols-[minmax(0,160px)_1fr_90px_48px_64px]",
 								selected === r.category ? "bg-primary/8" : "hover:bg-muted/60",
@@ -64,7 +64,7 @@ export function ByCategory({
 								<span className="truncate">{r.category}</span>
 							</span>
 							<span className="h-[5px] overflow-hidden rounded-full bg-muted">
-								<i className="block h-full rounded-full" style={{ width: `${(r.amount / max) * 100}%`, background: TINTS[Math.min(i, TINTS.length - 1)] }} />
+								<i className="block h-full rounded-full" style={{ width: `${Math.max(0, (r.amount / max) * 100)}%`, background: TINTS[Math.min(i, TINTS.length - 1)] }} />
 							</span>
 							<span className="text-right font-medium tabular-nums">{money(Math.round(r.amount))}</span>
 							<span className="hidden text-right text-[12px] text-muted-foreground tabular-nums sm:block">{Math.round(r.share * 100)}%</span>

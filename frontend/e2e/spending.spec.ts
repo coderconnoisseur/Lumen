@@ -191,3 +191,9 @@ test("period chips stay on one line at phone width", async ({ page }) => {
 	}
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("the brief only names a payment that fits inside the jump", async ({ page }) => {
+	await openSpending(page, { txns: [tx("a", "Croma", thisMonth(1), 9999, "Shopping"), tx("b", "Bata", thisMonth(1), 1, "Shopping"), tx("c", "Myntra", lastMonth(1), 8000, "Shopping")] });
+	await expect(page.getByTestId("brief")).toContainText("Shopping is most of the jump.");
+	await expect(page.getByTestId("brief")).not.toContainText("Croma");
+});

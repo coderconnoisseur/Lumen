@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Spending page's calculations (UI revamp Phase 5b).
 import { test, expect } from "@playwright/test";
-import { byCategory, monthlyTotals, needsCategory, spendPeriods, toCsv, topMerchants } from "../src/lib/spending-math";
+import { byCategory, inCategory, monthlyTotals, needsCategory, spendPeriods, toCsv, topMerchants } from "../src/lib/spending-math";
 
 const tx = (id: string, vendor_name: string | null, date: string, total_amount: number, category: string | null = "Food") => ({
 	id,
@@ -66,4 +66,13 @@ test("toCsv: text that a spreadsheet would run as a formula is kept as text; amo
 	expect(csv[2]).toBe("2026-10-01,'+91 Store,,Receipt,-400");
 	expect(csv[3]).toBe("2026-10-01,'@sum,,Receipt,5");
 	expect(csv[4]).toBe('2026-10-01,"Plain, Co",,Receipt,1');
+});
+
+test("inCategory matches regardless of case (links carry the most common spelling)", () => {
+	const t = (category: string | null) => ({ id: 1, vendor_name: "V", date: "2026-10-01", total_amount: 1, category, created_at: null });
+	expect(inCategory(t("food"), "Food")).toBe(true);
+	expect(inCategory(t("Food "), "food")).toBe(true);
+	expect(inCategory(t("Travel"), "Food")).toBe(false);
+	expect(inCategory(t(null), "Uncategorised")).toBe(true);
+	expect(inCategory(t("Other"), "Uncategorised")).toBe(true);
 });

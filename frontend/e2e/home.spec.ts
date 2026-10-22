@@ -483,3 +483,8 @@ test("home's bills come from the recurring charges, active ones only", async ({ 
 	await expect(page.getByTestId("bill-row")).toHaveCount(1);
 	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
 });
+
+test("budget card: refunds draw an empty bar", async ({ page }) => {
+	await openHome(page, { ...typical, budget: { monthly_budget: 28000, spent: -500, categories: [{ category: "Food", limit: 8000, spent: -500 }] } });
+	await expect(page.getByTestId("budget-cat").locator("i")).toHaveAttribute("style", /width: 0%/);
+});

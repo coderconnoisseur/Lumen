@@ -213,3 +213,22 @@ test("every budget request names the browser's month (the server's date can diff
 	expect(urls.filter((u) => /\/api\/budget$/.test(u))).toEqual([]);
 });
 
+test("a category with more refunds than spend draws an empty bar, not a full one", async ({ page }) => {
+	await openBudget(page, { ...sample, budget: { monthly_budget: 100000, spent: -400, categories: [c("Food", 6000, -400)] } });
+	await expect(row(page, "Food").locator("i").first()).toHaveAttribute("style", /width: 0%/);
+	await expect(page.getByTestId("budget-hero").locator("i").first()).toHaveAttribute("style", /width: 0%/);
+});
+
+test("budget has no layout shift while loading on a phone", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await page.addInitScript(() => {
+		(window as unknown as { cls: number }).cls = 0;
+		new PerformanceObserver((list) => {
+			for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[])
+				if (!e.hadRecentInput) (window as unknown as { cls: number }).cls += e.value;
+		}).observe({ type: "layout-shift", buffered: true });
+	});
+	await openBudget(page, { ...sample, delayMs: 1500 });
+	await page.waitForTimeout(500);
+	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
+});

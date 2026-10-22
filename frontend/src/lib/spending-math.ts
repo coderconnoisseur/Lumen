@@ -87,3 +87,12 @@ const cell = (v: string | number) => {
 // CSV of exactly the rows shown (spec 2026-10-22 §4.2): date, merchant, category, source, amount.
 export const toCsv = (rows: Txn[]) =>
 	["date,merchant,category,source,amount", ...rows.map((t) => [t.date, t.vendor_name ?? "", t.category ?? "", sourceOf(t), t.total_amount ?? 0].map(cell).join(","))].join("\n");
+
+const SORT_LATER = new Set(["", "other", "uncategorised"]);
+// Whether a row belongs to a category, ignoring case and spaces: links (Home's spike, ?category=) carry the most common
+// spelling, rows may use another. "Uncategorised" also covers blank and "Other".
+export const inCategory = (t: Txn, c: string) => {
+	const mine = (t.category ?? "").trim().toLowerCase();
+	const want = c.trim().toLowerCase();
+	return want === "uncategorised" ? SORT_LATER.has(mine) : mine === want;
+};

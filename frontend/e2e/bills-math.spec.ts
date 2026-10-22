@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Bills page's calculations (UI revamp Phase 5c).
 import { test, expect } from "@playwright/test";
-import { dueDays, monthlyEquivalent, tiles, toBills, upcoming } from "../src/lib/bills-math";
+import { billsOnCalendar, dueDays, monthlyEquivalent, tiles, toBills, upcoming } from "../src/lib/bills-math";
 import type { RecurringItem } from "../src/lib/api/client";
 
 const item = (vendor: string, cadence: RecurringItem["cadence"], next: string, amount: number, extra: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -63,4 +63,17 @@ test("toBills: Home keeps late and charged-again bills, drops cancelled and stop
 		item("Far", "monthly", "2026-12-30", 5),
 	], today);
 	expect(bills.map((b) => b.vendor)).toEqual(["Power", "Netflix"]);
+});
+
+test("the calendar shows a bill only from its first charge on, and a cancelled one only up to its last", () => {
+	// Netflix: 3 monthly charges, the last on 24 Sep 2026 → first ≈ 24 Jul
+	const netflix = item("Netflix", "monthly", "2026-10-24", 649, { last_charge_date: "2026-09-24", charges_count: 3 });
+	expect(billsOnCalendar([netflix], 2026, 5).size).toBe(0); // June: before it started
+	expect([...billsOnCalendar([netflix], 2026, 6).keys()]).toEqual([24]); // July
+	expect([...billsOnCalendar([netflix], 2027, 0).keys()]).toEqual([24]); // still coming
+	const gym = { ...netflix, vendor: "Gym", state: "cancelled" as const };
+	expect([...billsOnCalendar([gym], 2026, 8).keys()]).toEqual([24]); // September: it was charged
+	expect(billsOnCalendar([gym], 2026, 10).size).toBe(0); // November: cancelled
+	const stopped = { ...netflix, vendor: "Old", possibly_stopped: true };
+	expect(billsOnCalendar([stopped], 2026, 9).size).toBe(0); // October: after its last charge
 });

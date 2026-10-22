@@ -6,7 +6,7 @@ import { PageCard } from "@/components/page/page-card";
 import { filesApi, type LumenDocument, type ReviewItem, type StatementImport } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 import { useMoney } from "@/lib/format";
-import type { Txn } from "@/lib/home-math";
+import { parseUtc, type Txn } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 
 type Kind = "receipt" | "document" | "statement";
@@ -31,7 +31,7 @@ const CHIPS: { label: string; kind: Kind | null }[] = [
 ];
 const ICON = { receipt: Receipt, document: FileText, statement: FileSpreadsheet };
 const DOC_TYPE: Record<string, string> = { purchase_order: "Purchase order", contract: "Contract", policy: "Policy", invoice: "Invoice", other: "Document" };
-const dayMonth = (s: string | null) => (s ? new Date(s.length === 10 ? `${s}T00:00` : s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "—");
+const dayMonth = (s: string | null) => (s ? parseUtc(s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "—");
 const range = (a: string | null, b: string | null) => (a && b ? `${dayMonth(a)} – ${dayMonth(b)}` : "");
 const PAGE = 10;
 

@@ -76,3 +76,20 @@ export function tiles(items: RecurringItem[], today: Date) {
 		stopped: { count: stopped.length, perMonth: Math.round(stopped.reduce((s, i) => s + monthlyEquivalent(i), 0)) },
 	};
 }
+
+// The calendar's bills for a month: an item shows from its first known charge on (estimated back from the last one by
+// its cadence and count), and one that's cancelled or looks stopped only up to the month of its last charge.
+export function billsOnCalendar(items: RecurringItem[], year: number, month: number): Map<number, RecurringItem[]> {
+	const out = new Map<number, RecurringItem[]>();
+	const shown = year * 12 + month;
+	for (const i of items) {
+		const last = parseDay(i.last_charge_date);
+		const back = i.charges_count - 1;
+		const first =
+			i.cadence === "weekly" ? addDays(last, -7 * back) : i.cadence === "yearly" ? new Date(last.getFullYear() - back, last.getMonth(), 1) : new Date(last.getFullYear(), last.getMonth() - back, 1);
+		const ended = i.state === "cancelled" || i.possibly_stopped;
+		if (shown < first.getFullYear() * 12 + first.getMonth() || (ended && shown > last.getFullYear() * 12 + last.getMonth())) continue;
+		for (const d of dueDays(i, year, month)) out.set(d, [...(out.get(d) ?? []), i]);
+	}
+	return out;
+}

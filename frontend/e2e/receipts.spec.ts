@@ -209,3 +209,31 @@ test("an edit can't approve an empty or non-numeric total", async ({ page }) => 
 	await expect(save).toBeEnabled();
 });
 
+test("if the review queue can't load, the brief doesn't claim everything is filed", async ({ page }) => {
+	await openReceipts(page, { ...sample, reviewFails: true });
+	await expect(page.getByTestId("brief")).not.toContainText("Everything");
+	await expect(page.getByTestId("brief")).toContainText("files with Lumen");
+});
+
+test("receipts has no layout shift while loading on a phone", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await page.addInitScript(() => {
+		(window as unknown as { cls: number }).cls = 0;
+		new PerformanceObserver((list) => {
+			for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[])
+				if (!e.hadRecentInput) (window as unknown as { cls: number }).cls += e.value;
+		}).observe({ type: "layout-shift", buffered: true });
+	});
+	await signIn(page, { home: { ...sample, email: { configured: false }, delayMs: 1500 } });
+	await page.goto("/receipts");
+	await expect(page.getByTestId("library")).toContainText("Rental agreement", { timeout: 15_000 });
+	await page.waitForTimeout(500);
+	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
+});
+
+test("the import page starts in the profile's currency", async ({ page }) => {
+	await signIn(page, { home: { currency: "INR", delayMs: 800 } });
+	await page.goto("/receipts/import");
+	await page.locator("#statement-file").setInputFiles({ name: "s.csv", mimeType: "text/csv", buffer: Buffer.from("Date,Description,Amount" + String.fromCharCode(10) + "2026-10-01,X,-5") });
+	await expect(page.locator("#import-currency")).toHaveValue("INR");
+});

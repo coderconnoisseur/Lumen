@@ -26,7 +26,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 					</div>
 					<div className="mt-2.5 flex items-center gap-2.5">
 						<div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-							<i className={cn("block h-full rounded-full", spent > total ? "bg-bad" : "bg-good")} style={{ width: `${Math.min(100, pct)}%` }} />
+							<i className={cn("block h-full rounded-full", spent > total ? "bg-bad" : "bg-good")} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
 						</div>
 						<span className="text-[12.5px] text-muted-foreground tabular-nums">{pct}%</span>
 					</div>
@@ -58,7 +58,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 								<div className="mt-1 h-[5px] overflow-hidden rounded-full bg-muted">
 									<i
 										className={cn("block h-full rounded-full", over ? "bg-bad" : used >= 0.9 ? "bg-amber-500" : "bg-primary")}
-										style={{ width: `${Math.min(100, used * 100)}%` }}
+										style={{ width: `${Math.max(0, Math.min(100, used * 100))}%` }}
 									/>
 								</div>
 							</div>

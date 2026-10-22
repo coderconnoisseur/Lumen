@@ -30,7 +30,9 @@ export default function ReceiptsContent() {
 	}
 
 	const n = data?.review.length ?? 0;
-	const brief = !data ? null : n ? `${n} ${n === 1 ? "receipt needs" : "receipts need"} your OK before ${n === 1 ? "it counts" : "they count"}.` : "Everything you've given Lumen is filed.";
+	const rows = data ? toRows(data, (id) => void remove(id)) : [];
+	// with the review queue unknown, say only what is known
+	const brief = !data ? null : data.reviewFailed ? `${rows.length} ${rows.length === 1 ? "file" : "files"} with Lumen.` : n ? `${n} ${n === 1 ? "receipt needs" : "receipts need"} your OK before ${n === 1 ? "it counts" : "they count"}.` : "Everything you've given Lumen is filed.";
 
 	return (
 		<div className="relative flex-1">
@@ -67,7 +69,7 @@ export default function ReceiptsContent() {
 							</div>
 						)}
 						<div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_360px]">
-							<Library rows={toRows(data, (id) => void remove(id))} />
+							<Library rows={rows} />
 							<div id="inbox" className="flex scroll-mt-6 flex-col gap-3.5">
 								<ImportsCard imports={data.imports} />
 								<InboxCard email={data.email} onChanged={() => void reload()} />

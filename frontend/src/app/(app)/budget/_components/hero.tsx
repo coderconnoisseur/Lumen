@@ -65,7 +65,7 @@ export function BudgetHero({
 					{total !== null && (
 						<>
 							<div className="relative mt-3 h-2.5 rounded-full bg-muted" role="img" aria-label={`${Math.round(p.pct * 100)}% of budget spent${p.evenPct !== null ? `; ${Math.round(p.evenPct * 100)}% of the month gone` : ""}`}>
-								<i className={cn("block h-full rounded-full", over ? "bg-bad" : "bg-good")} style={{ width: `${Math.min(100, p.pct * 100)}%` }} />
+								<i className={cn("block h-full rounded-full", over ? "bg-bad" : "bg-good")} style={{ width: `${Math.max(0, Math.min(100, p.pct * 100))}%` }} />
 								{p.evenPct !== null && (
 									<span data-testid="even-pace" title="Even pace today" className="absolute -top-1 h-[18px] w-0.5 rounded bg-foreground/60" style={{ left: `${p.evenPct * 100}%` }} />
 								)}

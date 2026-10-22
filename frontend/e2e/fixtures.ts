@@ -32,6 +32,8 @@ export type HomeFixture = {
 	review?: Record<string, unknown>[];
 	/** GET /api/documents; default [] (DELETE removes, POST adds) */
 	documents?: Record<string, unknown>[];
+	/** GET /api/review answers 500 */
+	reviewFails?: boolean;
 	/** GET /api/statements/imports; default [] */
 	imports?: Record<string, unknown>[];
 	/** GET /api/v1/email-config/status; default not configured */
@@ -104,6 +106,10 @@ export async function signIn(
 			documents.splice(documents.findIndex((d) => d.id === doc[1]), 1);
 			return route.fulfill({ json: { success: true } });
 		}
+		if (path === "/api/review" && home.reviewFails && !url.searchParams.get("count")) return route.fulfill({ status: 500, json: { success: false, error: "boom" } });
+		if (path === "/api/statements/preview")
+			return route.fulfill({ json: { success: true, columns: ["Date", "Description", "Amount"], mapping: { date: 0, description: 1, debit: null, credit: null, amount: 2, drcr: null },
+				header_line: 1, sample: [{ line: 2, date: "2026-10-01", description: "X", amount: 5, kind: "debit" }], counts: { rows: 1, debits: 1, credits: 0, unreadable: 0 } } });
 		if (path.startsWith("/api/files/")) return route.fulfill({ body: "original", contentType: "image/png" });
 		if (path === "/api/statements/imports") return route.fulfill({ json: { success: true, imports: home.imports ?? [] } });
 		if (path === "/api/v1/email-config/status") return route.fulfill({ json: home.email ?? { configured: false } });

@@ -7,11 +7,12 @@ import { VendorChip } from "@/components/page/vendor-chip";
 import { GmailOAuthButton } from "@/components/gmailOAuthButton";
 import { emailConfigApi, type StatementImport } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
+import { parseUtc } from "@/lib/home-math";
 import type { EmailStatus } from "../use-receipts-data";
 
-const dayMonth = (s: string | null) => (s ? new Date(s.length === 10 ? `${s}T00:00` : s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "");
+const dayMonth = (s: string | null) => (s ? parseUtc(s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "");
 const ago = (s: string) => {
-	const m = Math.round((Date.now() - new Date(s).getTime()) / 60_000);
+	const m = Math.round((Date.now() - parseUtc(s).getTime()) / 60_000);
 	return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 const PARTS = [

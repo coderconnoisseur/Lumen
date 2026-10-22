@@ -110,3 +110,19 @@ def test_basis_lists_only_months_with_spend():
 def test_draft_with_two_months_averages_over_two():
     txns = [t("2026-08-10", 6000), t("2026-09-10", 6000)]  # no July data
     assert draft_budget(txns, TODAY)[0]["limit"] == 6000
+
+
+def test_a_failed_budget_migration_is_logged_as_an_error(monkeypatch, caplog):
+    """If it's skipped, edits to an existing category in a new month hit the old constraint: that must not be quiet."""
+    import logging
+
+    from models import database
+
+    def boom(engine):
+        raise RuntimeError("no permission")
+
+    monkeypatch.setattr(database, "_migrate_budget_versions", boom)
+    with caplog.at_level(logging.WARNING, logger="models.database"):
+        database.run_budget_migration(object())
+    [record] = caplog.records
+    assert record.levelno == logging.ERROR and "budget" in record.getMessage().lower()

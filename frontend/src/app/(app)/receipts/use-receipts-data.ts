@@ -15,7 +15,7 @@ export type EmailStatus = {
 	last_error?: string | null;
 };
 
-type Data = { review: ReviewItem[]; documents: LumenDocument[]; receipts: Txn[]; imports: StatementImport[]; email: EmailStatus | null };
+type Data = { review: ReviewItem[]; reviewFailed: boolean; documents: LumenDocument[]; receipts: Txn[]; imports: StatementImport[]; email: EmailStatus | null };
 const value = <T,>(r: PromiseSettledResult<T>, fallback: T) => (r.status === "fulfilled" ? r.value : fallback);
 
 // Everything the Receipts & statements page shows, loaded together so the page appears in one step (no layout shift
@@ -36,6 +36,7 @@ export function useReceiptsData() {
 		const rows = (value(txns, { data: [] }) as { data?: Txn[] }).data ?? [];
 		setData({
 			review: value(review, []) ?? [],
+			reviewFailed: review.status === "rejected",
 			documents: value(documents, []) ?? [],
 			receipts: rows,
 			imports: value(imports, []) ?? [],

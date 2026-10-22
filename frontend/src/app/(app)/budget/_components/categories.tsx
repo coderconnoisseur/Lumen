@@ -96,7 +96,7 @@ export function BudgetCategories({
 								</span>
 								<span className="flex min-w-0 items-center gap-2">
 									<span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-										<i className={cn("block h-full rounded-full", TONE[tone])} style={{ width: `${Math.min(100, (c.spent / c.limit) * 100)}%` }} />
+										<i className={cn("block h-full rounded-full", TONE[tone])} style={{ width: `${Math.max(0, Math.min(100, (c.spent / c.limit) * 100))}%` }} />
 									</span>
 									<span className="w-9 shrink-0 text-right text-[12px] text-muted-foreground">{Math.round((c.spent / c.limit) * 100)}%</span>
 								</span>

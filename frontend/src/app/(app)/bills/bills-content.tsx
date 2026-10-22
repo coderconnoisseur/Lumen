@@ -7,7 +7,7 @@ import { PageCard } from "@/components/page/page-card";
 import { PageHeader } from "@/components/page/page-header";
 import { VendorChip } from "@/components/page/vendor-chip";
 import { billsApi, type RecurringItem, type RecurringState } from "@/lib/api/client";
-import { dueDays, tiles, upcoming } from "@/lib/bills-math";
+import { billsOnCalendar, tiles, upcoming } from "@/lib/bills-math";
 import { useMoney } from "@/lib/format";
 import { parseDay } from "@/lib/home-math";
 import { toast } from "@/lib/toast";
@@ -259,9 +259,7 @@ function BillCalendar({ items, year, month, today, loading }: { items: Recurring
 	const money = useMoney();
 	const lead = (new Date(year, month, 1).getDay() + 6) % 7;
 	const days = new Date(year, month + 1, 0).getDate();
-	const byDay = new Map<number, RecurringItem[]>();
-	for (const i of items.filter((x) => x.state !== "cancelled" && !x.possibly_stopped))
-		for (const d of dueDays(i, year, month)) byDay.set(d, [...(byDay.get(d) ?? []), i]);
+	const byDay = billsOnCalendar(items, year, month);
 	const isToday = (d: number) => today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
 	return (
 		<PageCard title={`${monthYear(year, month)}, bill by bill`} loading={loading} skeletonHeight={420} data-testid="bill-calendar">

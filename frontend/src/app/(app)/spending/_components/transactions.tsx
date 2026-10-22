@@ -8,13 +8,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { transactionApi } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { parseDay, type Txn } from "@/lib/home-math";
-import { sourceOf, toCsv } from "@/lib/spending-math";
+import { inCategory, sourceOf, toCsv } from "@/lib/spending-math";
 import { toast } from "@/lib/toast";
 
 const PAGE = 25;
-const UNSORTED = new Set(["", "Other", "Uncategorised"]);
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
-const inCategory = (t: Txn, c: string) => (c === "Uncategorised" ? !t.category || UNSORTED.has(t.category) : t.category === c);
 
 // Spending's transactions (spec §4.2): follows the category picked above, plus a search and a source filter.
 // The category pill edits in place: a menu of known categories, saved with PUT /transactions/<id>.

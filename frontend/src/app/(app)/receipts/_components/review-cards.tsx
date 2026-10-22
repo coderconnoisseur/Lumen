@@ -7,6 +7,7 @@ import { filesApi, reviewApi, type ReviewItem } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
 import { useMoney } from "@/lib/format";
 import { toast } from "@/lib/toast";
+import { parseUtc } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 
 type Field = { key: "vendor_name" | "date" | "invoice_number" | "total_amount"; label: string };
@@ -28,7 +29,7 @@ const REASON: Record<string, string> = {
 	po_mismatch: "Doesn't match its purchase order.",
 	possible_injection: "Unusual text on the bill.",
 };
-const dayMonth = (s: string | null) => (s ? new Date(s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "");
+const dayMonth = (s: string | null) => (s ? parseUtc(s).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "");
 // the checks' details are terse ("line items 80 + tax 20 != total 110"); the arithmetic one gets a sentence instead
 const plain = (rule: string, detail: string) =>
 	rule === "total_mismatch" ? "The items and tax don't add up to the printed total." : `${detail.charAt(0).toUpperCase()}${detail.slice(1)}.`;

@@ -89,6 +89,15 @@ def _migrate_budget_versions(engine) -> None:
                           "ON budgets (user_id, category, effective_from)"))
 
 
+def run_budget_migration(engine) -> None:
+    """Runs _migrate_budget_versions; a failure is an error, not a warning: with the old (user, category) constraint
+    still in place, saving an existing category's budget in a new month fails."""
+    try:
+        _migrate_budget_versions(engine)
+    except Exception as e:
+        logger.error("Budget versions migration FAILED (budget edits in a new month will error until it runs): %s", e)
+
+
 RAG_TABLES = {"documents", "document_chunks"}
 
 
@@ -121,10 +130,7 @@ def init_db(app: Flask):
             db.metadata.create_all(db.engine, tables=tables)
             _migrate_transaction_unique_index(app)
             _add_missing_columns()
-            try:
-                _migrate_budget_versions(db.engine)
-            except Exception as e:
-                logger.warning("Budget versions migration skipped: %s", e)
+            run_budget_migration(db.engine)
             logger.info("Database connected and tables initialized")
     except Exception as e:
         logger.warning("Could not connect to database: %s", e)

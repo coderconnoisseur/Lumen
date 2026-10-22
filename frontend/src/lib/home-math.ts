@@ -152,3 +152,10 @@ export function vendorChip(name: string): { initials: string; hue: number } {
 	for (const ch of name.toLowerCase()) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
 	return { initials, hue: hash };
 }
+
+// The backend sends naive UTC timestamps ("2026-10-22T10:00:00"): read them as UTC, not local time. Plain dates stay
+// local calendar days; a timestamp that names its zone is read as it says.
+export function parseUtc(s: string): Date {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return parseDay(s);
+	return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`);
+}
