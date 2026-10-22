@@ -181,3 +181,13 @@ test("spending has no layout shift while loading", async ({ page }) => {
 	await page.waitForTimeout(500);
 	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
 });
+
+test("period chips stay on one line at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openSpending(page);
+	for (const name of ["This month", "Last month", "Custom"]) {
+		const box = (await page.getByRole("button", { name, exact: true }).boundingBox())!;
+		expect(box.height, name).toBeLessThan(32);
+	}
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

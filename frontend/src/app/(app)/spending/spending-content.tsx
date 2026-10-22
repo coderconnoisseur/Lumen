@@ -88,7 +88,7 @@ export default function SpendingContent() {
 									aria-pressed={preset === c.value}
 									onClick={() => setPreset(c.value)}
 									className={cn(
-										"label-ui rounded-[7px] px-3 py-1 transition-colors",
+										"label-ui rounded-[7px] px-3 py-1 whitespace-nowrap transition-colors max-sm:px-2",
 										preset === c.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
 									)}
 								>
