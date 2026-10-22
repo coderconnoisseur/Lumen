@@ -302,7 +302,9 @@ class Proposal(db.Model):
 
 class Budget(db.Model):
     """A monthly spending limit for one category (UI revamp Phase 3). The overall budget is User.monthly_budget.
-    Rows are written only by approving a set_budget proposal or by PUT /api/budget."""
+    Rows are written only by approving a set_budget proposal or by PUT /api/budget.
+    Versioned by month (Phase 5d): a month's limit is the latest row with effective_from <= that month, so changing
+    a budget never rewrites past months. A monthly_limit of 0 removes the category from that month on."""
 
     __tablename__ = "budgets"
 
@@ -310,9 +312,10 @@ class Budget(db.Model):
     user_id = db.Column(String(36), nullable=False, index=True)
     category = db.Column(db.String, nullable=False)
     monthly_limit = db.Column(db.Float, nullable=False)
+    effective_from = db.Column(db.String(7))  # "YYYY-MM"; always set by the writers (older rows: migrated)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    __table_args__ = (db.UniqueConstraint("user_id", "category", name="u_budget_user_category"),)
+    __table_args__ = (db.UniqueConstraint("user_id", "category", "effective_from", name="u_budget_user_category_month"),)
 
 class RecurringState(db.Model):
     """What the user said about a recurring charge on the Bills page (UI revamp Phase 5c): "cancelled" keeps it listed

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { aiAnalyticsApi, billsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary, type RecurringItem } from "@/lib/api/client";
 import { parseDay, periods, type Range, type Txn } from "@/lib/home-math";
 
@@ -28,8 +28,6 @@ export type HomeData = {
 	forecast: Forecast;
 	summary: HomeSummary | null;
 	budget: BudgetState | null;
-	/** refetch the summary and the budget (after budget decisions) */
-	reload: () => void;
 };
 
 const ymd = (d: Date) =>
@@ -114,13 +112,6 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [day]);
 
-	const reload = useCallback(() => {
-		// decisions are POSTs, which already cleared the cached summary, so this refetches it
-		Promise.allSettled([homeApi.summary(), budgetApi.get()]).then(([summary, budget]) =>
-			setExtras((e) => (e ? { ...e, summary: value(summary, e.summary), budget: value(budget, e.budget) } : e)),
-		);
-	}, []);
-
 	return {
 		status: txns && extras ? "ready" : "loading",
 		txns: txns?.txns ?? [],
@@ -130,7 +121,6 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		reminders: extras?.reminders ?? [],
 		summary: extras?.summary ?? null,
 		budget: extras?.budget ?? null,
-		reload,
 		forecast,
 	};
 }

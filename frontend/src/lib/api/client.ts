@@ -696,8 +696,17 @@ export const homeApi = {
 	summary: (): Promise<HomeSummary> => cached("/api/home/summary", async () => (await apiClient.get("/api/home/summary")).data),
 };
 
+/** One month of GET /api/budget/history: `budget` is null for a past month that had none. */
+export interface BudgetMonth {
+	month: string;
+	budget: number | null;
+	spent: number;
+}
+
 export const budgetApi = {
-	get: async (): Promise<BudgetState> => (await apiClient.get("/api/budget")).data,
+	/** `month` "YYYY-MM"; default the current month. Limits are the ones in force that month. */
+	get: async (month?: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: month ? { month } : {} })).data,
+	history: async (months = 6): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months } })).data.months,
 	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
 		(await apiClient.put("/api/budget", body)).data,
 	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */

@@ -185,7 +185,7 @@ test("coming up lists the next four bills", async ({ page }) => {
 test("budget card is honest with no budget", async ({ page }) => {
 	await openHome(page);
 	await expect(page.getByText("No budget yet")).toBeVisible();
-	await expect(page.getByRole("button", { name: "DRAFT BUDGET" })).toBeEnabled();
+	await expect(page.getByRole("link", { name: "Draft budget" })).toBeVisible();
 });
 
 test("activity comes from the summary", async ({ page }) => {
@@ -278,30 +278,10 @@ test("budget card says when over", async ({ page }) => {
 	await expect(page.getByTestId("budget-card")).toContainText("₹3,412 over");
 });
 
-const draftLine = (id: string, target: string, limit: number) => ({
-	id, type: "set_budget", target, risk: "low", reason: "Averaged a month over Jul–Sep, rounded up.",
-	payload: { limit, basis: { months: [], average: limit } }, status: "pending", created_at: null,
-});
-
-test("draft budget opens proposals and approve all applies them", async ({ page }) => {
-	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)] });
-	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
-	const dialog = page.getByRole("dialog");
-	await expect(dialog.getByTestId("draft-line")).toHaveCount(2);
-	await expect(dialog).toContainText("₹4,000");
-	const approvals = [page.waitForRequest(/proposals\/p1\/approve/), page.waitForRequest(/proposals\/p2\/approve/)];
-	await dialog.getByRole("button", { name: "Approve all" }).click();
-	await Promise.all(approvals);
-	await expect(dialog.getByText("Approved")).toHaveCount(2);
-	const refetch = page.waitForRequest((r) => r.url().endsWith("/api/budget") && r.method() === "GET");
-	await page.keyboard.press("Escape");
-	await refetch;
-});
-
-test("draft with no history explains why", async ({ page }) => {
-	await openHome(page, { ...typical, draft: [] });
-	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
-	await expect(page.getByRole("dialog")).toContainText("Not enough history yet");
+test("the draft promo and the budget card lead to the Budget page", async ({ page }) => {
+	await openHome(page, typical);
+	await expect(page.getByRole("link", { name: "Draft budget" })).toHaveAttribute("href", "/budget?draft=1");
+	await expect(page.getByTestId("budget-card").getByRole("link", { name: /Budget in/ })).toHaveAttribute("href", "/budget");
 });
 
 test("calendar uses the user's currency", async ({ page }) => {
@@ -314,39 +294,6 @@ test("sidebar badge uses the count endpoint", async ({ page }) => {
 	await openHome(page, typical, 2);
 	await counted;
 	await expect(page.locator('[data-sidebar="menu-badge"]')).toHaveText("2");
-});
-
-test("draft dialog ignores a double click", async ({ page }) => {
-	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)] });
-	let approvals = 0;
-	page.on("request", (r) => r.url().includes("/proposals/") && r.url().endsWith("/approve") && approvals++);
-	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
-	await page.getByRole("dialog").getByRole("button", { name: "Approve all" }).dblclick();
-	await expect(page.getByRole("dialog").getByText("Approved")).toHaveCount(2);
-	await page.waitForTimeout(300);
-	expect(approvals).toBe(2);
-});
-
-test("closing the draft dialog refreshes activity", async ({ page }) => {
-	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000)] });
-	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
-	await page.getByRole("dialog").getByRole("button", { name: "Approve all" }).click();
-	await expect(page.getByRole("dialog").getByText("Approved")).toHaveCount(1);
-	const summary = page.waitForRequest((r) => r.url().endsWith("/api/home/summary"));
-	await page.keyboard.press("Escape");
-	await summary;
-});
-
-test("a replaced draft says so", async ({ page }) => {
-	await openHome(page, { ...typical, draft: [draftLine("p1", "Food", 4000), draftLine("p2", "Travel", 1500)], replaced: ["p1"] });
-	let approvals = 0;
-	page.on("request", (r) => r.url().includes("/proposals/") && r.url().endsWith("/approve") && approvals++);
-	await page.getByRole("button", { name: "DRAFT BUDGET" }).click();
-	const dialog = page.getByRole("dialog");
-	await dialog.getByRole("button", { name: "Approve all" }).click();
-	await expect(dialog).toContainText("This draft was replaced. Draft again.");
-	await page.waitForTimeout(300);
-	expect(approvals).toBe(1);
 });
 
 const overlaps = (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>

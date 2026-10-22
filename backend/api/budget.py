@@ -1,12 +1,14 @@
 """UI revamp Phase 3: budgets. The overall monthly budget is User.monthly_budget (set in onboarding); per-category
 limits live in the budgets table. A draft (ai/budget.py) never writes budgets: it files set_budget proposals that the
-user approves one by one through /api/agent/proposals/{id}/approve (api/agent.py applies them)."""
+user approves one by one through /api/agent/proposals/{id}/approve (api/agent.py applies them).
+Phase 5d: limits are versioned by month (models.Budget); every read is for one month, every write is from one month on."""
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.engine import Engine
@@ -18,6 +20,30 @@ from api.profile import ensure_user, get_engine
 router = APIRouter(prefix="/api/budget", tags=["budget"])
 
 _MONTH = "%b"
+MONTH_RE = r"^\d{4}-(0[1-9]|1[0-2])$"
+
+
+def this_month(today: date | None = None) -> str:
+    return (today or date.today()).strftime("%Y-%m")
+
+
+def valid_month(value) -> str | None:
+    return value if isinstance(value, str) and re.match(MONTH_RE, value) else None
+
+
+def _shift(month: str, n: int) -> str:
+    y, m = divmod(int(month[:4]) * 12 + int(month[5:]) - 1 + n, 12)
+    return f"{y}-{m + 1:02d}"
+
+
+def limits_in_force(rows, month: str) -> dict[str, tuple[str, float]]:
+    """Case-folded category -> (name, limit) for `month`: each category's latest row from that month or before.
+    A limit of 0 is a removal, so the category has none."""
+    latest: dict[str, object] = {}
+    for b in sorted(rows, key=lambda b: b.effective_from or ""):
+        if (b.effective_from or "") <= month:
+            latest[b.category.casefold()] = b
+    return {k: (b.category, b.monthly_limit) for k, b in latest.items() if b.monthly_limit > 0}
 
 
 class CategoryLimit(BaseModel):
@@ -37,31 +63,42 @@ def _txns(conn, user_id: str) -> list[dict]:
         {"u": user_id}).mappings()]
 
 
-def _state(engine: Engine, user_id: str, today: date) -> dict:
+def _spend(engine: Engine, user_id: str, month: str) -> dict[str, float]:
     from ai.budget import month_spend_by_category
-    from models import Budget, User
 
     with engine.connect() as conn:
-        spend = month_spend_by_category(_txns(conn, user_id), today.year, today.month)
+        return month_spend_by_category(_txns(conn, user_id), int(month[:4]), int(month[5:]))
+
+
+def _rows(session: Session, user_id: str) -> list:
+    from models import Budget
+
+    return session.scalars(select(Budget).where(Budget.user_id == user_id)).all()
+
+
+def _state(engine: Engine, user_id: str, month: str) -> dict:
+    from models import User
+
+    spend = _spend(engine, user_id, month)
     by_key = {k.casefold(): v for k, v in spend.items()}
     with Session(engine) as session:
         user = session.get(User, user_id)
-        rows = session.scalars(select(Budget).where(Budget.user_id == user_id)).all()
-        cats = [{"category": b.category, "limit": b.monthly_limit, "spent": round(by_key.get(b.category.casefold(), 0), 2)}
-                for b in rows]
+        cats = [{"category": name, "limit": limit, "spent": round(by_key.get(key, 0), 2)}
+                for key, (name, limit) in limits_in_force(_rows(session, user_id), month).items()]
     cats.sort(key=lambda c: c["spent"] / c["limit"], reverse=True)
-    return {"success": True, "month": today.strftime("%Y-%m"), "monthly_budget": user.monthly_budget if user else None,
+    return {"success": True, "month": month, "monthly_budget": user.monthly_budget if user else None,
             "spent": round(sum(spend.values()), 2), "categories": cats}
 
 
-def upsert_budget(session: Session, user_id: str, category: str, limit: float) -> None:
-    """One row per (user, category), matched case-insensitively so 'food' and 'Food' don't become two budgets."""
+def upsert_budget(session: Session, user_id: str, category: str, limit: float, month: str) -> None:
+    """Sets `category`'s limit from `month` on (0 removes it). One row per (user, category, month), matched
+    case-insensitively so 'food' and 'Food' don't become two budgets."""
     from models import Budget
 
-    rows = session.scalars(select(Budget).where(Budget.user_id == user_id)).all()
-    row = next((b for b in rows if b.category.casefold() == category.casefold()), None)
+    row = next((b for b in _rows(session, user_id)
+                if b.category.casefold() == category.casefold() and b.effective_from == month), None)
     if row is None:
-        session.add(Budget(user_id=user_id, category=category, monthly_limit=limit))
+        session.add(Budget(user_id=user_id, category=category, monthly_limit=limit, effective_from=month))
     else:
         row.monthly_limit, row.updated_at = limit, datetime.utcnow()
 
@@ -85,7 +122,7 @@ def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
             months = line["basis"]["months"]
             span = f"{date.fromisoformat(months[0] + '-01'):{_MONTH}}–{date.fromisoformat(months[-1] + '-01'):{_MONTH}}"
             p = Proposal(user_id=user_id, type="set_budget", target=line["category"], risk="low",
-                         payload=json.dumps({"limit": line["limit"], "basis": line["basis"]}),
+                         payload=json.dumps({"limit": line["limit"], "basis": line["basis"], "month": this_month(today)}),
                          reason=f"Averaged {line['basis']['average']:,.0f} a month over {span}, rounded up.",
                          evidence="[]", status="pending")
             session.add(p)
@@ -97,27 +134,46 @@ def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
-def get_budget(claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
-    return _state(engine, claims["sub"], date.today())
+def get_budget(month: str | None = Query(default=None, pattern=MONTH_RE), claims: dict = Depends(current_user),
+               engine: Engine = Depends(get_engine)):
+    return _state(engine, claims["sub"], month or this_month())
+
+
+@router.get("/history", dependencies=[Depends(rate_limit())])
+def get_history(months: int = Query(default=6, ge=1, le=12), claims: dict = Depends(current_user),
+                engine: Engine = Depends(get_engine)):
+    """Budget vs spent for the last `months` months, oldest first, ending with this one. A past month with no
+    category limit in force has no budget (null): spend only."""
+    from models import User
+
+    user_id, now = claims["sub"], this_month()
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        overall = user.monthly_budget if user else None
+        rows = _rows(session, user_id)
+    from ai.budget import month_spend_by_category
+
+    with engine.connect() as conn:
+        txns = _txns(conn, user_id)
+    out = []
+    for month in (_shift(now, -n) for n in range(months - 1, -1, -1)):
+        limits = limits_in_force(rows, month)
+        budget = (overall or round(sum(v for _, v in limits.values()), 2) or None) if limits or month == now else None
+        spent = sum(month_spend_by_category(txns, int(month[:4]), int(month[5:])).values())
+        out.append({"month": month, "budget": budget, "spent": round(spent, 2)})
+    return {"success": True, "months": out}
 
 
 @router.put("", dependencies=[Depends(rate_limit())])
 def put_budget(body: BudgetUpdate, claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
-    from models import Budget
-
-    user_id = claims["sub"]
+    """Changes apply from the current month on; past months keep the limits they had."""
+    user_id, month = claims["sub"], this_month()
     with Session(engine) as session, session.begin():
         if "monthly_budget" in body.model_fields_set:
             ensure_user(session, user_id, claims.get("email")).monthly_budget = body.monthly_budget
         for c in body.categories:
-            name = c.category.strip()
-            if c.limit is None:
-                for b in session.scalars(select(Budget).where(Budget.user_id == user_id)).all():
-                    if b.category.casefold() == name.casefold():
-                        session.delete(b)
-            else:
-                upsert_budget(session, user_id, name, c.limit)
-    return _state(engine, user_id, date.today())
+            upsert_budget(session, user_id, c.category.strip(), c.limit or 0, month)
+    return _state(engine, user_id, month)
 
 
 @router.post("/draft", dependencies=[Depends(rate_limit("10 per minute"))])
