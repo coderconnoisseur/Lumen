@@ -30,8 +30,8 @@ export type ChatFixture = {
 	/** the "Next:" suggestion POST /chat returns (default none) */
 	followUp?: string;
 	suggestions?: string[];
-	/** hold each POST /chat this long, to test the in-flight state */
-	delayMs?: number;
+	/** hold each POST /chat this long (or per question), to test the in-flight state */
+	delayMs?: number | ((query: string) => number);
 };
 
 export async function signIn(
@@ -146,7 +146,8 @@ export async function signIn(
 		}
 		if (path === "/chat" && route.request().method() === "POST") {
 			const body = route.request().postDataJSON() as { query: string; thread_id?: string };
-			if (opts.chat?.delayMs) await new Promise((r) => setTimeout(r, opts.chat!.delayMs));
+			const delay = typeof opts.chat?.delayMs === "function" ? opts.chat.delayMs(body.query) : opts.chat?.delayMs;
+			if (delay) await new Promise((r) => setTimeout(r, delay));
 			let t = threads.find((x) => x.id === body.thread_id);
 			if (!t) {
 				t = { id: `t${nextThread++}`, title: body.query.slice(0, 60), updated_at: new Date().toISOString(), message_count: 0, messages: [] };

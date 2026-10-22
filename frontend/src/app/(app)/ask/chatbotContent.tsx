@@ -74,6 +74,9 @@ export default function ChatbotContent() {
 	const q = params.get("q");
 	const draftParam = params.get("draft");
 	const lastDraft = useRef<string | null>(null);
+	// Bumped whenever the chat on screen changes (new chat, opening a thread). An answer that arrives for an older chat
+	// must not touch this one: it is already saved to its own thread, so it only refreshes the list.
+	const chatGen = useRef(0);
 	const [draft, setDraft] = useState<{ text: string; key: number } | null>(null);
 	const busy = messages.some((m) => m.pending);
 
@@ -137,8 +140,10 @@ export default function ChatbotContent() {
 			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question, file }]),
 			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
+		const gen = chatGen.current;
 		try {
 			const answer = await chatApi.sendMessage(question, file, inThread);
+			if (gen !== chatGen.current) return refreshThreads();
 			if (!inThread) {
 				setThreadId(answer.thread_id);
 				refreshThreads();
@@ -152,6 +157,7 @@ export default function ChatbotContent() {
 				)
 			);
 		} catch (error) {
+			if (gen !== chatGen.current) return;
 			setMessages((list) =>
 				list.map((m) => (m.id === id ? { ...m, content: errorMessage(error), pending: false, error: true, keyIssue: KEY_CODES.includes(errorCode(error) ?? "") } : m))
 			);
@@ -159,12 +165,14 @@ export default function ChatbotContent() {
 	}
 
 	function newChat() {
+		chatGen.current++;
 		setThreadId(null);
 		setMessages([]);
 		setHistoryOpen(false);
 	}
 
 	async function openThread(id: string) {
+		chatGen.current++;
 		setHistoryOpen(false);
 		try {
 			const { messages: rows } = await chatApi.thread(id);

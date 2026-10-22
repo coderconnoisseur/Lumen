@@ -224,3 +224,34 @@ test("a sent draft doesn't come back in the follow-up box", async ({ page }) => 
 	await expect(page.getByText("Answer to: Why is Food up?")).toBeVisible();
 	await expect(composer(page)).toHaveValue("");
 });
+
+test("a late answer can't take over a chat started after it", async ({ page }) => {
+	const posts: { query: string; thread_id?: string | null }[] = [];
+	const threadOf: Record<string, string> = {};
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push(r.postDataJSON()));
+	page.on("response", async (r) => {
+		if (r.request().method() === "POST" && r.url().endsWith("/chat"))
+			threadOf[r.request().postDataJSON().query] = (await r.json()).data.thread_id;
+	});
+	// the first question answers after the second one
+	await openAsk(page, { delayMs: (q) => (q === "Slow one" ? 2500 : 100) });
+	await composer(page).fill("Slow one");
+	await composer(page).press("Enter");
+	// the Ask anything palette hands off to /ask?q= in the same page: a new chat while the first answer is in flight
+	await page.getByRole("button", { name: /^Ask anything/ }).click();
+	const palette = page.getByRole("dialog", { name: "Ask anything" });
+	await palette.getByRole("textbox").fill("Fast one");
+	await palette.getByRole("textbox").press("Enter");
+	await expect(page.getByText("Answer to: Fast one")).toBeVisible();
+	await page.waitForTimeout(3000); // the slow answer lands now
+	await expect(page.getByText("Answer to: Slow one")).toHaveCount(0);
+	await composer(page).fill("And a follow-up");
+	await composer(page).press("Enter");
+	await expect(page.getByText("Answer to: And a follow-up")).toBeVisible();
+	const fast = posts.find((p) => p.query === "Fast one")!;
+	const follow = posts.find((p) => p.query === "And a follow-up")!;
+	expect(fast.thread_id ?? null).toBeNull();
+	// the follow-up goes into the Fast chat's thread, never the slow one's
+	expect(follow.thread_id).toBe(threadOf["Fast one"]);
+	expect(threadOf["Fast one"]).not.toBe(threadOf["Slow one"]);
+});
