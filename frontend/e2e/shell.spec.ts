@@ -61,9 +61,9 @@ test("sidebar shows the new IA", async ({ page }) => {
 	await signIn(page);
 	await page.goto("/home");
 	const links = sidebar(page).locator('[data-sidebar="menu-button"]');
-	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
+	await expect(links).toHaveText(["Home", "Spending", "Bills & subscriptions", "Budget", "Receipts & statements", "Ask Lumen", /^Ask anything/]);
 	// every group is labelled (owner, 2026-10-22)
-	for (const group of ["Overview", "Track", "Records", "Assistant"]) {
+	for (const group of ["Overview", "Track", "Plan", "Records", "Assistant"]) {
 		await expect(sidebar(page).getByText(group, { exact: true })).toBeVisible();
 	}
 	for (const old of ["Workspace", "Compare", "Financial command center"]) {

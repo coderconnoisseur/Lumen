@@ -17,8 +17,14 @@ export type HomeFixture = {
 	summary?: { found: object[]; more?: number; worth_total?: number; activity?: object[] };
 	/** GET/PUT /api/budget; default: nothing set */
 	budget?: { monthly_budget: number | null; spent: number; categories: { category: string; limit: number; spent: number }[] };
+	/** GET /api/budget?month=YYYY-MM for other months, keyed by month; default: the current `budget` */
+	budgetMonths?: Record<string, { monthly_budget: number | null; spent: number; categories: { category: string; limit: number; spent: number }[] }>;
+	/** GET /api/budget/history months, oldest first; default [] */
+	history?: { month: string; budget: number | null; spent: number }[];
 	/** POST /api/budget/draft proposals; default [] */
 	draft?: object[];
+	/** GET /api/agent/proposals (pending); default [] */
+	proposals?: object[];
 	currency?: string;
 	/** proposal ids whose approve returns 409 (a newer draft replaced them) */
 	replaced?: string[];
@@ -130,8 +136,25 @@ export async function signIn(
 			const s = home.summary ?? { found: review };
 			return route.fulfill({ json: { success: true, more: 0, worth_total: 0, activity: [], ...s } });
 		}
-		if (path === "/api/budget")
-			return route.fulfill({ json: { success: true, month: "", ...(home.budget ?? { monthly_budget: null, spent: 0, categories: [] }) } });
+		if (path === "/api/budget") {
+			const none = { monthly_budget: null, spent: 0, categories: [] };
+			// PUT is stateful like the real one: a null limit removes the category
+			if (route.request().method() === "PUT") {
+				const body = route.request().postDataJSON() as { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] };
+				const b = (home.budget = structuredClone(home.budget ?? none));
+				if ("monthly_budget" in body) b.monthly_budget = body.monthly_budget ?? null;
+				for (const c of body.categories ?? []) {
+					const row = b.categories.find((x) => x.category.toLowerCase() === c.category.toLowerCase());
+					if (c.limit === null) b.categories = b.categories.filter((x) => x !== row);
+					else if (row) row.limit = c.limit;
+					else b.categories.push({ category: c.category, limit: c.limit, spent: 0 });
+				}
+			}
+			const month = url.searchParams.get("month");
+			const state = (month && home.budgetMonths?.[month]) || home.budget || none;
+			return route.fulfill({ json: { success: true, month: month ?? "", ...state } });
+		}
+		if (path === "/api/budget/history") return route.fulfill({ json: { success: true, months: home.history ?? [] } });
 		if (path === "/api/budget/draft") return route.fulfill({ json: { success: true, proposals: home.draft ?? [] } });
 		const proposal = path.match(/^\/api\/agent\/proposals\/([^/]+)\/(approve|reject)$/);
 		if (proposal && home.replaced?.includes(proposal[1]))
@@ -143,7 +166,7 @@ export async function signIn(
 			queue = queue.filter((q) => q.id !== decided[1]);
 			return route.fulfill({ json: { item: { ...item, status: `${decided[2]}d` } } });
 		}
-		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: [] } });
+		if (path === "/api/agent/proposals") return route.fulfill({ json: { proposals: home.proposals ?? [] } });
 		if (path === "/chat/suggestions") return route.fulfill({ json: { suggestions: opts.chat?.suggestions ?? [] } });
 		if (path === "/chat/threads")
 			return route.fulfill({

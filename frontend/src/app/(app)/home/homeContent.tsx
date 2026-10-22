@@ -105,7 +105,7 @@ export default function HomeContent() {
 						<BudgetCard budget={data.budget} monthName={monthName(today)} today={today} loading={data.status === "loading"} />
 						<BillsCard reminders={data.reminders} today={today} loading={data.status === "loading"} />
 						{/* once you have category budgets, the promo has done its job */}
-						{!data.budget?.categories.length && <DraftBudgetPromo onChanged={data.reload} />}
+						{!data.budget?.categories.length && <DraftBudgetPromo />}
 						<ActivityCard items={data.summary?.activity ?? []} now={new Date()} loading={data.status === "loading"} />
 					</div>
 				</div>

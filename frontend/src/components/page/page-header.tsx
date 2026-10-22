@@ -17,7 +17,7 @@ export function PageHeader({
 		<header className="mb-5">
 			<div className="flex flex-wrap items-center gap-3 md:pr-12">
 				<h1 className="text-[26px] font-medium tracking-tight">{title}</h1>
-				{actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+				{actions && <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{actions}</div>}
 			</div>
 			{brief && <div className="mt-1.5">{brief}</div>}
 			{children && <div className="mt-4">{children}</div>}

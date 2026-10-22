@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarClock, ChartLine, House, Receipt, Sparkles, type LucideIcon } from "lucide-react";
+import { CalendarClock, ChartLine, House, PieChart, Receipt, Sparkles, type LucideIcon } from "lucide-react";
 
 import {
 	Sidebar,
@@ -26,12 +26,13 @@ import { eventBus, EVENTS } from "@/lib/events";
 type Item = { label: string; url: string; icon: LucideIcon };
 
 // Spec section 3. Every group is labelled (owner, 2026-10-22); labels say what you do, not what the backend is.
-// Budget and Forecast (Plan) join once their pages exist.
+// Forecast (Plan) joins once its page exists.
 const HOME: Item = { label: "Home", url: "/home", icon: House };
 const TRACK: Item[] = [
 	{ label: "Spending", url: "/spending", icon: ChartLine },
 	{ label: "Bills & subscriptions", url: "/bills", icon: CalendarClock },
 ];
+const BUDGET: Item = { label: "Budget", url: "/budget", icon: PieChart };
 const RECEIPTS: Item = { label: "Receipts & statements", url: "/receipts", icon: Receipt };
 const ASK: Item = { label: "Ask Lumen", url: "/ask", icon: Sparkles };
 
@@ -104,6 +105,12 @@ export function AppSidebar({ onAsk, ...props }: React.ComponentProps<typeof Side
 						{TRACK.map((item) => (
 							<NavItem key={item.url} item={item} />
 						))}
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Plan</SidebarGroupLabel>
+					<SidebarMenu>
+						<NavItem item={BUDGET} />
 					</SidebarMenu>
 				</SidebarGroup>
 				<SidebarGroup>

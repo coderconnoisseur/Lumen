@@ -1,10 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { agentApi, budgetApi, type BudgetState, type Proposal } from "@/lib/api/client";
+import Link from "next/link";
+import type { BudgetState } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
-import { toast } from "@/lib/toast";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { PageCard } from "@/components/page/page-card";
 
@@ -20,7 +18,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 	const pct = total ? Math.round((spent / total) * 100) : 0;
 
 	return (
-		<PageCard title={`Budget in ${monthName}`} loading={loading} skeletonHeight={64} data-testid="budget-card">
+		<PageCard title={`Budget in ${monthName}`} href="/budget" loading={loading} skeletonHeight={64} data-testid="budget-card">
 			{total ? (
 				<>
 					<div className="text-[26px] leading-tight font-medium tracking-tight tabular-nums">
@@ -72,126 +70,17 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 	);
 }
 
-type Line = Proposal & { decided?: "approve" | "reject" };
-
-// "Let Lumen draft your budget": files set_budget proposals (POST /api/budget/draft) and lets you approve each line.
-export function DraftBudgetPromo({ onChanged }: { onChanged: () => void }) {
-	const money = useMoney();
-	const [open, setOpen] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [lines, setLines] = useState<Line[] | null>(null);
-	const [deciding, setDeciding] = useState(false);
-	const [replaced, setReplaced] = useState(false);
-	const inFlight = useRef(false); // a ref, so a double click is blocked before React re-renders
-
-	async function draft() {
-		setBusy(true);
-		try {
-			setLines(await budgetApi.draft());
-			setReplaced(false);
-			setOpen(true);
-		} catch {
-			toast.error("Couldn't draft a budget right now.");
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	async function decide(ids: string[], decision: "approve" | "reject") {
-		if (inFlight.current) return;
-		inFlight.current = true;
-		setDeciding(true);
-		try {
-			for (const id of ids) {
-				await agentApi.decide(id, decision);
-				setLines((ls) => ls?.map((l) => (l.id === id ? { ...l, decided: decision } : l)) ?? ls);
-			}
-		} catch (error) {
-			// a newer draft (from here or from Ask Lumen) retired these lines
-			if ((error as { response?: { status?: number } })?.response?.status === 409) setReplaced(true);
-			else toast.error("Couldn't save that decision.");
-		} finally {
-			inFlight.current = false;
-			setDeciding(false);
-		}
-	}
-
-	const pending = (lines ?? []).filter((l) => !l.decided).map((l) => l.id);
-
+// "Let Lumen draft your budget": the draft itself lives on the Budget page (Phase 5d); ?draft=1 files it on arrival.
+export function DraftBudgetPromo() {
 	return (
 		<section className="rounded-[14px] bg-accent-soft px-4 py-3.5">
 			<h3 className="text-[15px] font-semibold">Let Lumen draft your budget</h3>
 			<p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
 				Built from 3 months of your actual spending. You approve every line before it&apos;s saved.
 			</p>
-			<button
-				type="button"
-				onClick={() => void draft()}
-				disabled={busy}
-				className="label-ui mt-2.5 rounded-full bg-foreground px-3.5 py-1.5 text-background transition-opacity disabled:opacity-60"
-			>
+			<Link href="/budget?draft=1" className="label-ui mt-2.5 inline-block rounded-full bg-foreground px-3.5 py-1.5 text-background">
 				Draft budget
-			</button>
-			<Dialog
-				open={open}
-				onOpenChange={(o) => {
-					setOpen(o);
-					if (!o) onChanged();
-				}}
-			>
-				<DialogContent className="max-w-md">
-					<DialogTitle>Your draft budget</DialogTitle>
-					<DialogDescription>Each line is a monthly limit. Nothing is saved until you approve it.</DialogDescription>
-					{lines && lines.length === 0 ? (
-						<p className="text-sm text-muted-foreground">
-							Not enough history yet. Lumen needs about two months of spending to draft a budget.
-						</p>
-					) : (
-						<>
-							<div className="divide-y divide-border">
-								{lines?.map((l) => (
-									<div key={l.id} data-testid="draft-line" className="flex items-center gap-3 py-2.5">
-										<div className="min-w-0 flex-1">
-											<p className="truncate text-sm font-medium">{l.target}</p>
-											<p className="truncate text-[12px] text-muted-foreground">{l.reason}</p>
-										</div>
-										<span className="shrink-0 text-sm tabular-nums">{money(Number(l.payload.limit))}</span>
-										<span className="flex w-[118px] shrink-0 justify-end gap-1.5">
-											{l.decided ? (
-												<span className={cn("text-[12.5px] font-medium", l.decided === "approve" ? "text-good" : "text-muted-foreground")}>
-													{l.decided === "approve" ? "Approved" : "Skipped"}
-												</span>
-											) : (
-												<>
-													<button type="button" disabled={deciding} className="rounded-md px-2 py-1 text-[12.5px] text-muted-foreground hover:bg-accent disabled:opacity-50" onClick={() => void decide([l.id], "reject")}>
-														Skip
-													</button>
-													<button type="button" disabled={deciding} className="rounded-md bg-primary px-2 py-1 text-[12.5px] text-primary-foreground disabled:opacity-50" onClick={() => void decide([l.id], "approve")}>
-														Approve
-													</button>
-												</>
-											)}
-										</span>
-									</div>
-								))}
-							</div>
-							{replaced && (
-								<p role="status" className="text-[13px] text-bad">
-									This draft was replaced. Draft again.
-								</p>
-							)}
-							<button
-								type="button"
-								disabled={pending.length === 0 || deciding || replaced}
-								onClick={() => void decide(pending, "approve")}
-								className="mt-1 w-full rounded-lg bg-foreground py-2 text-sm text-background disabled:opacity-50"
-							>
-								Approve all
-							</button>
-						</>
-					)}
-				</DialogContent>
-			</Dialog>
+			</Link>
 		</section>
 	);
 }
