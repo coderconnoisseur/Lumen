@@ -38,7 +38,8 @@ export async function signIn(
 	page: Page,
 	opts: { reviewCount?: number; home?: HomeFixture; chat?: ChatFixture } = {},
 ): Promise<void> {
-	const home = opts.home ?? {};
+	// a copy: routes like the transactions PUT change it, and tests share their fixture objects
+	const home: HomeFixture = structuredClone(opts.home ?? {});
 	// a tiny stateful chat backend: POST /chat creates or extends a thread, the list and messages follow
 	const threads = (opts.chat?.threads ?? []).map((t) => ({ ...t, messages: [...(t.messages ?? [])] }));
 	let nextThread = 1;
@@ -72,6 +73,14 @@ export async function signIn(
 		const url = new URL(route.request().url());
 		const path = url.pathname;
 		if (home.delayMs) await new Promise((r) => setTimeout(r, home.delayMs));
+		// category edits from Spending's table (stateful, like the real PUT)
+		const edit = path.match(/^\/transactions\/([^/]+)$/);
+		if (edit && route.request().method() === "PUT") {
+			const row = (home.txns ?? []).find((t) => String(t.id) === edit[1]);
+			if (!row) return route.fulfill({ status: 404, json: { success: false } });
+			Object.assign(row, route.request().postDataJSON());
+			return route.fulfill({ json: { success: true, data: row } });
+		}
 		if (path === "/transactions") {
 			const from = url.searchParams.get("date_from") ?? "0000";
 			const to = url.searchParams.get("date_to") ?? "9999";

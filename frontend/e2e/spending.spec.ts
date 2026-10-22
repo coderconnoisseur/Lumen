@@ -111,3 +111,58 @@ test("lumen noticed uses the same findings as Home", async ({ page }) => {
 	await expect(card.getByTestId("found-row")).toContainText("Shopping is up 35%");
 	await expect(card.getByRole("link", { name: "Ask Lumen" })).toHaveAttribute("href", /^\/ask\?draft=/);
 });
+
+const table = (page: Page) => page.getByTestId("transactions");
+const rowsOf = (page: Page) => table(page).getByTestId("txn-row");
+
+test("the table follows the category filter, search and source", async ({ page }) => {
+	await openSpending(page);
+	await expect(rowsOf(page)).toHaveCount(4);
+	await page.getByTestId("category-row").first().click(); // Shopping
+	await expect(rowsOf(page)).toHaveCount(2);
+	await page.getByTestId("by-category").getByRole("button", { name: "Clear" }).click();
+	await page.getByRole("button", { name: "Sort them now" }).click();
+	await expect(rowsOf(page)).toHaveCount(1);
+	await expect(rowsOf(page)).toContainText("Mystery");
+	await page.getByTestId("by-category").getByRole("button", { name: "Clear" }).click();
+	await table(page).getByRole("searchbox").fill("swi");
+	await expect(rowsOf(page)).toHaveCount(1);
+	await expect(rowsOf(page)).toContainText("Swiggy");
+	await table(page).getByRole("searchbox").fill("");
+	await table(page).getByRole("combobox", { name: "Source" }).selectOption("statement");
+	await expect(rowsOf(page)).toHaveCount(1);
+	await expect(rowsOf(page)).toContainText("Croma");
+	await expect(rowsOf(page)).toContainText("Statement");
+});
+
+test("a category can be changed in place", async ({ page }) => {
+	const puts: unknown[] = [];
+	page.on("request", (r) => r.method() === "PUT" && r.url().includes("/transactions/") && puts.push(r.postDataJSON()));
+	await openSpending(page);
+	const row = rowsOf(page).filter({ hasText: "Mystery" });
+	const before = (await row.boundingBox())!;
+	await row.getByRole("button", { name: "Change category for Mystery" }).click();
+	await page.getByRole("menuitem", { name: "Food" }).click();
+	await expect(row.getByTestId("category-pill")).toHaveText("Food");
+	expect(puts).toEqual([{ category: "Food" }]);
+	const after = (await row.boundingBox())!;
+	expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(1);
+	await expect(page.getByTestId("by-category")).not.toContainText("still need");
+});
+
+test("top merchants and CSV export of what's shown", async ({ page }) => {
+	await openSpending(page);
+	await expect(page.getByTestId("top-merchants").getByTestId("merchant-row").first()).toContainText("Croma");
+	await page.getByTestId("category-row").first().click(); // Shopping: Croma + Amazon
+	await expect(rowsOf(page)).toHaveCount(2);
+	const download = page.waitForEvent("download");
+	await page.getByRole("button", { name: "Export CSV" }).click();
+	const file = await download;
+	expect(file.suggestedFilename()).toMatch(/^lumen-spending-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.csv$/);
+	const text = await (await import("node:fs/promises")).readFile((await file.path())!, "utf8");
+	const lines = text.trim().split(/\r?\n/);
+	expect(lines[0]).toBe("date,merchant,category,source,amount");
+	expect(lines).toHaveLength(3);
+	expect(text).toContain("Croma");
+	expect(text).not.toContain("Swiggy");
+});

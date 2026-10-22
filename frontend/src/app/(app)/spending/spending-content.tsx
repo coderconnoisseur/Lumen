@@ -5,11 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/page/page-header";
 import { useMoney } from "@/lib/format";
 import { cumulative, dayIndex, sameDayDelta } from "@/lib/home-math";
-import { byCategory, monthlyTotals, needsCategory, spendPeriods, type Choice } from "@/lib/spending-math";
+import { byCategory, monthlyTotals, needsCategory, spendPeriods, topMerchants, type Choice } from "@/lib/spending-math";
 import { cn } from "@/lib/utils";
 import { Brief } from "../home/_components/brief";
 import { LumenFound } from "../home/_components/lumen-found";
 import { ByCategory } from "./_components/by-category";
+import { TopMerchants } from "./_components/top-merchants";
+import { Transactions } from "./_components/transactions";
 import { SpendingHero } from "./_components/hero";
 import { useSpendingData } from "./use-spending-data";
 
@@ -53,6 +55,8 @@ export default function SpendingContent() {
 	};
 
 	const t = Math.min(Math.max(dayIndex(p.current, today), 0), p.current.days - 1);
+	// the edit menu offers every category the user already has, plus a few common ones
+	const knownCategories = [...new Set([...data.recent, ...data.txns].map((x) => x.category).filter((c): c is string => !!c && c !== "Other" && c !== "Uncategorised").concat(["Food", "Groceries", "Shopping", "Travel", "Bills & utilities", "Rent", "Health", "Entertainment"]))].sort();
 	const cur = cumulative(data.txns, p.current);
 	const prev = cumulative(data.prevTxns, p.previous);
 	const total = cur[t] ?? 0;
@@ -149,6 +153,17 @@ export default function SpendingContent() {
 						loading={data.status === "loading"}
 					/>
 					<LumenFound title="Lumen noticed" summary={data.summary} loading={data.status === "loading"} />
+				</div>
+				<div className="mt-3.5 grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
+					<Transactions
+						txns={data.txns}
+						category={category}
+						categories={knownCategories}
+						onChanged={(id, c) => data.patch(id, { category: c })}
+						file={`lumen-spending-${ymd(p.current.start)}-${ymd(p.current.end < today ? p.current.end : today)}`}
+						loading={data.status === "loading"}
+					/>
+					<TopMerchants rows={topMerchants(data.txns, 7)} loading={data.status === "loading"} />
 				</div>
 			</div>
 		</div>
