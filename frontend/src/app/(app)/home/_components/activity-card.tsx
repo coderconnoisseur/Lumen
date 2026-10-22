@@ -12,7 +12,7 @@ export function ActivityCard({ items, now, loading }: { items: ActivityItem[]; n
 			{items.length === 0 ? (
 				<p className="text-[12.5px] text-muted-foreground">
 					Nothing imported yet.{" "}
-					<Link href="/receipts?tab=import" className="underline underline-offset-4">
+					<Link href="/receipts/import" className="underline underline-offset-4">
 						Upload a receipt or a statement
 					</Link>{" "}
 					to get started.

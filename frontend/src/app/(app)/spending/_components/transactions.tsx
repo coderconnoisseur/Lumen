@@ -8,18 +8,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { transactionApi } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { parseDay, type Txn } from "@/lib/home-math";
+import { sourceOf, toCsv } from "@/lib/spending-math";
 import { toast } from "@/lib/toast";
 
 const PAGE = 25;
 const UNSORTED = new Set(["", "Other", "Uncategorised"]);
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
-const sourceOf = (t: Txn) => (t.source === "statement" ? "Statement" : "Receipt");
 const inCategory = (t: Txn, c: string) => (c === "Uncategorised" ? !t.category || UNSORTED.has(t.category) : t.category === c);
-
-// CSV of exactly the rows shown (spec 2026-10-22 §4.2): date, merchant, category, source, amount.
-const cell = (v: string | number) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-export const toCsv = (rows: Txn[]) =>
-	["date,merchant,category,source,amount", ...rows.map((t) => [t.date, t.vendor_name ?? "", t.category ?? "", sourceOf(t), t.total_amount ?? 0].map(cell).join(","))].join("\n");
 
 // Spending's transactions (spec §4.2): follows the category picked above, plus a search and a source filter.
 // The category pill edits in place: a menu of known categories, saved with PUT /transactions/<id>.

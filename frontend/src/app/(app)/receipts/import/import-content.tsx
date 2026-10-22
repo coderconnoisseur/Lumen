@@ -1,10 +1,11 @@
 "use client";
 
-// Bare-bones CSV statement import (SPEC-STATEMENTS). The real screen comes with the UI refactor.
+// CSV statement import (SPEC-STATEMENTS), reached from Receipts & statements. Each import is kept in its history
+// (UI revamp Phase 5e) under the optional account name.
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { DashboardShell } from "@/components/dashboard-shell";
+import { PageHeader } from "@/components/page/page-header";
 import { useProfile } from "@/components/profile/profile-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,6 +36,7 @@ export default function ImportContent() {
 	const [preview, setPreview] = useState<StatementPreview | null>(null);
 	const [mapping, setMapping] = useState<StatementMapping | null>(null);
 	const [currency, setCurrency] = useState(profile?.currency ?? "USD");
+	const [label, setLabel] = useState("");
 	const [busy, setBusy] = useState<"preview" | "import" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [raw, setRaw] = useState<string[][] | null>(null);
@@ -72,7 +74,7 @@ export default function ImportContent() {
 		setError(null);
 		setRaw(null);
 		try {
-			setResult(await statementApi.import(file, mapping, currency, preview.header_line));
+			setResult(await statementApi.import(file, mapping, currency, preview.header_line, label));
 		} catch (e) {
 			fail(e, "Couldn't import that statement.");
 		} finally {
@@ -83,10 +85,12 @@ export default function ImportContent() {
 	const money = (n: number | null) => (n == null ? "—" : n.toFixed(2));
 
 	return (
-		<DashboardShell
-			title="Import a statement"
-			description="CSV from your bank or card. Spending lines become transactions; credits are skipped for now."
-		>
+		<div className="px-4 py-6 sm:px-6 lg:px-8">
+			<PageHeader
+				title="Import a statement"
+				brief={<p className="font-serif text-[19px] leading-[1.45] text-foreground/80">A CSV from your bank or card. Spending lines become transactions; credits are skipped for now.</p>}
+				actions={<Link href="/receipts" className="label-ui text-muted-foreground hover:text-foreground">‹ Receipts &amp; statements</Link>}
+			/>
 			<Card className="space-y-4 p-4">
 				<div className="flex flex-col gap-1">
 					<label htmlFor="statement-file" className="text-sm font-medium">
@@ -131,6 +135,12 @@ export default function ImportContent() {
 									</select>
 								</div>
 							))}
+							<div className="flex flex-col gap-1">
+								<label htmlFor="import-label" className="text-xs font-medium">
+									Account name (optional)
+								</label>
+								<input id="import-label" value={label} maxLength={60} placeholder="HDFC Savings" onChange={(e) => setLabel(e.target.value)} className={selectClass} />
+							</div>
 							<div className="flex flex-col gap-1">
 								<label htmlFor="import-currency" className="text-xs font-medium">
 									Currency
@@ -208,12 +218,12 @@ export default function ImportContent() {
 						Imported {result.imported} · {result.duplicates} duplicates · {result.matched} already recorded ·{" "}
 						{result.credits} credits skipped
 						{result.unreadable.length > 0 && ` · unreadable lines: ${result.unreadable.join(", ")}`}.{" "}
-						<Link href="/home" className="underline">
-							See the dashboard
+						<Link href="/receipts" className="underline">
+							Back to Receipts &amp; statements
 						</Link>
 					</p>
 				)}
 			</Card>
-		</DashboardShell>
+		</div>
 	);
 }

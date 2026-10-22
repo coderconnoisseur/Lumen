@@ -137,7 +137,7 @@ test("lumen found links to review", async ({ page }) => {
 	await openHome(page, typical, 2);
 	const found = page.getByTestId("lumen-found");
 	await expect(found.getByText("2 receipts need a glance")).toBeVisible();
-	await expect(found.getByRole("link", { name: /review/i })).toHaveAttribute("href", "/receipts?tab=review");
+	await expect(found.getByRole("link", { name: /review/i })).toHaveAttribute("href", "/receipts");
 });
 
 test("lumen found is honest when there is nothing", async ({ page }) => {

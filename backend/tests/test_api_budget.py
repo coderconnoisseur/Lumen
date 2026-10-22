@@ -260,3 +260,45 @@ def test_approving_a_draft_writes_it_from_the_drafts_month(setup):
     c.post(f"/api/agent/proposals/{food['id']}/approve", headers=bearer(A))
     with Session(engine) as s:
         assert [(b.category, b.effective_from) for b in s.scalars(select(Budget))] == [("Food", ym(0))]
+
+
+def test_a_past_month_without_limits_has_no_overall_budget(setup):
+    """The overall budget isn't versioned: a month before any category limit shows spend only, like history."""
+    c, engine = setup
+    c.put("/api/budget", headers=bearer(A), json={"monthly_budget": 50000})
+    assert c.get(f"/api/budget?month={ym(3)}", headers=bearer(A)).json()["monthly_budget"] is None
+    put_row(engine, A, "Food", 3000, ym(2))
+    assert c.get(f"/api/budget?month={ym(2)}", headers=bearer(A)).json()["monthly_budget"] == 50000
+    assert c.get("/api/budget", headers=bearer(A)).json()["monthly_budget"] == 50000
+
+
+def test_approving_last_months_draft_applies_from_this_month(setup):
+    import json
+
+    from models import Budget, Proposal
+
+    c, engine = setup
+    history(engine, A)
+    food = next(p for p in c.post("/api/budget/draft", headers=bearer(A)).json()["proposals"] if p["target"] == "Food")
+    with Session(engine) as s, s.begin():  # a draft left pending since last month
+        p = s.get(Proposal, food["id"])
+        p.payload = json.dumps({**json.loads(p.payload), "month": ym(1)})
+    c.post(f"/api/agent/proposals/{food['id']}/approve", headers=bearer(A))
+    with Session(engine) as s:
+        assert [b.effective_from for b in s.scalars(select(Budget))] == [ym(0)]
+
+
+def test_writes_can_name_the_clients_month_within_one_of_the_servers(setup):
+    """Around midnight on the 1st the browser and server can be a month apart: the client's month wins if adjacent."""
+    from models import Budget
+
+    c, engine = setup
+    nxt = date.today().replace(day=1) + __import__("datetime").timedelta(days=32)
+    nxt = nxt.strftime("%Y-%m")
+    body = c.put("/api/budget", headers=bearer(A), json={"month": nxt, "categories": [{"category": "Food", "limit": 900}]}).json()
+    assert body["month"] == nxt
+    with Session(engine) as s:
+        assert [b.effective_from for b in s.scalars(select(Budget))] == [nxt]
+    assert c.put("/api/budget", headers=bearer(A), json={"month": ym(2), "categories": []}).status_code == 422
+    assert c.get(f"/api/budget/history?months=2&to={nxt}", headers=bearer(A)).json()["months"][-1]["month"] == nxt
+    assert c.get(f"/api/budget/history?months=2&to={ym(3)}", headers=bearer(A)).status_code == 422

@@ -115,7 +115,7 @@ def find_signals(txns: list[dict], today: date, review_count: int, recurring: li
         review = [{"kind": "review", "tag": "RECEIPTS", "subject": None,
                    "headline": f"{review_count} {'receipt needs' if review_count == 1 else 'receipts need'} a glance",
                    "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
-                   "amounts": [], "worth": None, "href": "/receipts?tab=review"}]
+                   "amounts": [], "worth": None, "href": "/receipts"}]
     return _duplicates(txns, today) + review + _spikes(txns, today) + _price_rises(recurring, today)
 
 

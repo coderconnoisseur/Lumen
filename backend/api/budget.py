@@ -36,6 +36,18 @@ def _shift(month: str, n: int) -> str:
     return f"{y}-{m + 1:02d}"
 
 
+def near_month(month: str | None) -> str:
+    """`month` if it's the server's month or next to it, else 422; None means the server's month."""
+    from fastapi import HTTPException
+
+    now = this_month()
+    if month is None or month == now:
+        return now
+    if month in (_shift(now, -1), _shift(now, 1)):
+        return month
+    raise HTTPException(422, "Budgets can only be changed for the current month.")
+
+
 def limits_in_force(rows, month: str) -> dict[str, tuple[str, float]]:
     """Case-folded category -> (name, limit) for `month`: each category's latest row from that month or before.
     A limit of 0 is a removal, so the category has none."""
@@ -53,6 +65,8 @@ class CategoryLimit(BaseModel):
 
 class BudgetUpdate(BaseModel):
     monthly_budget: float | None = Field(default=None, ge=0)
+    # the browser's month: around midnight on the 1st it can be a month off the server's (UTC) date
+    month: str | None = Field(default=None, pattern=MONTH_RE)
     categories: list[CategoryLimit] = Field(default_factory=list, max_length=50)
 
 
@@ -83,10 +97,13 @@ def _state(engine: Engine, user_id: str, month: str) -> dict:
     by_key = {k.casefold(): v for k, v in spend.items()}
     with Session(engine) as session:
         user = session.get(User, user_id)
+        limits = limits_in_force(_rows(session, user_id), month)
         cats = [{"category": name, "limit": limit, "spent": round(by_key.get(key, 0), 2)}
-                for key, (name, limit) in limits_in_force(_rows(session, user_id), month).items()]
+                for key, (name, limit) in limits.items()]
     cats.sort(key=lambda c: c["spent"] / c["limit"], reverse=True)
-    return {"success": True, "month": month, "monthly_budget": user.monthly_budget if user else None,
+    # the overall budget isn't versioned, so a past month only has it once category limits were in force
+    overall = user.monthly_budget if user and (limits or month >= this_month()) else None
+    return {"success": True, "month": month, "monthly_budget": overall,
             "spent": round(sum(spend.values()), 2), "categories": cats}
 
 
@@ -140,13 +157,13 @@ def get_budget(month: str | None = Query(default=None, pattern=MONTH_RE), claims
 
 
 @router.get("/history", dependencies=[Depends(rate_limit())])
-def get_history(months: int = Query(default=6, ge=1, le=12), claims: dict = Depends(current_user),
-                engine: Engine = Depends(get_engine)):
+def get_history(months: int = Query(default=6, ge=1, le=12), to: str | None = Query(default=None, pattern=MONTH_RE),
+                claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
     """Budget vs spent for the last `months` months, oldest first, ending with this one. A past month with no
     category limit in force has no budget (null): spend only."""
     from models import User
 
-    user_id, now = claims["sub"], this_month()
+    user_id, now = claims["sub"], near_month(to)
     with Session(engine) as session:
         user = session.get(User, user_id)
         overall = user.monthly_budget if user else None
@@ -158,7 +175,7 @@ def get_history(months: int = Query(default=6, ge=1, le=12), claims: dict = Depe
     out = []
     for month in (_shift(now, -n) for n in range(months - 1, -1, -1)):
         limits = limits_in_force(rows, month)
-        budget = (overall or round(sum(v for _, v in limits.values()), 2) or None) if limits or month == now else None
+        budget = (overall or round(sum(v for _, v in limits.values()), 2) or None) if limits or month >= now else None
         spent = sum(month_spend_by_category(txns, int(month[:4]), int(month[5:])).values())
         out.append({"month": month, "budget": budget, "spent": round(spent, 2)})
     return {"success": True, "months": out}
@@ -167,7 +184,7 @@ def get_history(months: int = Query(default=6, ge=1, le=12), claims: dict = Depe
 @router.put("", dependencies=[Depends(rate_limit())])
 def put_budget(body: BudgetUpdate, claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
     """Changes apply from the current month on; past months keep the limits they had."""
-    user_id, month = claims["sub"], this_month()
+    user_id, month = claims["sub"], near_month(body.month)
     with Session(engine) as session, session.begin():
         if "monthly_budget" in body.model_fields_set:
             ensure_user(session, user_id, claims.get("email")).monthly_budget = body.monthly_budget

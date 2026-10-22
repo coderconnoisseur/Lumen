@@ -482,8 +482,11 @@ export const transactionApi = {
 		max_amount?: number;
 		sort_by?: string;
 		sort_order?: "asc" | "desc";
+		/** e.g. "statement": leave out imported bank lines */
+		exclude_source?: string;
 	}) => {
 		const queryParams = new URLSearchParams();
+		if (params?.exclude_source) queryParams.append("exclude_source", params.exclude_source);
 		if (params?.page) queryParams.append("page", params.page.toString());
 		if (params?.page_size)
 			queryParams.append("page_size", params.page_size.toString());
@@ -705,9 +708,10 @@ export interface BudgetMonth {
 
 export const budgetApi = {
 	/** `month` "YYYY-MM"; default the current month. Limits are the ones in force that month. */
-	get: async (month?: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: month ? { month } : {} })).data,
-	history: async (months = 6): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months } })).data.months,
-	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
+	// Every call names the browser's month: around midnight on the 1st the server's (UTC) date can be a month off.
+	get: async (month: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: { month } })).data,
+	history: async (months: number, to: string): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months, to } })).data.months,
+	put: async (body: { month: string; monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
 		(await apiClient.put("/api/budget", body)).data,
 	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */
 	draft: async (): Promise<Proposal[]> => (await apiClient.post("/api/budget/draft")).data.proposals,
@@ -729,7 +733,7 @@ export const agentApi = {
 
 export interface ReviewFlag {
 	rule: string;
-	severity: "warn" | "fail";
+	severity: "warn" | "fail" | "note"; // note: a warning not raised because you kept approving it
 	detail: string;
 }
 
@@ -832,14 +836,31 @@ const upload = (file: File, extra: Record<string, string> = {}) => {
 	return form;
 };
 
+/** One statement import (GET /api/statements/imports); counts as the import returned them. */
+export interface StatementImport {
+	id: string;
+	file_name: string | null;
+	label: string | null;
+	period_from: string | null;
+	period_to: string | null;
+	lines: number;
+	imported: number;
+	matched: number;
+	duplicates: number;
+	credits: number;
+	unreadable: number;
+	created_at: string;
+}
+
 export const statementApi = {
+	imports: async (): Promise<StatementImport[]> => (await apiClient.get("/api/statements/imports")).data.imports,
 	preview: async (file: File): Promise<StatementPreview> =>
 		(await apiClient.post("/api/statements/preview", upload(file), { headers: { "Content-Type": undefined } })).data,
-	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number): Promise<StatementResult> =>
+	import: async (file: File, mapping: StatementMapping, currency: string, headerLine: number, label = ""): Promise<StatementResult> =>
 		(
 			await apiClient.post(
 				"/api/statements/import",
-				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine) }),
+				upload(file, { mapping: JSON.stringify(mapping), currency, header_line: String(headerLine), ...(label.trim() ? { label: label.trim() } : {}) }),
 				{ headers: { "Content-Type": undefined } },
 			)
 		).data,

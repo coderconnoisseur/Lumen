@@ -7,12 +7,13 @@ status change and the transaction are written together, and every step goes to t
 from __future__ import annotations
 
 import json
+import math
 import uuid
 from datetime import date, datetime
 from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
@@ -42,6 +43,16 @@ class Submit(BaseModel):
 class Decision(BaseModel):
     edits: dict = {}
     note: str | None = None
+
+    @field_validator("edits")
+    @classmethod
+    def _total_is_an_amount(cls, edits: dict) -> dict:
+        # an edited total becomes the transaction's amount: it has to be a real, positive number
+        if "total_amount" in edits:
+            v = edits["total_amount"]
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                raise ValueError("total_amount must be a positive number")
+        return edits
 
 
 def _history(session: Session, user_id: str) -> list[dict]:

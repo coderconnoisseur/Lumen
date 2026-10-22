@@ -17,8 +17,8 @@ const moved: [string, string][] = [
 	["/ai-analytics", "/spending"],
 	["/chatbot", "/ask"],
 	["/documents", "/receipts"],
-	["/import", "/receipts?tab=import"],
-	["/review", "/receipts?tab=review"],
+	["/import", "/receipts/import"],
+	["/review", "/receipts"],
 	["/upload", "/home?upload=1"],
 ];
 
@@ -44,7 +44,7 @@ test("new pages render for a signed-in user", async ({ page }) => {
 		["/spending", "Spending"],
 		["/bills", "Bills & subscriptions"],
 		["/receipts", "Receipts & statements"],
-		["/receipts?tab=review", "Receipts & statements"],
+		["/receipts/import", "Import a statement"],
 		["/ask", "Ask Lumen"],
 	];
 	for (const [p, title] of pages) {
@@ -236,7 +236,7 @@ test("body is never its own scroll container (it would lose its scrollbar when a
 
 test("review badge updates after a decision on the same page", async ({ page }) => {
 	await signIn(page, { reviewCount: 2 });
-	await page.goto("/receipts?tab=review");
+	await page.goto("/receipts");
 	const badge = sidebar(page).locator('[data-sidebar="menu-badge"]');
 	await expect(badge).toHaveText("2");
 	await page.getByRole("button", { name: "Approve" }).first().click();

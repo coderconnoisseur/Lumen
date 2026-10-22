@@ -5,18 +5,7 @@ import { aiAnalyticsApi, billsApi, budgetApi, homeApi, transactionApi, type Budg
 import { parseDay, periods, type Range, type Txn } from "@/lib/home-math";
 
 export type Reminder = { id: string | number; vendor: string; amount: number | null; date: string; type: string; category?: string };
-// Home's bills: active recurring charges due in the next 31 days (api/bills.py). Cancelled ones and ones that look
-// stopped aren't bills any more.
-export function toBills(items: RecurringItem[], today: Date): Reminder[] {
-	const until = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 31);
-	return items
-		.filter((r) => r.state === "active" && !r.possibly_stopped)
-		.filter((r) => {
-			const due = parseDay(r.next_due_date);
-			return due >= today && due <= until;
-		})
-		.map((r) => ({ id: r.vendor, vendor: r.vendor, amount: r.typical_amount, date: r.next_due_date, type: "upcoming", category: r.category ?? undefined }));
-}
+import { toBills } from "@/lib/bills-math";
 export type Forecast = { dates: string[]; values: number[] } | null;
 export type HomeData = {
 	status: "loading" | "ready";
@@ -95,7 +84,7 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		Promise.allSettled([
 			billsApi.recurring().then((r) => toBills(r.items, today)),
 			homeApi.summary(),
-			budgetApi.get(),
+			budgetApi.get(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`),
 		]).then(([reminders, summary, budget]) => {
 			if (live) setExtras({ reminders: value(reminders, []), summary: value(summary, null), budget: value(budget, null) });
 		});

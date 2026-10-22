@@ -408,3 +408,24 @@ class UserKey(db.Model):
     last_error = db.Column(Text)
 
     __table_args__ = (db.UniqueConstraint("user_id", "provider", name="u_user_key"),)
+
+
+class StatementImport(db.Model):
+    """One bank-statement import (UI revamp Phase 5e), for the Receipts page's history. Counts are as the import
+    returned them ("matched" is at import time; a re-import is a new row). The CSV itself isn't kept."""
+
+    __tablename__ = "statement_imports"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    file_name = db.Column(db.String)
+    label = db.Column(db.String(60))
+    period_from = db.Column(db.String(10))
+    period_to = db.Column(db.String(10))
+    lines = db.Column(db.Integer, nullable=False, default=0)
+    imported = db.Column(db.Integer, nullable=False, default=0)
+    matched = db.Column(db.Integer, nullable=False, default=0)
+    duplicates = db.Column(db.Integer, nullable=False, default=0)
+    credits = db.Column(db.Integer, nullable=False, default=0)
+    unreadable = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

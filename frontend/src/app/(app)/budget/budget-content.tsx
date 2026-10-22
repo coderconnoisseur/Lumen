@@ -63,9 +63,9 @@ export default function BudgetContent() {
 		}
 	}
 
-	async function save(body: Parameters<typeof budgetApi.put>[0]) {
+	async function save(body: Omit<Parameters<typeof budgetApi.put>[0], "month">) {
 		try {
-			data.setBudget(await budgetApi.put(body));
+			data.setBudget(await budgetApi.put({ month: ym(today), ...body }));
 			data.reload();
 		} catch {
 			toast.error("Couldn't save the budget.");

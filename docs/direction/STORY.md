@@ -461,3 +461,28 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   and 4 maths tests. A phone screenshot showed buttons and bars clipped past the screen edge, which the old
   "no sideways scroll" check missed; the test now checks every header button, bar and table cell ends on screen.
 
+## 36. One place for everything you've given Lumen (UI revamp, Phase 5e)
+- **S:** Receipts & statements was three old pages as tabs (Documents, Import, Review). The review queue showed raw
+  rule text and a "correct total" box; statement imports left no trace once the result line was gone; and connecting
+  Gmail had no entry point in the app at all since the old dashboard was removed.
+- **T:** One page that answers "what have I given Lumen, and what needs my OK?", with the review as cards that point at
+  the doubtful field, and a history of statement imports.
+- **A:** A `statement_imports` table written by every import (file, optional account name, period, counts as returned)
+  and `GET /api/statements/imports` (TDD). The page: review cards that map each validation flag to the field it doubts
+  and a plain reason, Edit that sends only changed fields, Keep both for duplicates; one library of receipts, review
+  items, documents and imports with chips and search; Statement imports and From your inbox cards (Check now, Pause,
+  Connect with Google). The upload dialog now files PDFs as documents too. The import flow moved to
+  `/receipts/import`; the old routes redirect, and the three old pages were deleted.
+- **R:** Backend 995 passed (2 new: history per import with period and counts, re-import as its own row, per-user,
+  label limit). Frontend: 15 Receipts e2e checks (brief, highlights and reasons, edit-and-approve body, reject and the
+  sidebar badge, empty queue, library mix, chips, search, delete, imports counts, inbox both ways, document upload,
+  import link, redirects, CLS under 0.01, nothing past the edge at 375 px). A screenshot pass fixed raw ISO dates on the
+  cards.
+- **Phase 5 review:** one fresh reviewer read all 43 commits of Phase 5. No Critical issues; 8 Important ones, plus a
+  CSV-formula risk upgraded to Important, all fixed test-first: receipts lost behind a big statement import (now
+  filtered server-side), a past month showing today's overall budget, a stale draft writing into last month, the
+  first night of a month (browser and UTC server a month apart; every budget call now names the browser's month,
+  writes only within one month of the server's), late bills vanishing from "what's due" (now "Not seen yet"), no way
+  to open the original receipt, the wrong error text, an edit that could approve a ₹0 total (now refused by the API
+  too), and spreadsheet formulas in the CSV export. Backend 1004 passed, e2e 207. Nine minors went to the backlog.
+

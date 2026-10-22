@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Bills page's calculations (UI revamp Phase 5c).
 import { test, expect } from "@playwright/test";
-import { dueDays, monthlyEquivalent, tiles, upcoming } from "../src/lib/bills-math";
+import { dueDays, monthlyEquivalent, tiles, toBills, upcoming } from "../src/lib/bills-math";
 import type { RecurringItem } from "../src/lib/api/client";
 
 const item = (vendor: string, cadence: RecurringItem["cadence"], next: string, amount: number, extra: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -43,4 +43,24 @@ test("tiles: due soon, recurring per month, and subscriptions that look stopped"
 	expect(t.dueSoon).toEqual({ total: 25000, count: 1 });
 	expect(t.perMonth).toBe(25125); // rent + prime/12; stopped and cancelled ones don't count
 	expect(t.stopped).toEqual({ count: 1, perMonth: 119 });
+});
+
+test("a bill that's late but not stopped stays on the list as not seen yet", () => {
+	const late = item("Power", "monthly", "2026-10-18", 1800);
+	expect(upcoming([late, item("Rent", "monthly", "2026-10-24", 25000)], today).map((g) => [g.label, g.rows.map((r) => r.vendor)])).toEqual([
+		["Not seen yet", ["Power"]],
+		["This week", ["Rent"]],
+	]);
+	expect(tiles([late], today).dueSoon).toEqual({ total: 1800, count: 1 });
+});
+
+test("toBills: Home keeps late and charged-again bills, drops cancelled and stopped ones", () => {
+	const bills = toBills([
+		item("Power", "monthly", "2026-10-18", 1800),
+		item("Netflix", "monthly", "2026-10-30", 649, { state: "charged_again" }),
+		item("Gym", "monthly", "2026-10-28", 1500, { state: "cancelled" }),
+		item("Spotify", "monthly", "2026-08-02", 119, { possibly_stopped: true }),
+		item("Far", "monthly", "2026-12-30", 5),
+	], today);
+	expect(bills.map((b) => b.vendor)).toEqual(["Power", "Netflix"]);
 });

@@ -253,10 +253,10 @@ embeds the demo documents once per server and uploads the files in the backgroun
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
 ## 7b2. App frame and navigation (frontend)
-- The signed-in pages live in the route group `app/(app)/`: `/home`, `/spending`, `/bills`, `/receipts`
-  (`?tab=documents|import|review`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
+- The signed-in pages live in the route group `app/(app)/`: `/home`, `/spending`, `/bills`, `/budget`, `/receipts`
+  (and `/receipts/import`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
   `/chatbot`, `/documents`, `/import`, `/review`, `/upload`) redirect to them in `next.config.js` (temporary 307s, query
-  strings carried). Until UI revamp Phase 5, Spending, Bills and Receipts reuse the old pages' `*Content.tsx`.
+  strings carried).
 - **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Plan (Budget) · Receipts & statements
   (badge = flagged review items) · Ask Lumen (Ctrl/⌘+K). It collapses to a 56px icon rail with Ctrl/⌘+B, remembered
   in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
@@ -316,6 +316,15 @@ embeds the demo documents once per server and uploads the files in the backgroun
   Add category, and the unassigned footer. The draft panel shows pending `set_budget` lines (Skip / Approve named for
   the category, "Approve remaining N"). History sits above By category so the data-height cards come last.
   Maths in `lib/budget-math.ts` (tests: `e2e/budget-math.spec.ts`).
+- **Receipts & statements** (`app/(app)/receipts/`, Phase 5e): "what have I given Lumen, and what needs my OK?" It
+  replaced the Documents / Import / Review tabs. Everything loads together and appears in one step. Needs your review
+  (only when the queue isn't empty): a card per flagged item with the doubtful field highlighted from its validation
+  flag (`total_mismatch`/`no_currency` → Total, `duplicate` → Bill no., `bad_date` → Date, `unknown_vendor` → Vendor),
+  the reason in plain words, Approve / Edit (sends only changed fields) / Reject; a duplicate offers Keep both. The
+  library merges receipts (non-statement transactions, latest 100), review items, RAG documents (deletable) and
+  statement imports, with chips, search and Show more. Right column: Statement imports (counts bar) and From your
+  inbox (`/api/v1/email-config/status`: Check now, Pause/Resume, or Connect with Google). The upload dialog
+  (`components/uploadDialog.tsx`) chooses Receipts & invoices (`/extract`) or Documents (PDF, `/api/documents`).
 - **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
   Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
   period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,
@@ -514,8 +523,11 @@ embeds the demo documents once per server and uploads the files in the backgroun
   into a vendor name and a category.
 - `api/statements.py`: `POST /api/statements/preview` (columns, guessed mapping, 5 sample lines, counts; a file with
   no header is a 400 with `code: "no_header"` and the first raw rows) and `POST /api/statements/import` (file +
-  mapping JSON + currency + header_line). Only debits become transactions (`source="statement"`).
+  mapping JSON + currency + header_line + optional account `label`). Only debits become transactions
+  (`source="statement"`). Each import also writes a `statement_imports` row (file, label, period, counts as returned;
+  the CSV isn't kept), listed by `GET /api/statements/imports` (UI revamp Phase 5e).
 - Dedupe: each line has an `import_key` (sha1 of user, date, amount, description), so re-importing is safe. Invoice
   matching: a debit with the same amount within 3 days and a shared word in the vendor name is "already recorded",
   not added. Credits are counted and skipped; unreadable lines are returned by line number.
-- `/import` (frontend, minimal): choose a CSV, adjust the mapping and currency, preview, import, see the result line.
+- `/receipts/import` (frontend): choose a CSV, adjust the mapping, currency and account name, preview, import, see the
+  result line.
