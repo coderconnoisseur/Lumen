@@ -247,5 +247,14 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [ ] **Later.** Draft lines could show a small month-by-month glyph once `basis` carries per-month amounts. *(5d)*
 - [ ] **Later.** Receipts: tell receipts from invoices in the data so the library can have both chips; "Compare" on a duplicate needs the review item to carry the record it duplicates. *(5e)*
 - [ ] **Later.** Receipts library lists the latest 100 receipts; page through `/transactions` if people need older ones there. *(5e)*
+- [ ] **Phase 6.** Phase 5 review minors: refunds (negative spend) draw a full bar instead of an empty one (budget hero/categories, Home budget card, Spending by category) — clamp at 0. *(5 review)*
+- [ ] **Phase 6.** Bills calendar projects a monthly bill into months before its first charge, and hides cancelled bills in months they really were charged. Project from `last_charge_date` on; show real charges for past months. *(5 review)*
+- [ ] **Phase 6.** Naive UTC timestamps (`created_at`, `last_successful_poll`) are parsed as local time: "Checked 6 h ago" right after a poll in IST, late uploads dated a day off. Send them with `Z`. *(5 review)*
+- [ ] **Phase 6.** Spending brief can name a payment bigger than the category's change ("one ₹9,999 payment is most of a ₹2,000 jump"); check the size first. *(5 review)*
+- [ ] **Phase 6.** Receipts brief says "Everything … is filed" when the review list failed to load; say nothing instead. *(5 review)*
+- [ ] **Phase 6.** Small layout shifts: "Connect email" joins the header after load (wraps on phones); Budget hero/History taller than their skeletons on phones; a pending draft narrows By category one frame after load on lg. *(5 review)*
+- [ ] **Phase 6.** Home's spike link `?category=` is matched case-sensitively on Spending ("food" rows missed under "Food"). *(5 review)*
+- [ ] **Phase 6.** Import page currency starts as USD until the profile loads; an INR user who doesn't notice imports in USD. *(5 review; predates 5e)*
+- [ ] **Phase 6.** If the budget-versions migration is skipped on Postgres (only a warning), edits to an existing category in a new month hit the old unique constraint and 500. Make that failure loud. *(5 review; migration smoke-tested on Postgres 16 locally)*
 - [ ] **Later.** Spending: the category edit (pencil) is hidden below `sm`, so phones can't recategorise; and "Lumen noticed" wraps beside its pill at 375px. *(5b)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*

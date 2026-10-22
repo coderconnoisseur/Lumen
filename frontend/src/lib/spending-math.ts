@@ -74,3 +74,16 @@ export function monthlyTotals(txns: Txn[], today: Date, months: number): { month
 
 export const needsCategory = (txns: Txn[]) =>
 	txns.filter((t) => !t.category || t.category === "Other" || t.category === UNCATEGORISED).length;
+
+export const sourceOf = (t: Txn) => (t.source === "statement" ? "Statement" : "Receipt");
+
+// One CSV cell. Vendor names come from bank lines and emailed invoices, so text a spreadsheet would run as a formula
+// (=, +, -, @, tab or CR first) gets a leading ' to stay text; amounts are numbers and stay as they are.
+const cell = (v: string | number) => {
+	const s = typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v);
+	return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+// CSV of exactly the rows shown (spec 2026-10-22 §4.2): date, merchant, category, source, amount.
+export const toCsv = (rows: Txn[]) =>
+	["date,merchant,category,source,amount", ...rows.map((t) => [t.date, t.vendor_name ?? "", t.category ?? "", sourceOf(t), t.total_amount ?? 0].map(cell).join(","))].join("\n");

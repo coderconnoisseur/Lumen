@@ -4,6 +4,7 @@ import type { RecurringItem } from "@/lib/api/client";
 import { parseDay } from "@/lib/home-math";
 
 const DAY = 86_400_000;
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 // still being charged: not cancelled (a "charged again" one is) and not looking stopped
 const live = (i: RecurringItem) => i.state !== "cancelled" && !i.possibly_stopped;
@@ -25,30 +26,44 @@ export function dueDays(i: RecurringItem, year: number, month: number): number[]
 	return out;
 }
 
-type Due = { vendor: string; date: Date; amount: number; item: RecurringItem };
+type Due = { vendor: string; date: Date; amount: number; item: RecurringItem; late?: boolean };
 
-// Every expected charge from today to 30 days out (weekly ones more than once), soonest first.
+// Every expected charge from today to 30 days out (weekly ones more than once), soonest first. A charge whose expected
+// date has passed without being seen is still coming (bills drift, statements arrive in batches), so it's kept, marked
+// late, until the detection calls it stopped.
 function dueSoon(items: RecurringItem[], today: Date): Due[] {
 	const until = addDays(today, 30);
 	const out: Due[] = [];
 	for (const i of items.filter(live)) {
+		const first = parseDay(i.next_due_date);
+		if (first < today) out.push({ vendor: i.vendor, date: first, amount: i.typical_amount, item: i, late: true });
 		const step = i.cadence === "weekly" ? 7 : null;
-		for (let d = parseDay(i.next_due_date); d <= until; d = step ? addDays(d, step) : addDays(until, 1))
+		for (let d = first; d <= until; d = step ? addDays(d, step) : addDays(until, 1))
 			if (d >= today) out.push({ vendor: i.vendor, date: d, amount: i.typical_amount, item: i });
 	}
 	return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-// The next 30 days as This week (to Sunday), Next week and Later, each with its total; empty groups are left out.
+// Home's "Coming up": the same charges for the next month, late ones first, in Home's reminder shape.
+export function toBills(items: RecurringItem[], today: Date) {
+	return dueSoon(items, today).map((d) => ({
+		id: `${d.vendor}-${d.date.toDateString()}`, vendor: d.vendor, amount: d.amount, date: ymd(d.date),
+		type: d.late ? "late" : "upcoming", category: d.item.category ?? undefined,
+	}));
+}
+
+// Not seen yet (late), then the next 30 days as This week (to Sunday), Next week and Later, each with its total;
+// empty groups are left out.
 export function upcoming(items: RecurringItem[], today: Date): { label: string; rows: Due[]; total: number }[] {
 	const sunday = addDays(today, 6 - ((today.getDay() + 6) % 7));
 	const nextSunday = addDays(sunday, 7);
 	const groups = [
+		{ label: "Not seen yet", rows: [] as Due[] },
 		{ label: "This week", rows: [] as Due[] },
 		{ label: "Next week", rows: [] as Due[] },
 		{ label: "Later", rows: [] as Due[] },
 	];
-	for (const d of dueSoon(items, today)) groups[d.date <= sunday ? 0 : d.date <= nextSunday ? 1 : 2].rows.push(d);
+	for (const d of dueSoon(items, today)) groups[d.late ? 0 : d.date <= sunday ? 1 : d.date <= nextSunday ? 2 : 3].rows.push(d);
 	return groups.filter((g) => g.rows.length).map((g) => ({ ...g, total: g.rows.reduce((s, r) => s + r.amount, 0) }));
 }
 

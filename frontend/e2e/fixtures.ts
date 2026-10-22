@@ -104,6 +104,7 @@ export async function signIn(
 			documents.splice(documents.findIndex((d) => d.id === doc[1]), 1);
 			return route.fulfill({ json: { success: true } });
 		}
+		if (path.startsWith("/api/files/")) return route.fulfill({ body: "original", contentType: "image/png" });
 		if (path === "/api/statements/imports") return route.fulfill({ json: { success: true, imports: home.imports ?? [] } });
 		if (path === "/api/v1/email-config/status") return route.fulfill({ json: home.email ?? { configured: false } });
 		if (path.startsWith("/api/v1/email-config/")) return route.fulfill({ json: { success: true } });
@@ -136,7 +137,8 @@ export async function signIn(
 		if (path === "/transactions") {
 			const from = url.searchParams.get("date_from") ?? "0000";
 			const to = url.searchParams.get("date_to") ?? "9999";
-			const all = (home.txns ?? []).filter((t) => t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+			const skip = url.searchParams.get("exclude_source");
+			const all = (home.txns ?? []).filter((t) => t.date >= from && t.date <= to && (!skip || t.source !== skip)).sort((a, b) => b.date.localeCompare(a.date));
 			// like the real API: at most 100 rows per page
 			const size = Math.min(Number(url.searchParams.get("page_size") ?? 10), 100);
 			const page = Number(url.searchParams.get("page") ?? 1);
@@ -186,6 +188,8 @@ export async function signIn(
 			return route.fulfill({ status: 409, json: { detail: "Proposal is already rejected" } });
 		if (proposal) return route.fulfill({ json: { success: true, proposal: { id: proposal[1], status: `${proposal[2]}d` }, applied: null } });
 		const decided = path.match(/^\/api\/review\/([^/]+)\/(approve|reject)$/);
+		if (decided && home.replaced?.includes(decided[1]))
+			return route.fulfill({ status: 409, json: { success: false, error: "This invoice is already recorded", code: "conflict" } });
 		if (decided) {
 			const item = queue.find((q) => q.id === decided[1])!;
 			queue = queue.filter((q) => q.id !== decided[1]);

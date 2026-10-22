@@ -32,7 +32,7 @@ export function useBudgetData(month: Date, today: Date): BudgetData {
 	useEffect(() => {
 		let live = true;
 		const end = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-		Promise.allSettled([budgetApi.get(key === ym(today) ? undefined : key), fetchTxns(month, end < today ? end : today)]).then(([b, t]) => {
+		Promise.allSettled([budgetApi.get(key), fetchTxns(month, end < today ? end : today)]).then(([b, t]) => {
 			if (live) setShown({ budget: value(b, null), txns: value(t, []) });
 		});
 		return () => {
@@ -44,21 +44,24 @@ export function useBudgetData(month: Date, today: Date): BudgetData {
 
 	useEffect(() => {
 		let live = true;
-		Promise.allSettled([budgetApi.history(6), agentApi.proposals()]).then(([h, p]) => {
+		Promise.allSettled([budgetApi.history(6, ym(today)), agentApi.proposals()]).then(([h, p]) => {
 			if (live) setOnce({ history: value(h, []), pending: value(p, []).filter((x) => x.type === "set_budget") });
 		});
 		return () => {
 			live = false;
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [day]);
 
 	const setBudget = useCallback((budget: BudgetState) => setShown((s) => (s ? { ...s, budget } : s)), []);
 	const reload = useCallback(() => {
-		Promise.allSettled([budgetApi.get(), budgetApi.history(6)]).then(([b, h]) => {
+		Promise.allSettled([budgetApi.get(ym(today)), budgetApi.history(6, ym(today))]).then(([b, h]) => {
 			if (b.status === "fulfilled") setShown((s) => (s ? { ...s, budget: b.value } : s));
 			if (h.status === "fulfilled") setOnce((o) => (o ? { ...o, history: h.value } : o));
 		});
-	}, []);
+		// today is fixed for the page's life; its day is what matters
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [day]);
 
 	return {
 		status: shown && once ? "ready" : "loading",

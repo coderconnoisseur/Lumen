@@ -20,7 +20,8 @@ const value = <T,>(r: PromiseSettledResult<T>, fallback: T) => (r.status === "fu
 
 // Everything the Receipts & statements page shows, loaded together so the page appears in one step (no layout shift
 // from the review row arriving late). A failed call empties only its own part. Uploads elsewhere refresh it.
-// ponytail: the library lists the latest 100 receipts; page through /transactions if people need older ones here.
+// ponytail: the library lists the latest 100 receipts (statement lines left out server-side); page through
+// /transactions if people need older ones here.
 export function useReceiptsData() {
 	const [data, setData] = useState<Data | null>(null);
 
@@ -28,7 +29,7 @@ export function useReceiptsData() {
 		const [review, documents, txns, imports, email] = await Promise.allSettled([
 			reviewApi.list(),
 			documentsApi.list(),
-			transactionApi.getTransactions({ page: 1, page_size: 100 }),
+			transactionApi.getTransactions({ page: 1, page_size: 100, exclude_source: "statement" }),
 			statementApi.imports(),
 			emailConfigApi.getStatus() as Promise<EmailStatus>,
 		]);
@@ -36,7 +37,7 @@ export function useReceiptsData() {
 		setData({
 			review: value(review, []) ?? [],
 			documents: value(documents, []) ?? [],
-			receipts: rows.filter((t) => t.source !== "statement"),
+			receipts: rows,
 			imports: value(imports, []) ?? [],
 			email: value(email, null),
 		});

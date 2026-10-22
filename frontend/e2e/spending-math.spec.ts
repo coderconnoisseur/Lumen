@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Spending page's calculations (UI revamp Phase 5b).
 import { test, expect } from "@playwright/test";
-import { byCategory, monthlyTotals, needsCategory, spendPeriods, topMerchants } from "../src/lib/spending-math";
+import { byCategory, monthlyTotals, needsCategory, spendPeriods, toCsv, topMerchants } from "../src/lib/spending-math";
 
 const tx = (id: string, vendor_name: string | null, date: string, total_amount: number, category: string | null = "Food") => ({
 	id,
@@ -57,4 +57,13 @@ test("monthlyTotals: oldest first, current month included, empty months are zero
 
 test("needsCategory counts rows with no real category", () => {
 	expect(needsCategory([tx("1", "a", "2026-10-02", 1, null), tx("2", "a", "2026-10-02", 1, ""), tx("3", "a", "2026-10-02", 1, "Other"), tx("4", "a", "2026-10-02", 1, "Uncategorised"), tx("5", "a", "2026-10-02", 1, "Food")])).toBe(4);
+});
+
+test("toCsv: text that a spreadsheet would run as a formula is kept as text; amounts stay numbers", () => {
+	const row = (vendor_name: string, total_amount: number) => ({ id: 1, vendor_name, date: "2026-10-01", total_amount, category: null, created_at: null });
+	const csv = toCsv([row("=HYPERLINK(\"http://x\")", 10), row("+91 Store", -400), row("@sum", 5), row("Plain, Co", 1)]).split("\n");
+	expect(csv[1]).toBe(`2026-10-01,"'=HYPERLINK(""http://x"")",,Receipt,10`);
+	expect(csv[2]).toBe("2026-10-01,'+91 Store,,Receipt,-400");
+	expect(csv[3]).toBe("2026-10-01,'@sum,,Receipt,5");
+	expect(csv[4]).toBe('2026-10-01,"Plain, Co",,Receipt,1');
 });

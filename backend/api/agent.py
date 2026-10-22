@@ -168,8 +168,8 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
                 payload, limit = {}, math.nan
             if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
                 raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
-            # from the month the draft was for (a draft made last month still starts there), else this month
-            upsert_budget(session, user_id, p.target.strip(), limit, valid_month(payload.get("month")) or this_month())
+            # from the month the draft was for, but never earlier than this one: past months stay as they were
+            upsert_budget(session, user_id, p.target.strip(), limit, max(valid_month(payload.get("month")) or "", this_month()))
             applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")

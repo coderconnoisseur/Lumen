@@ -482,8 +482,11 @@ export const transactionApi = {
 		max_amount?: number;
 		sort_by?: string;
 		sort_order?: "asc" | "desc";
+		/** e.g. "statement": leave out imported bank lines */
+		exclude_source?: string;
 	}) => {
 		const queryParams = new URLSearchParams();
+		if (params?.exclude_source) queryParams.append("exclude_source", params.exclude_source);
 		if (params?.page) queryParams.append("page", params.page.toString());
 		if (params?.page_size)
 			queryParams.append("page_size", params.page_size.toString());
@@ -705,9 +708,10 @@ export interface BudgetMonth {
 
 export const budgetApi = {
 	/** `month` "YYYY-MM"; default the current month. Limits are the ones in force that month. */
-	get: async (month?: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: month ? { month } : {} })).data,
-	history: async (months = 6): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months } })).data.months,
-	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
+	// Every call names the browser's month: around midnight on the 1st the server's (UTC) date can be a month off.
+	get: async (month: string): Promise<BudgetState> => (await apiClient.get("/api/budget", { params: { month } })).data,
+	history: async (months: number, to: string): Promise<BudgetMonth[]> => (await apiClient.get("/api/budget/history", { params: { months, to } })).data.months,
+	put: async (body: { month: string; monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
 		(await apiClient.put("/api/budget", body)).data,
 	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */
 	draft: async (): Promise<Proposal[]> => (await apiClient.post("/api/budget/draft")).data.proposals,

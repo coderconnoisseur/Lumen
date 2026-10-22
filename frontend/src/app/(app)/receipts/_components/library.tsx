@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { FileSpreadsheet, FileText, Receipt, Search, Trash2 } from "lucide-react";
 import { PageCard } from "@/components/page/page-card";
-import type { LumenDocument, ReviewItem, StatementImport } from "@/lib/api/client";
+import { filesApi, type LumenDocument, type ReviewItem, type StatementImport } from "@/lib/api/client";
+import { toast } from "@/lib/toast";
 import { useMoney } from "@/lib/format";
 import type { Txn } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ export type LibraryRow = {
 	date: string | null;
 	amount: number | null;
 	review: boolean;
+	/** the original upload, when one was kept */
+	fileKey?: string | null;
 	onDelete?: () => void;
 };
 const CHIPS: { label: string; kind: Kind | null }[] = [
@@ -41,15 +44,16 @@ export function toRows(d: { review: ReviewItem[]; receipts: Txn[]; documents: Lu
 			key: `r-${r.id}`, kind: "receipt" as const, title: String(r.invoice.vendor_name ?? "Unknown vendor"),
 			sub: `Receipt · ${String(r.invoice.invoice_number ?? "no bill number")}`, from: r.invoice.source === "email" ? ("Gmail" as const) : ("Upload" as const),
 			date: r.created_at, amount: typeof r.invoice.total_amount === "number" ? r.invoice.total_amount : null, review: true,
+			fileKey: typeof r.invoice.file_key === "string" ? r.invoice.file_key : null,
 		})),
 		...d.receipts.map((t) => ({
 			key: `t-${t.id}`, kind: "receipt" as const, title: t.vendor_name ?? "Unknown vendor",
 			sub: `Receipt${t.category ? ` · ${t.category}` : ""}`, from: t.source === "email" ? ("Gmail" as const) : ("Upload" as const),
-			date: t.date, amount: t.total_amount, review: false,
+			date: t.date, amount: t.total_amount, review: false, fileKey: (t as Txn & { file_key?: string | null }).file_key,
 		})),
 		...d.documents.map((doc) => ({
 			key: `d-${doc.id}`, kind: "document" as const, title: doc.title, sub: `${DOC_TYPE[doc.doc_type] ?? "Document"} · ${doc.filename ?? `${doc.chunk_count} sections`}`,
-			from: "Upload" as const, date: doc.created_at, amount: null, review: false, onDelete: () => remove(doc.id),
+			from: "Upload" as const, date: doc.created_at, amount: null, review: false, fileKey: doc.file_key, onDelete: () => remove(doc.id),
 		})),
 		...d.imports.map((i) => ({
 			key: `i-${i.id}`, kind: "statement" as const, title: i.label ?? i.file_name ?? "Statement",
@@ -104,7 +108,18 @@ export function Library({ rows }: { rows: LibraryRow[] }) {
 						<span className="flex min-w-0 items-center gap-2.5">
 							<Icon className="size-4 shrink-0 text-muted-foreground" />
 							<span className="min-w-0">
-								<b className="block truncate font-medium">{r.title}</b>
+								{r.fileKey ? (
+									<button
+										type="button"
+										aria-label={`Open ${r.title}`}
+										onClick={() => void filesApi.open(r.fileKey!).catch(() => toast.error("Couldn't open the original."))}
+										className="block max-w-full truncate text-left font-medium hover:underline"
+									>
+										{r.title}
+									</button>
+								) : (
+									<b className="block truncate font-medium">{r.title}</b>
+								)}
 								<small className="block truncate text-[12px] text-muted-foreground">
 									{r.sub}
 									<span className="sm:hidden"> · {r.from} · {dayMonth(r.date)}</span>

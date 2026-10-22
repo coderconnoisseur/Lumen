@@ -71,7 +71,7 @@ test("editing a category's budget in place: Enter saves, the row keeps its heigh
 	await input.fill("9000");
 	await input.press("Enter");
 	await expect(row(page, "Food")).toContainText("₹9,000");
-	expect(puts).toEqual([{ categories: [{ category: "Food", limit: 9000 }] }]);
+	expect(puts).toEqual([{ month: ym(0), categories: [{ category: "Food", limit: 9000 }] }]);
 });
 
 test("Esc cancels an edit without saving", async ({ page }) => {
@@ -203,3 +203,13 @@ test("budget fits a phone without sideways scroll", async ({ page }) => {
 		.evaluateAll((els) => els.map((e) => [e.getAttribute("aria-label") ?? e.textContent, e.getBoundingClientRect().right] as const));
 	for (const [what, right] of ends) expect(right, String(what)).toBeLessThanOrEqual(375);
 });
+
+test("every budget request names the browser's month (the server's date can differ around midnight on the 1st)", async ({ page }) => {
+	const urls: string[] = [];
+	page.on("request", (r) => r.url().includes("/api/budget") && r.method() === "GET" && urls.push(r.url()));
+	await openBudget(page);
+	expect(urls.some((u) => u.includes(`/api/budget?month=${ym(0)}`))).toBe(true);
+	expect(urls.some((u) => u.includes(`/api/budget/history?months=6&to=${ym(0)}`))).toBe(true);
+	expect(urls.filter((u) => /\/api\/budget$/.test(u))).toEqual([]);
+});
+

@@ -478,4 +478,11 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   sidebar badge, empty queue, library mix, chips, search, delete, imports counts, inbox both ways, document upload,
   import link, redirects, CLS under 0.01, nothing past the edge at 375 px). A screenshot pass fixed raw ISO dates on the
   cards.
+- **Phase 5 review:** one fresh reviewer read all 43 commits of Phase 5. No Critical issues; 8 Important ones, plus a
+  CSV-formula risk upgraded to Important, all fixed test-first: receipts lost behind a big statement import (now
+  filtered server-side), a past month showing today's overall budget, a stale draft writing into last month, the
+  first night of a month (browser and UTC server a month apart; every budget call now names the browser's month,
+  writes only within one month of the server's), late bills vanishing from "what's due" (now "Not seen yet"), no way
+  to open the original receipt, the wrong error text, an edit that could approve a ₹0 total (now refused by the API
+  too), and spreadsheet formulas in the CSV export. Backend 1004 passed, e2e 207. Nine minors went to the backlog.
 

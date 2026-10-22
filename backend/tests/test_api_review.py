@@ -192,3 +192,10 @@ def test_list_count_only(client):
         client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(total_amount=total, invoice_number=f"N{total}")})
     assert client.get("/api/review?status=flagged&count=1", headers=bearer(ALICE)).json() == {"success": True, "count": 3}
     assert client.get("/api/review?count=1", headers=bearer(BOB)).json() == {"success": True, "count": 0}
+
+
+@pytest.mark.parametrize("total", [0, -5, None, "lots", True])
+def test_an_edit_cannot_approve_a_bad_total(client, total):
+    item = client.post("/api/review", headers=bearer(ALICE), json={"invoice": invoice(total_amount=999.0)}).json()["item"]
+    r = client.post(f"/api/review/{item['id']}/approve", headers=bearer(ALICE), json={"edits": {"total_amount": total}})
+    assert r.status_code == 422 and _txn_count(client.engine, ALICE) == 1

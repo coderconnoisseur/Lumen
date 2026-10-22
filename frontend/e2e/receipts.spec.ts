@@ -172,3 +172,40 @@ test("receipts fits a phone", async ({ page }) => {
 		.evaluateAll((els) => els.map((e) => [e.getAttribute("aria-label") ?? e.textContent, e.getBoundingClientRect().right] as const));
 	for (const [what, right] of ends) expect(right, String(what)).toBeLessThanOrEqual(375);
 });
+
+test("a big statement import doesn't push the receipts out of the library", async ({ page }) => {
+	const lines = Array.from({ length: 120 }, (_, i) => ({ id: `s${i}`, vendor_name: `Line ${i}`, date: "2026-10-20", total_amount: 10, category: null, created_at: null, source: "statement" }));
+	await openReceipts(page, { ...sample, txns: [...lines, ...sample.txns!] });
+	await expect(page.getByTestId("library-row").filter({ hasText: "Jio Fiber" })).toHaveCount(1);
+});
+
+test("a review card and a document open their original", async ({ page }) => {
+	const opened: string[] = [];
+	page.on("request", (r) => r.url().includes("/api/files/") && opened.push(r.url().split("/api/files/")[1]));
+	const review = [flagged("r1", { vendor_name: "Croma", total_amount: 9999, file_key: "inv/croma.png" }, ["total_mismatch"])];
+	await openReceipts(page, { ...sample, review, documents: [{ ...sample.documents![0], file_key: "doc/rent.pdf" }] });
+	await card(page, "Croma").getByRole("button", { name: "Open original" }).click();
+	await page.getByRole("button", { name: "Open Rental agreement" }).click();
+	await expect.poll(() => opened).toEqual(["inv/croma.png", "doc/rent.pdf"]);
+});
+
+test("a decision the server refuses says why", async ({ page }) => {
+	await openReceipts(page, { ...sample, replaced: ["r1"] });
+	await card(page, "Croma").getByRole("button", { name: "Approve", exact: true }).click();
+	await expect(page.getByText("This invoice is already recorded")).toBeVisible();
+	await expect(card(page, "Croma")).toHaveCount(1);
+});
+
+test("an edit can't approve an empty or non-numeric total", async ({ page }) => {
+	await openReceipts(page);
+	await card(page, "Croma").getByRole("button", { name: "Edit" }).click();
+	const total = card(page, "Croma").getByRole("textbox", { name: "Total" });
+	const save = card(page, "Croma").getByRole("button", { name: "Save & approve" });
+	await total.fill("");
+	await expect(save).toBeDisabled();
+	await total.fill("1,234");
+	await expect(save).toBeDisabled();
+	await total.fill("1234.5");
+	await expect(save).toBeEnabled();
+});
+

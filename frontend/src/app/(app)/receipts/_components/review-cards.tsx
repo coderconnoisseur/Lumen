@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PageCard } from "@/components/page/page-card";
 import { VendorChip } from "@/components/page/vendor-chip";
-import { reviewApi, type ReviewItem } from "@/lib/api/client";
+import { filesApi, reviewApi, type ReviewItem } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
 import { useMoney } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -32,7 +32,13 @@ const dayMonth = (s: string | null) => (s ? new Date(s).toLocaleString("en-GB", 
 // the checks' details are terse ("line items 80 + tax 20 != total 110"); the arithmetic one gets a sentence instead
 const plain = (rule: string, detail: string) =>
 	rule === "total_mismatch" ? "The items and tax don't add up to the printed total." : `${detail.charAt(0).toUpperCase()}${detail.slice(1)}.`;
-const errorText = (e: unknown) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+// API errors are {error} (api/errors.py); FastAPI's own validation errors are {detail}
+const errorText = (e: unknown) => {
+	const data = (e as { response?: { data?: { error?: string; detail?: unknown } } })?.response?.data;
+	return data?.error ?? (typeof data?.detail === "string" ? data.detail : undefined);
+};
+// a total someone typed: digits with an optional decimal part, more than zero (no "1,234", no blank)
+const validTotal = (v: string) => /^\d+(\.\d+)?$/.test(v.trim()) && Number(v) > 0;
 
 // Needs your review (spec 2026-10-22 §4.5; replaces the old Review tab): one card per flagged receipt with the fields
 // the checks doubted highlighted, the reason in plain words, and Approve / Edit / Reject. A duplicate offers "Keep both"
@@ -82,7 +88,7 @@ function ReviewCard({ item, onDecided }: { item: ReviewItem; onDecided: (id: str
 		setBusy(true);
 		const changed = Object.fromEntries(
 			Object.entries(edits)
-				.filter(([k, v]) => v.trim() !== String(inv[k] ?? ""))
+				.filter(([k, v]) => v.trim() !== "" && v.trim() !== String(inv[k] ?? ""))
 				.map(([k, v]) => [k, k === "total_amount" ? Number(v) : v.trim()]),
 		);
 		try {
@@ -127,6 +133,15 @@ function ReviewCard({ item, onDecided }: { item: ReviewItem; onDecided: (id: str
 					</div>
 				))}
 			</dl>
+			{typeof inv.file_key === "string" && (
+				<button
+					type="button"
+					onClick={() => void filesApi.open(inv.file_key as string).catch(() => toast.error("Couldn't open the original."))}
+					className="mt-2 self-start text-[12.5px] text-foreground/80 underline underline-offset-4 hover:text-foreground"
+				>
+					Open original
+				</button>
+			)}
 			{first && (
 				<p className="mt-2.5 text-[12.5px] leading-snug text-muted-foreground">
 					<b className="font-medium text-foreground">{REASON[first.rule] ?? "Lumen wasn't sure."}</b> {plain(first.rule, first.detail)}
@@ -135,7 +150,12 @@ function ReviewCard({ item, onDecided }: { item: ReviewItem; onDecided: (id: str
 			<div className="mt-auto flex gap-1.5 pt-3">
 				{editing ? (
 					<>
-						<button type="button" disabled={busy} onClick={() => void decide("approve")} className="rounded-full bg-foreground px-3 py-1 text-[12.5px] text-background disabled:opacity-50">
+						<button
+							type="button"
+							disabled={busy || ("total_amount" in edits && !validTotal(edits.total_amount))}
+							onClick={() => void decide("approve")}
+							className="rounded-full bg-foreground px-3 py-1 text-[12.5px] text-background disabled:opacity-50"
+						>
 							Save &amp; approve
 						</button>
 						<button type="button" onClick={() => (setEditing(false), setEdits({}))} className="rounded-full px-3 py-1 text-[12.5px] text-muted-foreground hover:text-foreground">
