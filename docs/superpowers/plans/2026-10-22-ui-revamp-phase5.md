@@ -291,5 +291,23 @@ Branch: `ui-revamp/phase5d-budget`, stacked on `ui-revamp/phase5c-bills` (#99). 
 - STORY 35, guide (Budget), spec §12 ticks (draft accessible names, `basis.months`).
 - Full checks green, screenshot vs `budget.html` at 1440 and 375, PR stacked on #99.
 
-## Phase 5e — Receipts & statements (outline)
-Backend (TDD): `StatementImport` table + write on import; `GET /api/statements/imports`. Frontend: header actions; Needs-your-review cards from the review queue with highlights from validation flags (replaces the Review tab); library list with filter chips (Statements = import rows) and search; Statement imports card; From your inbox card; Activity moves here from Home if it no longer fits. Old `/documents`, `/import`, `/review` routes redirect into `/receipts`. STORY 36, then the whole-branch review for Phase 5.
+## Phase 5e — Receipts & statements (detailed)
+
+Branch: `ui-revamp/phase5e-receipts`, stacked on `ui-revamp/phase5d-budget` (#100). Mockup `receipts.html`; spec §4.5 and the builder-check decisions on import history and the Statements filter.
+
+### Task E1: statement import history (backend, TDD)
+- Model `StatementImport` (`statement_imports`: id, user_id, file_name, label nullable, period_from/period_to "YYYY-MM-DD" from the readable rows, lines, imported, matched, duplicates, credits, unreadable, created_at); created by `create_all`.
+- `POST /api/statements/import` takes an optional `label` form field (≤60 chars) and writes one row per import with the counts it returns (`matched` "at import"). `GET /api/statements/imports` → `{success, imports: [...]}` newest first, the user's own only.
+- Tests (`tests/test_statements.py` style): an import writes one history row with period and counts; a re-import is a second row with duplicates counted; per-user; label trimmed and optional.
+
+### Task E2: the Receipts & statements page
+- `statementsApi.imports()`, `emailConfigApi.getStatus()` typed. Header "Receipts & statements" with Upload (dialog: Receipts & invoices vs Documents; documents upload via `documentsApi.upload(file, type)`; a line pointing to Import statement for CSVs), Import statement (→ `/receipts/import`, the existing flow plus an optional account label), Connect email (scrolls to the inbox card). Brief: "N receipts need your OK before they count." / "Everything you've given Lumen is filed."
+- **Needs your review** (only when the queue is non-empty): one card per flagged item: vendor, how it came in, amount; fields Vendor / Date / Total (+ Bill no. for duplicates) with the flagged ones highlighted (`total_mismatch` → Total, `duplicate` → Bill no., `bad_date` → Date, `unknown_vendor` → Vendor, `no_currency` → Total); the reason in plain words from the first flag; Approve / Edit (inline vendor/date/total inputs, then Save & approve) / Reject; a duplicate shows "Keep both" instead of Approve. Deciding removes the card and updates the sidebar badge (`REVIEW_DECIDED`). Compare is left out (no "other record" in the payload; hidden, not faked).
+- **Library**: one list of receipts (non-statement transactions, latest 100), flagged review items (status Needs review), documents (with delete) and statement imports; chips All / Receipts & invoices / Statements / Documents (a chip only when it has rows), search over title/vendor/file name, 10 rows then "Show N more". Columns: file (icon, title, kind · file/sender), came from (Upload / Gmail / Import), date, amount, status.
+- Right column: **Statement imports** (label or file name, period, imported date, lines, a new / matched / duplicates / credits bar with counts) and **From your inbox** (connected: address, last check, receipts added, Check now, Pause/Resume; not connected: Connect Gmail).
+- Routes: `/import` → `/receipts/import`; `/review`, `/documents` → `/receipts`; the tabs component, `review/reviewContent.tsx` and `documents/documentsContent.tsx` go (their APIs stay).
+- Tests (`receipts.spec.ts`): review card highlights and reason per flag; approve with edits posts them; duplicate shows Keep both; reject removes the card and the badge drops; library chips and search; statements in the library and the imports card; inbox connected vs not; upload dialog's document path; old routes redirect; CLS < 0.01; phone fit (nothing past the edge).
+
+### Task E3: docs, checks, PR, whole-branch review
+- STORY 36, guide (Receipts), spec §12.
+- Full checks green, screenshots at 1440 and 375, PR stacked on #100. Then the whole-branch review of Phase 5 (5a–5e) on the most capable model; Critical/Important fixed test-first, Minors to §12.
