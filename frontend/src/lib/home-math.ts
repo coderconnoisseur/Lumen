@@ -8,6 +8,8 @@ export type Txn = {
 	total_amount: number | null;
 	category: string | null;
 	created_at: string | null;
+	/** "statement" for imported rows; null/absent for receipts */
+	source?: string | null;
 };
 export type Range = "1W" | "1M" | "3M" | "YTD";
 export type Period = { start: Date; end: Date; days: number }; // inclusive, local midnight
