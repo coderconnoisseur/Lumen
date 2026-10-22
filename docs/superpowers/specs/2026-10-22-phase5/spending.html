@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Spending mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell.css">
+<style>
+.hello{display:flex;align-items:center;gap:12px}
+.hello h1{font-size:26px;font-weight:500;letter-spacing:-.015em}
+.hello .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink2)}
+.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.brief{font-family:Newsreader,serif;font-size:19px;color:var(--ink2);margin:8px 0 18px;max-width:780px;line-height:1.45}
+.brief em{color:var(--acc);font-style:italic}
+.ctrl{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ctrl .chips span.cal{display:inline-flex;align-items:center;gap:5px}
+.ctrl .chips svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7}
+.tog{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);font-weight:500}
+.tog i{width:28px;height:16px;border-radius:9px;background:var(--acc);position:relative}
+.tog i:after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.ctrl .range{margin-left:auto;font-size:12.5px;color:var(--mute)}
+.chev{color:var(--faint);font-size:13px}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--mute)}
+.legend i{display:inline-block;width:16px;height:0;border-top:2px solid var(--acc);vertical-align:middle;margin-right:6px}
+.legend i.d{border-top:2px dashed #bdbab2}
+
+.hero{padding:18px 22px 16px;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:28px}
+.hero .big{font-size:36px;font-weight:500;letter-spacing:-.02em;margin-top:14px}
+.hero .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.hero .sub b{font-weight:500}
+.inset{border-left:1px solid var(--line2);padding-left:24px;display:flex;flex-direction:column}
+.inset .big2{font-size:20px;font-weight:500;letter-spacing:-.01em;margin:6px 0 2px}
+.inset p{font-size:12px;color:var(--mute);line-height:1.45}
+.mbars{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:auto;padding-top:14px}
+.mbars div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.mbars i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:#dbe6f9}
+.mbars .on i{background:var(--acc)}
+.mbars small{font-size:10.5px;color:var(--faint)}
+.mbars .on small{color:var(--acc);font-weight:600}
+
+.g2{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:14px}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+/* categories */
+.cat{display:grid;grid-template-columns:22px 150px minmax(0,1fr) 84px 44px 92px;align-items:center;gap:12px;padding:8px 10px;margin:0 -10px;border-radius:10px;font-size:13px}
+.cat .dot{width:10px;height:10px;border-radius:3px;justify-self:center}
+.cat .bar{height:8px}
+.cat .num{text-align:right}
+.cat .sh{color:var(--mute);font-size:12px;text-align:right}
+.cat .d{font-size:12px;text-align:right}
+.cat.sel{background:var(--accSoft)}
+.cat.sel .bar{background:#fff}
+.cat.hd{color:var(--faint);font-size:11.5px;padding-top:0;padding-bottom:4px}
+.up{color:var(--bad)}.dn{color:var(--good)}
+
+/* merchants */
+.mer{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.mer:last-child{border:0;padding-bottom:0}
+.mer small{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.mer .logo{width:28px;height:28px;font-size:11px}
+.mer .amt small{text-align:right}
+
+/* findings */
+.find{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
+.find:last-child{border:0;padding-bottom:2px}
+.find .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none}
+.find .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.find h4{font-weight:500;font-size:14px;line-height:1.35}
+.find p{color:var(--mute);font-size:12.5px;margin-top:2px;line-height:1.45}
+.find .acts{display:flex;gap:14px;margin-top:7px;font-size:12.5px;font-weight:500}
+.find .acts a{color:var(--acc)}
+.find .acts a.q{color:var(--mute)}
+
+/* transactions */
+.tools{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.search{display:flex;align-items:center;gap:8px;height:32px;width:260px;border:1px solid var(--line);border-radius:9px;padding:0 10px;color:var(--faint);font-size:13px;background:#fff}
+.search svg,.fchip svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.fchip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line);font-size:12.5px;font-weight:500;color:var(--ink2)}
+.fchip.on{background:var(--accSoft);border-color:transparent;color:var(--acc)}
+.tools .cnt{margin-left:auto;font-size:12.5px;color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-weight:500;font-size:11.5px;color:var(--faint);text-align:left;padding:10px 8px 8px;border-bottom:1px solid var(--line2)}
+td{padding:9px 8px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border:0}
+td.dt{color:var(--mute);width:72px;white-space:nowrap}
+td .m{display:flex;align-items:center;gap:10px}
+td .logo{width:26px;height:26px;font-size:10.5px;border-radius:8px}
+td .m small{color:var(--mute);font-size:11.5px;margin-left:2px}
+th.r,td.r{text-align:right}
+td.r{font-weight:500;font-variant-numeric:tabular-nums}
+.cp{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;border-radius:20px;padding:2px 9px;background:var(--chip);color:var(--ink2);border:1px solid transparent}
+.cp i{width:7px;height:7px;border-radius:2px}
+.src{display:inline-flex;align-items:center;gap:5px;color:var(--mute);font-size:12px}
+.src svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.6}
+tr.hov td{background:#faf9f6}
+tr.hov .cp{background:#fff;border-color:var(--line)}
+.cp .ed{width:12px;height:12px;stroke:var(--mute);fill:none;stroke-width:1.8;margin-left:2px}
+.menu{position:absolute;z-index:3;margin-top:6px;width:190px;background:#fff;border:1px solid var(--line);border-radius:11px;box-shadow:0 10px 30px -10px rgba(28,28,26,.25);padding:5px;font-size:12.5px}
+.menu div{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;color:var(--ink2)}
+.menu div i{width:8px;height:8px;border-radius:2px}
+.menu .on{background:var(--chip);color:var(--text);font-weight:500}
+.menu .on:after{content:"✓";margin-left:auto;color:var(--acc)}
+.menu hr{border:0;border-top:1px solid var(--line2);margin:4px 2px}
+.menu label{display:flex;gap:7px;align-items:center;padding:5px 8px 3px;color:var(--mute);font-size:11.5px}
+.menu label b{width:13px;height:13px;border:1px solid var(--line);border-radius:4px;background:var(--accSoft)}
+.tfoot{display:flex;justify-content:space-between;align-items:center;padding-top:12px;margin-top:2px;border-top:1px solid var(--line2);font-size:12.5px;color:var(--mute)}
+.tfoot b{color:var(--text);font-weight:500}
+.tfoot a{color:var(--acc);font-weight:500}
+</style></head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="../../../../frontend/public/lumen_logo.svg" alt="">Lumen
+      <span class="col show" title="Collapse sidebar (Ctrl+B)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></span></div>
+    <div class="grp">Overview</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <div class="grp">Track</div>
+    <a class="it on"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Spending</a>
+    <a class="it"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Bills &amp; subscriptions</a>
+    <div class="grp">Plan</div>
+    <a class="it"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg>Budget</a>
+    <div class="grp">Records</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h5"/></svg>Receipts &amp; statements<span class="n">4</span></a>
+    <div class="grp">Assistant</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask Lumen</a>
+    <div class="foot">
+      <div class="askbox"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask anything<kbd>Ctrl K</kbd></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="band" style="height:300px;opacity:.7"></div>
+    <div class="wrap">
+      <div class="hello">
+        <h1>Spending</h1>
+        <div class="r">
+          <span class="btn"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload</span>
+          <span class="icon" title="Export CSV for this period"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg></span>
+          <span class="icon" title="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6M12 17h.01"/></svg></span>
+          <span class="av" style="width:34px;height:34px">NB</span>
+        </div>
+      </div>
+      <p class="brief">Shopping is most of the jump, and <em>one Croma order</em> is ₹9,999 of it.</p>
+
+      <div class="ctrl">
+        <div class="chips"><span class="on">This month</span><span>Last month</span><span>3M</span><span>YTD</span><span class="cal"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Custom</span></div>
+        <span class="tog"><i></i>Compare with September</span>
+        <span class="range num">1 – 22 Oct 2026 · vs 1 – 22 Sep</span>
+      </div>
+
+      <section class="card hero">
+        <div>
+          <div class="ch" style="margin:0"><span class="label">Spent in October</span>
+            <div class="legend" style="margin-left:auto"><span><i></i>October</span><span><i class="d"></i>September</span></div></div>
+          <div class="big num">₹62,182</div>
+          <div class="sub"><b style="color:var(--bad)">+₹15,822 (34%)</b> vs September by the 22nd · 214 transactions</div>
+          <svg id="chart" viewBox="0 0 1000 220" width="100%" height="214" style="margin-top:8px;overflow:visible"></svg>
+        </div>
+        <div class="inset">
+          <span class="label">Month by month</span>
+          <div class="big2 num">₹71,720 <span class="mute" style="font-size:12px;font-weight:400">avg, May–Sep</span></div>
+          <p>Shown as bars when you pick 3M or YTD. October so far is under your average.</p>
+          <div class="mbars" id="mbars"></div>
+        </div>
+      </section>
+
+      <div class="g2">
+        <section class="card" style="display:flex;flex-direction:column">
+          <div class="ch"><span class="label">By category</span><span class="pill acc" style="margin-left:6px">Filtering transactions: Shopping</span><a>Clear</a></div>
+          <div class="cat hd"><span></span><span>Category</span><span>Share of October</span><span class="num" style="text-align:right">Spent</span><span style="text-align:right">Share</span><span style="text-align:right">vs Sep</span></div>
+          <div id="cats"></div>
+          <div class="tfoot" style="margin-top:auto"><span>3 transactions still need a category</span><a>Sort them now</a></div>
+        </section>
+
+        <section class="card">
+          <div class="ch"><span class="label">Lumen noticed</span><span class="pill acc">4 to look at</span></div>
+          <div class="find">
+            <span class="ic" style="background:var(--badSoft);color:var(--bad)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></span>
+            <div><h4>FreshMart charged you twice</h4><p>₹1,284 on 18 Oct, same items, 4 minutes apart.</p>
+            <div class="acts"><a>Review duplicate</a><a class="q">Ask Lumen why</a></div></div></div>
+          <div class="find">
+            <span class="ic" style="background:var(--warnSoft);color:var(--warn)"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span>
+            <div><h4>Shopping is ₹11,400 over usual</h4><p>Mostly one Croma order on 12 Oct (₹9,999).</p>
+            <div class="acts"><a>Mark as one-off</a><a class="q">Ask Lumen why</a></div></div></div>
+          <div class="find">
+            <span class="ic" style="background:var(--accSoft);color:var(--acc)"><svg viewBox="0 0 24 24"><path d="M12 3v18M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+            <div><h4>Netflix went up to ₹649</h4><p>Was ₹499 until September. Next charge 1 Nov.</p>
+            <div class="acts"><a>Open in Bills</a><a class="q">Ask Lumen why</a></div></div></div>
+          <div class="find">
+            <span class="ic" style="background:var(--chip);color:var(--ink2)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
+            <div><h4>First time at Decathlon</h4><p>₹899 on 17 Oct. Filed under Shopping.</p>
+            <div class="acts"><a>Change category</a><a class="q">Looks right</a></div></div></div>
+        </section>
+      </div>
+
+      <div class="g2">
+        <section class="card" style="align-self:start">
+          <div class="ch" style="margin-bottom:10px"><span class="label">Transactions</span></div>
+          <div class="tools">
+            <span class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search merchant or amount</span>
+            <span class="fchip on">Shopping <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+            <span class="fchip">All sources <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="cnt num">8 in Shopping · ₹16,840</span>
+          </div>
+          <table>
+            <thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Source</th><th class="r">Amount</th></tr></thead>
+            <tbody id="tx"></tbody>
+          </table>
+          <div class="tfoot"><span>Showing <b>8</b> of 214 in October</span><a>Show all categories</a></div>
+        </section>
+
+        <div class="stack" style="align-self:start"><section class="card">
+          <div class="ch"><span class="label">Top merchants</span><a>See all</a></div>
+          <div class="mer"><span class="logo" style="background:#ecebe6;color:#46453f">RK</span><span>R. Kulkarni (rent)<small>1 payment · Rent &amp; housing</small></span><span class="amt">₹25,000</span></div>
+          <div class="mer"><span class="logo" style="background:#e3f1e8;color:#2e8b57">Cr</span><span>Croma<small>1 order · Shopping</small></span><span class="amt">₹9,999</span></div>
+          <div class="mer"><span class="logo" style="background:#fde8e1;color:#c4572f">FM</span><span>FreshMart<small>6 visits · Groceries</small></span><span class="amt">₹6,420</span></div>
+          <div class="mer"><span class="logo" style="background:#faf0dc;color:#b7791f">Am</span><span>Amazon<small>4 orders · Shopping</small></span><span class="amt">₹3,744</span></div>
+          <div class="mer"><span class="logo" style="background:#e4edfc;color:#2f6fe0">Sw</span><span>Swiggy<small>9 orders · Food delivery</small></span><span class="amt">₹3,480</span></div>
+          <div class="mer"><span class="logo" style="background:#fae6dd;color:#c4572f">Zo</span><span>Zomato<small>6 orders · Food delivery</small></span><span class="amt">₹2,450</span></div>
+          <div class="mer"><span class="logo" style="background:#ecebe6;color:#46453f">Ub</span><span>Uber<small>11 rides · Travel</small></span><span class="amt">₹2,160</span></div>
+        </section>
+        <div class="note" style="position:static;max-width:none"><b>Spending: decisions + questions</b><br>
+1. Categories as horizontal bars, not a donut: rent (40%) would swallow a donut. Click a row to filter the table; Clear undoes.<br>
+2. Calendar + reminders moved out to Bills. Spending has no due dates.<br>
+3. Month bars live in the hero inset; for 3M/YTD they become the main chart and the cumulative line hides.<br>
+4. "First time at merchant" is not a finding kind yet (backend has duplicate / spike / price_rise / review). Add it, or drop the card?<br>
+5. Export: CSV of the filtered list only, or the whole period?</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+
+
+<script>
+// smooth cumulative lines (Catmull-Rom → Bézier), mock data only — same approach as home.html
+const W=1000,H=180,max=70000;
+const x=i=>i*(W/30), y=v=>H-v/max*(H-10);
+function cum(d){let s=0;return d.map(v=>s+=v)}
+const oct=cum([800,600,25640,900,2100,500,800,400,2900,700,4200,10300,500,900,400,700,2200,3400,800,400,900,1342]);
+const sep=cum([700,900,25400,600,1200,700,400,1100,800,2200,600,900,700,1500,800,600,1100,900,700,2300,800,960,500,900,1200,600,700,800,900,700]);
+function path(p){let d=`M${p[0][0]},${p[0][1]}`;for(let i=0;i<p.length-1;i++){const a=p[i-1]||p[i],b=p[i],c=p[i+1],e=p[i+2]||c;d+=` C${b[0]+(c[0]-a[0])/6},${b[1]+(c[1]-a[1])/6} ${c[0]-(e[0]-b[0])/6},${c[1]-(e[1]-b[1])/6} ${c[0]},${c[1]}`}return d}
+const P=a=>a.map((v,i)=>[x(i),y(v)]);
+const po=P(oct), ps=P(sep), today=po[21];
+let s=`<defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2f6fe0" stop-opacity=".26"/><stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/></linearGradient></defs>`;
+[20000,40000,60000].forEach(v=>s+=`<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="#f0eee9"/><text x="${W}" y="${y(v)-5}" text-anchor="end">₹${v/1000}k</text>`);
+s+=`<path d="${path(ps)}" fill="none" stroke="#c9c6be" stroke-width="1.6" stroke-dasharray="4 4"/>`;
+s+=`<path d="${path(po)} L${today[0]},${H} L0,${H} Z" fill="url(#g)"/><path d="${path(po)}" fill="none" stroke="#2f6fe0" stroke-width="2.4"/>`;
+// annotate the Croma spike
+const cr=po[11];
+s+=`<line x1="${cr[0]}" x2="${cr[0]}" y1="${cr[1]-8}" y2="${cr[1]-30}" stroke="#d9d6cf"/><text x="${cr[0]}" y="${cr[1]-36}" text-anchor="middle" style="fill:#46453f;font-size:11px">Croma ₹9,999</text>`;
+s+=`<line x1="${today[0]}" x2="${today[0]}" y1="${today[1]}" y2="${H}" stroke="#2f6fe0" stroke-opacity=".25"/><circle cx="${today[0]}" cy="${today[1]}" r="5.5" fill="#2f6fe0" stroke="#fff" stroke-width="2.5"/>`;
+s+=`<text x="${today[0]+12}" y="${today[1]+4}" style="fill:#1c1c1a;font-size:11.5px;font-weight:500">₹62,182</text>`;
+[[0,"1 Oct"],[7,"8"],[14,"15"],[21,"Today"],[29,"30"]].forEach(([i,t])=>s+=`<text x="${x(i)}" y="${H+24}" text-anchor="${i?'middle':'start'}" ${t=="Today"?'style="fill:#2f6fe0;font-weight:600"':''}>${t}</text>`);
+document.getElementById("chart").innerHTML=s;
+
+// month-by-month inset
+const months=[["May",68200],["Jun",74900],["Jul",70100],["Aug",79600],["Sep",65800],["Oct",62182]];
+document.getElementById("mbars").innerHTML=months.map(([m,v],i)=>`<div class="${i==5?'on':''}"><i style="height:${v/80000*100}%"></i><small>${m}</small></div>`).join("");
+
+// categories (sum = 62,182)
+const C=[["Rent & housing",25000,0,"#2f6fe0"],["Shopping",16840,11400,"#c4572f"],["Groceries",8120,-640,"#2e8b57"],["Food delivery",5930,820,"#b7791f"],["Travel",2460,-310,"#7fa8ee"],["Bills & utilities",2247,150,"#8a7fd6"],["Entertainment",1585,-220,"#bdbab2"]];
+const tot=62182, inr=n=>"₹"+n.toLocaleString("en-IN");
+document.getElementById("cats").innerHTML=C.map(([n,v,d,c])=>`<div class="cat ${n=="Shopping"?'sel':''}"><span class="dot" style="background:${c}"></span><span${n=="Shopping"?' style="font-weight:500"':''}>${n}</span><div class="bar"><i style="width:${v/25000*100}%;background:${c};opacity:${n=="Shopping"?1:.75}"></i></div><span class="num">${inr(v)}</span><span class="sh num">${Math.round(v/tot*100)}%</span><span class="d num ${d>0?'up':d<0?'dn':'mute'}">${d?(d>0?'+':'−')+inr(Math.abs(d)):'same'}</span></div>`).join("");
+
+// transactions, filtered to Shopping (sum = 16,840)
+const rcpt=`<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6"/></svg>Receipt`;
+const stmt=`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 14h4"/></svg>HDFC statement`;
+const T=[["21 Oct","Amazon","Am","#faf0dc","#b7791f","",449,stmt],["19 Oct","Nykaa","Ny","#fae6dd","#c4572f","",699,stmt],["17 Oct","Decathlon","De","#e4edfc","#2f6fe0","new",899,rcpt],["15 Oct","Amazon","Am","#faf0dc","#b7791f","",1299,stmt],["12 Oct","Croma","Cr","#e3f1e8","#2e8b57","",9999,rcpt],["9 Oct","Myntra","My","#fae6dd","#c4572f","",1499,stmt],["6 Oct","Amazon","Am","#faf0dc","#b7791f","",1849,stmt],["2 Oct","Amazon","Am","#faf0dc","#b7791f","",147,stmt]];
+const ed=`<svg class="ed" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>`;
+document.getElementById("tx").innerHTML=T.map(([dt,m,ini,bg,fg,tag,a,src],i)=>`<tr class="${i==1?'hov':''}"><td class="dt num">${dt}</td><td><span class="m"><span class="logo" style="background:${bg};color:${fg}">${ini}</span>${m}${tag?'<span class="pill" style="background:var(--chip);color:var(--mute);padding:0 7px">new</span>':''}${m=="Croma"?'<span class="pill warn" style="padding:0 7px">one-off?</span>':''}</span></td><td style="position:relative"><span class="cp"><i style="background:#c4572f"></i>Shopping${i==1?ed:''}</span>${i==1?`<div class="menu"><div><i style="background:#2e8b57"></i>Groceries</div><div class="on"><i style="background:#c4572f"></i>Shopping</div><div><i style="background:#7fa8ee"></i>Personal care</div><div><i style="background:#bdbab2"></i>Entertainment</div><hr><label><b></b>Always file Nykaa here</label></div>`:''}</td><td><span class="src">${src}</span></td><td class="r">${inr(a)}</td></tr>`).join("");
+</script>
+</body></html>

@@ -7,7 +7,8 @@ import { relativeTime } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 
 // Past conversations (UI revamp Phase 4): one click resumes, delete asks once inline. Rendered as a column on
-// large screens and inside a Sheet below that (chatbotContent.tsx).
+// large screens and inside a Sheet below that (chatbotContent.tsx). `disabled` while an answer is in flight, so nothing
+// here can delete or swap the thread that answer is landing in.
 export function ThreadRail({
 	threads,
 	activeId,
@@ -43,13 +44,20 @@ export function ThreadRail({
 						{confirming === t.id ? (
 							<div className="flex items-center gap-1.5 rounded-lg bg-hover px-2 py-1.5 text-[13px]">
 								<span className="min-w-0 flex-1 truncate">Delete this chat?</span>
-								<button type="button" className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-background" onClick={() => setConfirming(null)}>
+								<button
+									type="button"
+									autoFocus
+									disabled={disabled}
+									className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-background disabled:opacity-50"
+									onClick={() => setConfirming(null)}
+								>
 									Keep
 								</button>
 								<button
 									type="button"
 									aria-label="Confirm delete"
-									className="rounded bg-bad px-1.5 py-0.5 text-white"
+									disabled={disabled}
+									className="rounded bg-bad px-1.5 py-0.5 text-white disabled:opacity-50"
 									onClick={() => {
 										setConfirming(null);
 										onDelete(t.id);
@@ -76,8 +84,10 @@ export function ThreadRail({
 								<button
 									type="button"
 									aria-label={`Delete chat: ${t.title}`}
+									disabled={disabled}
 									onClick={() => setConfirming(t.id)}
-									className="absolute top-1.5 right-1.5 rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-background hover:text-foreground"
+									// no hover on touch screens, so the trash shows there all the time
+									className="absolute top-1.5 right-1.5 rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-background hover:text-foreground disabled:pointer-events-none max-md:opacity-100 [@media(hover:none)]:opacity-100"
 								>
 									<Trash2 className="size-3.5" />
 								</button>

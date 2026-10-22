@@ -279,13 +279,26 @@ embeds the demo documents once per server and uploads the files in the backgroun
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
-  production). Firefox is opt-in with `E2E_FIREFOX=1`. `html, body` use `overflow-x: clip`, never `hidden`:
+  production). Firefox is opt-in with `E2E_FIREFOX=1`. The e2e dev server builds into `.next-e2e` (`NEXT_DIST_DIR`),
+  so running tests never breaks a `npm run dev` in the same checkout. `html, body` use `overflow-x: clip`, never `hidden`:
   `hidden` makes `<body>` a scroll container whose scrollbar disappears when a menu opens.
-- **Home** (`app/(app)/home/`, UI revamp Phase 2): greeting and a serif brief over a sky band, then the cards.
-  The main column has Spent this period (a hand-drawn SVG: cumulative now vs the previous period, a forecast to month-end, bill pins,
-  1W/1M/3M/YTD), Lumen found, and Spending calendar + Recent transactions. The side column has Budget, Upcoming bills, the draft-budget promo and
-  Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
-  queue). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
+- **Page skeleton (UI revamp Phase 5).** Every redesigned page is built from `components/page/`: `PageHeader`
+  (26px title, quiet actions, serif brief, optional control row; `md:pr-12` leaves room for the floating account
+  menu), `PageCard` (title row with optional `›` link, `extra` and `action`; a skeleton at the card's final height,
+  so nothing moves when data arrives) and `VendorChip` (initials on a stable per-vendor hue, `vendorChip` in
+  `lib/home-math.ts`). Buttons on these pages use the `quiet` and `ink` variants, never the default blue. Charts use
+  `lib/chart.ts`: `smoothPath` (monotone cubic, so a running total never dips between days) and `pickTicks`
+  (axis labels that never overlap at any width). Approved mockups: `docs/superpowers/specs/2026-10-22-phase5/`.
+- **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
+  Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
+  period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,
+  1W/1M/3M/YTD, `+` opens upload). Below it, the main column has "<Month>, day by day" (amount per day, today
+  outlined, upcoming bill names on future days, always as tall as a six-week month) beside Recent transactions, then
+  Lumen found as a list whose links act ("Ask Lumen" opens `/ask?draft=` with the question typed but not sent). The
+  side column has Budget in <Month> (spent of total, % bar, top four categories by spend), Coming up (next four
+  bills), the draft-budget promo and Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
+  queue). `/api/analytics/reminders` sends `title`/`predicted_date`/`metadata`; `toReminders` turns that into bills
+  once (vendor patterns only, rows without a date skipped). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
   never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
   **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
   Lumen found and Activity:
@@ -324,7 +337,8 @@ embeds the demo documents once per server and uploads the files in the backgroun
     comparable.
   - **The page.** Opening Ask starts a fresh chat with suggestions (from Home's "Lumen found" via
     `suggestedQuestions`, then `/chat/suggestions`). Past chats sit in `thread-rail.tsx` (a column on desktop, a Sheet
-    on small screens). `/ask?q=…` starts a new chat with that question once, then cleans the URL.
+    on small screens). `/ask?q=…` starts a new chat with that question once, then cleans the URL. `/ask?draft=…`
+    starts a new chat with the question typed into the composer but not sent (Lumen found, Bills "How to cancel").
   - **Answers.** `POST /chat` returns the markdown answer plus its evidence: `sources` (passage `text` and the original's
     `file_key`), `steps` (tool, summary, `latency_ms`) and `proposals`. The SQL the agent ran stays server-side. Saved
     messages keep only the text, so older answers show citation numbers without passages.

@@ -70,7 +70,14 @@ export default function ChatbotContent() {
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const lastQ = useRef<string | null>(null); // the ?q= already handed off (StrictMode runs effects twice)
 	const router = useRouter();
-	const q = useSearchParams().get("q");
+	const params = useSearchParams();
+	const q = params.get("q");
+	const draftParam = params.get("draft");
+	const lastDraft = useRef<string | null>(null);
+	// Bumped whenever the chat on screen changes (new chat, opening a thread). An answer that arrives for an older chat
+	// must not touch this one: it is already saved to its own thread, so it only refreshes the list.
+	const chatGen = useRef(0);
+	const [draft, setDraft] = useState<{ text: string; key: number } | null>(null);
 	const busy = messages.some((m) => m.pending);
 
 	const refreshThreads = useCallback(() => {
@@ -110,6 +117,21 @@ export default function ChatbotContent() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [q]);
 
+	// /ask?draft=… (Lumen found, Bills "How to cancel"): a new chat with the question typed in but NOT sent, so you can
+	// edit it first; the URL is cleaned so a reload starts empty
+	useEffect(() => {
+		if (draftParam === null) {
+			lastDraft.current = null;
+			return;
+		}
+		if (lastDraft.current === draftParam) return;
+		lastDraft.current = draftParam;
+		router.replace("/ask");
+		newChat();
+		setDraft({ text: draftParam, key: Date.now() });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [draftParam]);
+
 	async function ask(question: string, file?: File, replaceId?: string, inThread: string | null = threadId) {
 		const id = crypto.randomUUID();
 		const started = Date.now();
@@ -118,8 +140,10 @@ export default function ChatbotContent() {
 			...(replaceId ? [] : [{ id: `${id}-q`, role: "user" as const, content: question, file }]),
 			{ id, role: "assistant", content: "", question, file, pending: true },
 		]);
+		const gen = chatGen.current;
 		try {
 			const answer = await chatApi.sendMessage(question, file, inThread);
+			if (gen !== chatGen.current) return refreshThreads();
 			if (!inThread) {
 				setThreadId(answer.thread_id);
 				refreshThreads();
@@ -133,6 +157,7 @@ export default function ChatbotContent() {
 				)
 			);
 		} catch (error) {
+			if (gen !== chatGen.current) return;
 			setMessages((list) =>
 				list.map((m) => (m.id === id ? { ...m, content: errorMessage(error), pending: false, error: true, keyIssue: KEY_CODES.includes(errorCode(error) ?? "") } : m))
 			);
@@ -140,12 +165,14 @@ export default function ChatbotContent() {
 	}
 
 	function newChat() {
+		chatGen.current++;
 		setThreadId(null);
 		setMessages([]);
 		setHistoryOpen(false);
 	}
 
 	async function openThread(id: string) {
+		chatGen.current++;
 		setHistoryOpen(false);
 		try {
 			const { messages: rows } = await chatApi.thread(id);
@@ -218,7 +245,7 @@ export default function ChatbotContent() {
 								Ask about spending, invoices or contracts. Answers come with their sources.
 							</p>
 							<div className="mt-8 w-full">
-								<PromptBar hero onSend={(text, file) => void ask(text, file)} busy={busy} />
+								<PromptBar key={draft?.key} initial={draft?.text} hero onSend={(text, file) => { setDraft(null); void ask(text, file); }} busy={busy} />
 							</div>
 							<div className="mt-4 flex flex-wrap justify-center gap-2">
 								{suggestions.map((text, i) => (
@@ -295,7 +322,7 @@ export default function ChatbotContent() {
 						</div>
 
 						<div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
-							<PromptBar onSend={(text, file) => void ask(text, file)} busy={busy} />
+							<PromptBar key={draft?.key} initial={draft?.text} onSend={(text, file) => { setDraft(null); void ask(text, file); }} busy={busy} />
 							<p className="mt-2 text-center text-[11.5px] text-ink-3">
 								Lumen cites its sources and only proposes changes; nothing is applied until you approve it.
 							</p>

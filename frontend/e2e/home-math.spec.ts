@@ -1,5 +1,6 @@
 // Node-only unit tests (no browser) for the Home calculations.
 import { test, expect } from "@playwright/test";
+import { pickTicks, smoothPath } from "../src/lib/chart";
 import {
 	briefSentence,
 	fill,
@@ -10,6 +11,7 @@ import {
 	relativeTime,
 	sameDayDelta,
 	type Txn,
+	vendorChip,
 } from "../src/lib/home-math";
 
 const d = (s: string) => {
@@ -152,4 +154,61 @@ test("suggestedQuestions maps found items, dedupes, caps at 4", () => {
 		"Which vendor did I spend the most with?",
 	]);
 	expect(suggestedQuestions([], ["A", "B"])).toEqual(["A", "B"]);
+});
+
+// ---- lib/chart.ts (Phase 5) ----
+
+// y of each cubic segment of a path "M x y C x1 y1 x2 y2 x y C …" sampled at t
+function samples(d: string, ts = [0.25, 0.5, 0.75]): number[] {
+	const n = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+	let [x0, y0] = [n[0], n[1]];
+	const out: number[] = [];
+	for (let i = 2; i + 5 < n.length + 1; i += 6) {
+		const [, c1, , c2, x, y] = n.slice(i, i + 6);
+		for (const t of ts) out.push((1 - t) ** 3 * y0 + 3 * (1 - t) ** 2 * t * c1 + 3 * (1 - t) * t ** 2 * c2 + t ** 3 * y);
+		[x0, y0] = [x, y];
+	}
+	void x0;
+	return out;
+}
+
+test("smoothPath passes through every point", () => {
+	const d = smoothPath([[0, 10], [10, 20], [20, 20], [30, 40]]);
+	expect(d.startsWith("M0 10")).toBe(true);
+	expect(d).toContain("20 20");
+	expect(d.endsWith("30 40")).toBe(true);
+	expect(smoothPath([])).toBe("");
+	expect(smoothPath([[5, 6]])).toBe("M5 6");
+});
+
+test("smoothPath never overshoots a running total", () => {
+	const ys = samples(smoothPath([[0, 0], [10, 100], [20, 100], [30, 101]]));
+	for (let i = 0; i < ys.length; i++) {
+		expect(ys[i]).toBeLessThanOrEqual(101 + 1e-9);
+		if (i) expect(ys[i]).toBeGreaterThanOrEqual(ys[i - 1] - 1e-9);
+	}
+});
+
+test("pickTicks drops ticks that crowd a higher-ranked one", () => {
+	const t = (x: number, rank: number) => ({ x, w: 10, anchor: "middle" as const, rank, label: String(x) });
+	expect(pickTicks([t(0, 1), t(20, 2), t(40, 2), t(300, 0), t(310, 1)], 30).map((k) => k.label)).toEqual(["0", "40", "300"]);
+	expect(pickTicks([t(0, 1), t(60, 2), t(120, 2), t(200, 1)], 30).map((k) => k.label)).toEqual(["0", "60", "120", "200"]);
+});
+
+test("vendorChip gives two initials and a stable hue", () => {
+	expect(vendorChip("Swiggy Instamart").initials).toBe("SI");
+	expect(vendorChip("swiggy").initials).toBe("SW");
+	expect(vendorChip("Swiggy Instamart").hue).toBe(vendorChip("Swiggy Instamart").hue);
+	expect(vendorChip("").initials).toBe("?");
+});
+
+test("pickTicks compares real label edges, not centres", () => {
+	// "1 Oct" is left-anchored (covers 0–32), "Today" centred at 50 (covers 32–68): they touch, so the edge label goes
+	const t = (x: number, w: number, anchor: "start" | "middle" | "end", label: string, rank: number) => ({ x, w, anchor, label, rank });
+	const shown = pickTicks([t(0, 32, "start", "1 Oct", 1), t(50, 36, "middle", "Today", 0), t(300, 38, "end", "31 Oct", 1)], 6);
+	expect(shown.map((s) => s.label)).toEqual(["Today", "31 Oct"]);
+	// right edge: "31 Oct" covers 262–300, "Today" at 250 covers 232–268
+	expect(pickTicks([t(0, 32, "start", "1 Oct", 1), t(250, 36, "middle", "Today", 0), t(300, 38, "end", "31 Oct", 1)], 6).map((s) => s.label)).toEqual(["1 Oct", "Today"]);
+	// middle ticks give way to the higher-ranked ones and to each other
+	expect(pickTicks([t(0, 32, "start", "1 Oct", 1), t(36, 20, "middle", "8", 2), t(120, 20, "middle", "15", 2), t(200, 36, "middle", "Today", 0)], 6).map((s) => s.label)).toEqual(["1 Oct", "15", "Today"]);
 });

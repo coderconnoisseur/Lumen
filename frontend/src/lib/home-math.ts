@@ -137,3 +137,16 @@ export function suggestedQuestions(found: { kind: string; subject: string | null
 	const fromFound = found.slice(0, 3).map((f) => ASK_ABOUT[f.kind]?.(f.subject)).filter((q): q is string => !!q);
 	return [...new Set([...fromFound, ...server])].slice(0, 4);
 }
+
+// "1st", "22nd", "13th"
+export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
+
+// The little initials chip shown for a vendor: two letters ("Swiggy Instamart" → "SI", "Swiggy" → "SW") and a hue
+// that's the same every time for the same name, so a vendor keeps its colour across pages.
+export function vendorChip(name: string): { initials: string; hue: number } {
+	const words = name.trim().split(/\s+/).filter(Boolean);
+	const initials = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "").slice(0, 2)).toUpperCase() || "?";
+	let hash = 0;
+	for (const ch of name.toLowerCase()) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+	return { initials, hue: hash };
+}

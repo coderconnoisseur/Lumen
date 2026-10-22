@@ -30,6 +30,8 @@ export type ChatFixture = {
 	/** the "Next:" suggestion POST /chat returns (default none) */
 	followUp?: string;
 	suggestions?: string[];
+	/** hold each POST /chat this long (or per question), to test the in-flight state */
+	delayMs?: number | ((query: string) => number);
 };
 
 export async function signIn(
@@ -80,8 +82,19 @@ export async function signIn(
 			const data = all.slice((page - 1) * size, page * size);
 			return route.fulfill({ json: { success: true, data, pagination: { page, has_next: page * size < all.length, total_items: all.length } } });
 		}
-		if (path === "/api/analytics/reminders")
-			return route.fulfill({ json: { success: true, reminders: home.reminders ?? [], count: 0 } });
+		// the real shape (ai/pattern_detection.generate_reminders), built from the fixture's simpler rows; a row with
+		// no vendor is a category pattern ("You usually buy Groceries around the 5th")
+		if (path === "/api/analytics/reminders") {
+			const reminders = (home.reminders ?? []).map((r) => ({
+				title: `Upcoming: ${r.vendor || r.category}`,
+				description: "",
+				reminder_type: "pattern_based",
+				predicted_date: r.date,
+				pattern_id: r.id,
+				metadata: { pattern_type: r.vendor ? "recurring" : "day_of_month", vendor_name: r.vendor || null, category: r.category ?? null, average_amount: r.amount },
+			}));
+			return route.fulfill({ json: { success: true, reminders, count: reminders.length } });
+		}
 		if (path === "/api/analytics/forecast") {
 			if (home.forecastDelayMs) await new Promise((r) => setTimeout(r, home.forecastDelayMs));
 			if (home.forecast === "fail") return route.fulfill({ status: 500, json: { error: "boom" } });
@@ -133,6 +146,8 @@ export async function signIn(
 		}
 		if (path === "/chat" && route.request().method() === "POST") {
 			const body = route.request().postDataJSON() as { query: string; thread_id?: string };
+			const delay = typeof opts.chat?.delayMs === "function" ? opts.chat.delayMs(body.query) : opts.chat?.delayMs;
+			if (delay) await new Promise((r) => setTimeout(r, delay));
 			let t = threads.find((x) => x.id === body.thread_id);
 			if (!t) {
 				t = { id: `t${nextThread++}`, title: body.query.slice(0, 60), updated_at: new Date().toISOString(), message_count: 0, messages: [] };

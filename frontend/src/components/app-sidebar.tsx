@@ -20,10 +20,8 @@ import {
 	SidebarTrigger,
 	useSidebar,
 } from "@/components/ui/sidebar";
-import { AskPalette } from "@/components/ask-palette";
 import { reviewApi } from "@/lib/api/client";
 import { eventBus, EVENTS } from "@/lib/events";
-import { isTypingTarget } from "@/lib/utils";
 
 type Item = { label: string; url: string; icon: LucideIcon };
 
@@ -55,11 +53,12 @@ function NavItem({ item, children }: { item: Item; children?: React.ReactNode })
 	);
 }
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+// `onAsk` opens the Ask palette, which app-shell.tsx owns: below md this sidebar is a Sheet that isn't mounted while
+// closed, so a palette (and its Ctrl+K) living in here would do nothing there.
+export function AppSidebar({ onAsk, ...props }: React.ComponentProps<typeof Sidebar> & { onAsk: () => void }) {
 	const pathname = usePathname();
 	const [toReview, setToReview] = React.useState(0);
 	const [mac, setMac] = React.useState(false);
-	const [paletteOpen, setPaletteOpen] = React.useState(false);
 
 	// refreshed on navigation and after each review decision (which happens without leaving /receipts)
 	React.useEffect(() => {
@@ -68,18 +67,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 		return eventBus.on(EVENTS.REVIEW_DECIDED, refresh);
 	}, [pathname]);
 
-	React.useEffect(() => {
-		setMac(/Mac|iPhone|iPad/.test(navigator.platform));
-		// e.code, not e.key: Caps Lock or Shift turns the key into "K"
-		const onKey = (e: KeyboardEvent) => {
-			if (e.code === "KeyK" && (e.metaKey || e.ctrlKey) && !isTypingTarget(e.target)) {
-				e.preventDefault();
-				setPaletteOpen(true);
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
+	React.useEffect(() => setMac(/Mac|iPhone|iPad/.test(navigator.platform)), []);
 
 	return (
 		<Sidebar collapsible="icon" {...props} className="border-r border-sidebar-border/80">
@@ -137,7 +125,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								tooltip={`Ask anything (${mac ? "⌘K" : "Ctrl K"})`}
-								onClick={() => setPaletteOpen(true)}
+								onClick={onAsk}
 								className="border border-sidebar-border bg-card text-muted-foreground hover:text-foreground"
 							>
 								<Sparkles />
@@ -151,7 +139,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 					</SidebarMenu>
 				</SidebarGroup>
 			</SidebarContent>
-			<AskPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 			<SidebarRail />
 		</Sidebar>
 	);
