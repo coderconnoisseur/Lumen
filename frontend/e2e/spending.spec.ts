@@ -166,3 +166,18 @@ test("top merchants and CSV export of what's shown", async ({ page }) => {
 	expect(text).toContain("Croma");
 	expect(text).not.toContain("Swiggy");
 });
+
+test("spending has no layout shift while loading", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		(window as unknown as { cls: number }).cls = 0;
+		new PerformanceObserver((list) => {
+			for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[])
+				if (!e.hadRecentInput) (window as unknown as { cls: number }).cls += e.value;
+		}).observe({ type: "layout-shift", buffered: true });
+	});
+	await openSpending(page, { ...sample, delayMs: 1500 });
+	await expect(page.getByTestId("brief")).toBeVisible({ timeout: 15_000 });
+	await page.waitForTimeout(500);
+	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
+});
