@@ -407,3 +407,20 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   never overlap at 375 px, light dialogs, a draft that never sends itself, and the real reminders shape in the
   fixtures. Screenshots caught three bugs the tests then pinned: a width observer that never attached, cut-off
   calendar amounts on phones, and a doubled close button.
+
+## 33. Spending answers "where did my money go?" (UI revamp, Phase 5b)
+- **S:** `/spending` was two old pages stacked: two headings, cards that never loaded, and AI widgets that only showed
+  results saved by a heavy analysis run, so most users saw empty boxes.
+- **T:** One calm page built from data Lumen already has: what was spent, against what, where it went, what looks off,
+  and every transaction, with nothing faked and nothing moving when a filter changes.
+- **A:** Pure maths in `lib/spending-math.ts` (periods incl. custom ranges, categories with share and change, top
+  merchants, monthly totals) under unit tests first. Pulled Home's chart out into a shared `CumulativeChart` so both
+  heroes use one implementation; 3M/YTD switch to month bars of the same height. The category filter lives in the URL,
+  spikes found on Home now deep-link to it, and the table edits a category in place and exports exactly the rows shown
+  as CSV. The backend's only change: the transactions list says whether a row came from a statement. Deleted the old
+  Analytics/AI Insights pages, six components and ten unused API calls (about 1,900 lines).
+- **R:** 13 Spending e2e checks (one heading, period switches keep the hero's box, CLS under 0.01 while loading,
+  filter/search/source, in-place edit without the row moving, CSV contents, chips on one line at 375 px) plus 5 maths
+  tests; the e2e fixture now copies its data per test after a PUT leaked between tests. A screenshot against the
+  approved mockup caught the wrapping period chips on phones, which a test then pinned.
+

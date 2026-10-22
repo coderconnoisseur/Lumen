@@ -216,7 +216,7 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [x] ~~**Phase 6.** `(app)/layout` reads the sidebar cookie on the server.~~ Not needed: the sidebar only renders client-side (behind the auth guard), so Phase 1 reads the cookie there and the app routes stay static. *(Phase 1)*
 - [x] **Phase 5.** Spending and Bills both show the payment calendar and reminders cards in the interim. Remove the duplicate when the pages are redesigned. *(Phase 1 decision)* *(Done in 5a: those cards read fields the backend never sent and were removed; Bills shows upcoming bills until 5c.)*
 - [x] **Phase 3.** The sidebar's review badge downloads every flagged item just to count them. Add a count-only endpoint (e.g. `GET /api/review?status=flagged&count=1`). *(Phase 1 review)*
-- [ ] **Phase 5.** `/spending` stacks two old pages, so it has two `<h1>`s and fetches the calendar and reminders twice. It goes away with the redesign. *(Phase 1 review)*
+- [x] **Phase 5.** `/spending` stacks two old pages, so it has two `<h1>`s and fetches the calendar and reminders twice. It goes away with the redesign. *(Phase 1 review)* *(Done in 5b: Spending is one page.)*
 - [ ] **Phase 6.** iOS Safari 15 and older don't support `overflow-x: clip`, so wide landing marquees could scroll sideways there. If that matters, add an `@supports not (overflow-x: clip)` fallback (not `hidden` on body). *(Phase 1 review)*
 - [x] **Phase 4.** Ctrl/⌘+K checks `e.key === "k"`, so Caps Lock or Shift misses it. Use `e.code === "KeyK"`. *(Phase 1 review)*
 - [ ] **Phase 6.** The sidebar cookie expires after 7 days (shadcn default), so a collapsed rail reopens after a week away. Extend it to about a year. *(Phase 1 review)*
@@ -242,4 +242,5 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [ ] **Later.** Suggested question "What's waiting for my review?": check the agent can answer it (no review-queue tool). `price_rise` could use its subject ("Why did Netflix go up?"). *(Phase 4 review)*
 - [ ] **Phase 5c.** Home's "Coming up" and bill pins come from `/api/analytics/reminders`, which only has rows after the spending-pattern analysis has run (the old Spending page triggers it). Switch Home and Bills to the recurring-charges API in 5c. *(5a, owner report)*
 - [ ] **Phase 5d.** Below `lg` the Home cards stack and their placeholders no longer match the loaded heights; the Budget card also grows once a budget exists. Size placeholders per breakpoint, or load the budget with the page. *(5a)*
+- [ ] **Later.** Spending: the category edit (pencil) is hidden below `sm`, so phones can't recategorise; and "Lumen noticed" wraps beside its pill at 375px. *(5b)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*
