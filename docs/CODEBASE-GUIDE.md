@@ -257,7 +257,7 @@ embeds the demo documents once per server and uploads the files in the backgroun
   (`?tab=documents|import|review`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
   `/chatbot`, `/documents`, `/import`, `/review`, `/upload`) redirect to them in `next.config.js` (temporary 307s, query
   strings carried). Until UI revamp Phase 5, Spending, Bills and Receipts reuse the old pages' `*Content.tsx`.
-- **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Receipts & statements
+- **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Plan (Budget) · Receipts & statements
   (badge = flagged review items) · Ask Lumen (Ctrl/⌘+K). It collapses to a 56px icon rail with Ctrl/⌘+B, remembered
   in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
   client-side because the auth guard shows a loader on the server, so there's no jump and no server read. Shortcuts
@@ -307,6 +307,15 @@ embeds the demo documents once per server and uploads the files in the backgroun
   with each bill on its projected days (‹ month › switcher), Upcoming grouped This week / Next week / Later, and the
   table with tabs, price-rise / looks-stopped / charged-again pills, Mark as cancelled, Not a bill, and How to cancel
   (`/ask?draft=How do I cancel X?`). Maths in `lib/bills-math.ts` (tests: `e2e/bills-math.spec.ts`).
+- **Budget** (`app/(app)/budget/`, Phase 5d): "am I on track, and what should my plan be?" A ‹ month › switcher
+  (past months read-only, as they were), Edit budget (the overall total, in place) and Let Lumen draft. Hero: spent of
+  total, a bar with the even-pace tick, left / days left / safe per day (left ÷ days left), and the running total
+  against a straight line to the budget (`CumulativeChart` with that line as its dashed series). Last 6 months: dashed
+  budget outline vs actual (green under, red over), this month with a run-rate projection, and the track record. By
+  category: budget / spent / left / used, the amount editable in place (Enter saves, Esc cancels, same row height),
+  Add category, and the unassigned footer. The draft panel shows pending `set_budget` lines (Skip / Approve named for
+  the category, "Approve remaining N"). History sits above By category so the data-height cards come last.
+  Maths in `lib/budget-math.ts` (tests: `e2e/budget-math.spec.ts`).
 - **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
   Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
   period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,
@@ -327,12 +336,18 @@ embeds the demo documents once per server and uploads the files in the backgroun
   Text carries `{0}` placeholders plus `amounts`, which the client fills in the user's currency (`fill` in
   `lib/home-math.ts`). The brief adds "The one thing worth a look" from the top item.
 
-  Budgets: the overall budget is `User.monthly_budget` (onboarding); per-category limits are the `budgets` table.
-  - `GET/PUT /api/budget` (`api/budget.py`).
-  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean, rounded up) and files `set_budget`
-    proposals. Approving one (`/api/agent/proposals/{id}/approve`) upserts the row. A new draft retires pending ones.
+  Budgets: the overall budget is `User.monthly_budget` (onboarding); per-category limits are the `budgets` table,
+  one row per (user, category, `effective_from` month) since Phase 5d. A month's limit is the latest row from that
+  month or before (`limits_in_force`), so edits never rewrite past months; a 0 limit removes a category from that
+  month on. `models/database._migrate_budget_versions` dates older rows by `updated_at` and swaps the unique
+  constraint (SQLite rebuilds the table).
+  - `GET /api/budget?month=YYYY-MM` (default this month), `PUT /api/budget` (writes from the current month),
+    `GET /api/budget/history?months=6` (budget vs spent per month; `budget` null for a past month with no limits).
+  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean over the months that had spend,
+    rounded up; `basis.months` lists those) and files `set_budget` proposals with `payload.month` = this month.
+    Approving one (`/api/agent/proposals/{id}/approve`) writes the row from that month. A new draft retires pending ones.
   - Ask Lumen's `draft_budget` tool files the same proposals.
-  - Home's draft dialog approves lines one by one or all at once.
+  - The Budget page's draft panel approves lines; Home's promo links to `/budget?draft=1`.
 
   The sidebar badge uses `GET /api/review?count=1`. `(app)/layout.tsx` is a
   tiny server file exporting the light `theme-color`; the client shell is `components/app-shell.tsx`.

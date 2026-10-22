@@ -441,3 +441,23 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   undo, hide and undo, the Ask link, CLS under 0.01, tabs on one line at 375 px) and 4 maths tests. A screenshot against
   the mockup caught the wrapping tabs on phones, now pinned by a test.
 
+## 35. A budget you can plan with (UI revamp, Phase 5d)
+- **S:** Budgets were one limit per category with no history: changing one rewrote every past month, there was no
+  way to look back, and the only place to approve Lumen's draft was a dialog on Home with buttons named just
+  "Approve" / "Skip".
+- **T:** A Budget page that answers "am I on track, and what should my plan be?", where past months stay as they were
+  and the draft lives on the page.
+- **A:** Budgets became versioned by month (TDD): an `effective_from` column, reads that take each category's latest
+  row from that month or before, writes from the current month on, and a migration that dates old rows and swaps the
+  unique constraint (rebuilding the table on SQLite, where a constraint can't be dropped). New `?month=` and
+  `/history` endpoints; approved drafts write from the month they were for; `basis.months` lists only months with
+  spend. Pure maths (`lib/budget-math.ts`), then the page: a pace hero with the even-pace tick and safe per day, six
+  months of budget-vs-actual, a category table edited in place, and the draft panel with category-named buttons. A
+  Plan group joined the sidebar; Home's promo now links to the page.
+- **R:** Backend 993 passed (8 new: last month's limits survive an edit, removal only from this month, history with
+  and without a budget, draft month, bad input, the old-schema migration, basis months). Frontend: 17 Budget e2e
+  checks (hero numbers, month switch read-only, inline edit without the row moving, Esc, add category, edit total,
+  draft skip/approve/approve-remaining/double click/409/`?draft=1`/no history, history bars, CLS under 0.01, phone fit)
+  and 4 maths tests. A phone screenshot showed buttons and bars clipped past the screen edge, which the old
+  "no sideways scroll" check missed; the test now checks every header button, bar and table cell ends on screen.
+
