@@ -272,6 +272,6 @@ test("spending and bills show no cards that can never load", async ({ page }) =>
 	for (const dead of ["Could not load payment calendar.", "Could not load reminders.", "Spending Trends"])
 		await expect(page.getByText(dead, { exact: true })).toHaveCount(0);
 	await page.goto("/bills");
-	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
+	await expect(page.getByTestId("recurring-table")).toContainText("Netflix");
 	await expect(page.getByText(/Could not load/)).toHaveCount(0);
 });

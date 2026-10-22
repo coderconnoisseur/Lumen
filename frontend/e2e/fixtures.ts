@@ -8,6 +8,8 @@ import type { Page } from "@playwright/test";
 export type HomeFixture = {
 	txns?: { id: string; vendor_name: string; date: string; total_amount: number; category: string | null; created_at: string | null }[];
 	reminders?: { id: string; vendor: string; amount: number; date: string; type: string; category?: string }[];
+	/** GET /api/bills/recurring items as the API sends them; default: built from `reminders` (monthly, active) */
+	recurring?: Record<string, unknown>[];
 	forecast?: { dates: string[]; values: number[] } | "fail";
 	delayMs?: number;
 	forecastDelayMs?: number;
@@ -40,6 +42,7 @@ export async function signIn(
 ): Promise<void> {
 	// a copy: routes like the transactions PUT change it, and tests share their fixture objects
 	const home: HomeFixture = structuredClone(opts.home ?? {});
+	const billStates = new Map<string, string>(); // vendor (lower case) → cancelled | not_a_bill | active
 	// a tiny stateful chat backend: POST /chat creates or extends a thread, the list and messages follow
 	const threads = (opts.chat?.threads ?? []).map((t) => ({ ...t, messages: [...(t.messages ?? [])] }));
 	let nextThread = 1;
@@ -73,6 +76,24 @@ export async function signIn(
 		const url = new URL(route.request().url());
 		const path = url.pathname;
 		if (home.delayMs) await new Promise((r) => setTimeout(r, home.delayMs));
+		// recurring charges (api/bills.py): the fixture's items, or simple monthly ones built from `reminders`; state
+		// changes are kept, like the real table
+		if (path === "/api/bills/recurring" || path === "/api/bills/recurring/state") {
+			if (route.request().method() === "POST") {
+				const { vendor, state } = route.request().postDataJSON() as { vendor: string; state: string };
+				billStates.set(vendor.toLowerCase(), state);
+			}
+			const all = (home.recurring ?? (home.reminders ?? []).filter((r) => r.vendor).map((r) => ({
+				vendor: r.vendor, category: r.category ?? null, cadence: "monthly", typical_amount: r.amount,
+				last_charge_date: r.date, next_due_date: r.date, charges_count: 3, price_change: null, kind: "subscription",
+				possibly_stopped: false, state: "active",
+			}))) as { vendor: string; state: string }[];
+			const items = all
+				.map((i) => ({ ...i, state: billStates.get(i.vendor.toLowerCase()) ?? i.state }))
+				.filter((i) => i.state !== "not_a_bill");
+			const hidden = all.filter((i) => billStates.get(i.vendor.toLowerCase()) === "not_a_bill").map((i) => ({ vendor: i.vendor, vendor_key: i.vendor.toLowerCase() }));
+			return route.fulfill({ json: { success: true, items, hidden } });
+		}
 		// category edits from Spending's table (stateful, like the real PUT)
 		const edit = path.match(/^\/transactions\/([^/]+)$/);
 		if (edit && route.request().method() === "PUT") {
@@ -90,19 +111,6 @@ export async function signIn(
 			const page = Number(url.searchParams.get("page") ?? 1);
 			const data = all.slice((page - 1) * size, page * size);
 			return route.fulfill({ json: { success: true, data, pagination: { page, has_next: page * size < all.length, total_items: all.length } } });
-		}
-		// the real shape (ai/pattern_detection.generate_reminders), built from the fixture's simpler rows; a row with
-		// no vendor is a category pattern ("You usually buy Groceries around the 5th")
-		if (path === "/api/analytics/reminders") {
-			const reminders = (home.reminders ?? []).map((r) => ({
-				title: `Upcoming: ${r.vendor || r.category}`,
-				description: "",
-				reminder_type: "pattern_based",
-				predicted_date: r.date,
-				pattern_id: r.id,
-				metadata: { pattern_type: r.vendor ? "recurring" : "day_of_month", vendor_name: r.vendor || null, category: r.category ?? null, average_amount: r.amount },
-			}));
-			return route.fulfill({ json: { success: true, reminders, count: reminders.length } });
 		}
 		if (path === "/api/analytics/forecast") {
 			if (home.forecastDelayMs) await new Promise((r) => setTimeout(r, home.forecastDelayMs));

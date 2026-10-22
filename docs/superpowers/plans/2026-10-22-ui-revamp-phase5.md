@@ -238,8 +238,33 @@ Branch: `ui-revamp/phase5b-spending`, stacked on `ui-revamp/phase5-pages` (#97).
 - STORY 34, codebase guide (Spending section), spec §12 tick (two `<h1>`s).
 - Full checks (backend, eval, lint, build into `.next-build`, e2e) green, screenshot vs `spending.html` at 1440 and 375, then PR into `ui-revamp/phase5-pages` (retarget to `refactor` as the stack lands).
 
-## Phase 5c — Bills & subscriptions (outline)
-Backend (TDD): `RecurringState` table (`user_id`, `vendor_key`, `state`, `changed_at`); `GET /api/bills/recurring` (wraps `find_recurring`, applies states: `not_a_bill` hidden, `cancelled` dimmed unless charged after `changed_at`); `POST /api/bills/recurring/state {vendor, state}`; Home's Coming up switches to it. Frontend: tiles, month calendar + Upcoming agenda (This week / Next week / Later), subscriptions table with tabs and actions (Mark as cancelled, Not a bill + Hidden undo, How to cancel → `/ask?draft=How do I cancel <vendor>?`). STORY 34.
+## Phase 5c — Bills & subscriptions (detailed)
+
+Branch: `ui-revamp/phase5c-bills`, stacked on `ui-revamp/phase5b-spending` (#98). Mockup `bills.html`; spec §4.3 and the builder-check decision on saved states.
+
+### Task C1: recurring API with saved states (backend, TDD)
+- Model `RecurringState` (`recurring_states`: id, user_id, vendor_key = `ai.recurring._norm(vendor)`, state `cancelled|not_a_bill`, changed_at; unique (user_id, vendor_key)); created by `create_all` like `budgets`.
+- `api/bills.py`, router `/api/bills`, registered in `asgi.py`:
+  - `GET /recurring` → `{success, items: [...find_recurring fields + "state": "active"|"cancelled"|"charged_again"], hidden: [{vendor, vendor_key}]}`. `not_a_bill` vendors leave `items` and go to `hidden`; `cancelled` shows `state: "cancelled"` unless `last_charge_date` is after `changed_at`'s date, then `"charged_again"`.
+  - `POST /recurring/state {vendor, state: "cancelled"|"not_a_bill"|"active"}` → upsert (active deletes the row); returns the new GET payload.
+- Tests (`tests/test_api_bills.py`, setup like `test_api_budget.py`): per-user isolation; three monthly Netflix charges listed active; cancel → cancelled; a charge after cancel → charged_again; not_a_bill → in hidden only; active restores; vendor key ignores case/punctuation ("NETFLIX.com" vs "Netflix com").
+
+### Task C2: Home reads bills from the recurring API
+- `billsApi.recurring()` / `billsApi.setState(vendor, state)` in `lib/api/client.ts`; `use-home-data` maps items with `next_due_date` in the next 31 days, not `possibly_stopped`, state active → `Reminder` (`toBills`), replacing `/api/analytics/reminders` (which only had rows after the old analysis ran; spec §12 5c item).
+- e2e fixture serves `/api/bills/recurring` built from `home.reminders` (vendor→vendor, date→next_due_date, amount→typical_amount, monthly) and records state POSTs; Home's bill tests stay unchanged in intent.
+- Tests: Coming up / bill pins / calendar names come from the recurring route; a cancelled or stopped item is not a bill on Home.
+
+### Task C3: the Bills page
+- `app/(app)/bills/` (replaces the interim list): `PageHeader` "Bills & subscriptions" with a ‹ month › switcher; brief ("Rent of ₹X is due <day>. N subscriptions look stopped, about ₹Y a month." from real items only).
+- Three tiles: Due in the next 30 days (sum + count), Recurring every month (monthly equivalents: weekly×52/12, yearly/12; active items only), Subscriptions that look stopped (`possibly_stopped`, count + ₹/month).
+- Month calendar (Monday first) with each item's projected due days in the shown month (monthly: next_due_date's day clamped; weekly: every 7 days from next_due_date; yearly: if the month matches), today outlined, past-due days muted; beside it Upcoming (next 30 days) grouped This week / Next week / Later with group totals.
+- Table with tabs Subscriptions / Bills / All (kind subscription vs bill+recurring): VendorChip, cadence, last charged, next, amount; pills: price rise (from → to), looks stopped, charged again after you cancelled. Actions per row: Mark as cancelled, Not a bill, How to cancel (→ `/ask?draft=How do I cancel <vendor>?`). Cancelled rows dimmed in a group at the bottom with Undo; a "Hidden (N)" footer lists not-a-bill vendors with Undo.
+- Tests: tiles' numbers; calendar shows a bill on its projected day for this and next month; tabs filter; Mark as cancelled POSTs and moves the row to Cancelled without the table jumping (bounding box of the table's first row); Not a bill hides it and Undo brings it back; How to cancel href; month switching keeps the calendar box; CLS < 0.01 while loading.
+
+### Task C4: clean-up, docs, checks, PR
+- Remove the interim `bills/upcoming-bills.tsx` and `aiAnalyticsApi.getReminders` if unused.
+- STORY 34, guide (Bills), spec §12 (tick the 5c item).
+- Full checks green, screenshot vs `bills.html` at 1440 and 375, PR stacked on #98.
 
 ## Phase 5d — Budget page (outline)
 Backend (TDD): `Budget.effective_from` (migration + create_all column list; existing rows → created month); `get_budget(month)` = latest row per category with `effective_from <= month`; `GET /api/budget?month=YYYY-MM`, `GET /api/budget/history?months=6`; edits write rows effective from the current month; draft approval writes rows effective from the draft's month; `basis.months` only months with spend; draft buttons' accessible names include the category. Frontend: `/budget` page + sidebar Plan group; hero with even-pace tick and pace chart; category table with inline edit (no row height change); draft panel on the page (Home promo links here); last 6 months bars. STORY 35.

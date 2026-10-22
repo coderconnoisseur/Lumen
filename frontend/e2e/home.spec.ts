@@ -523,3 +523,16 @@ for (const [day, range] of [["2026-10-26", "1M"], ["2026-10-04", "1M"], ["2026-1
 		}
 	});
 }
+
+test("home's bills come from the recurring charges, active ones only", async ({ page }) => {
+	const item = (vendor: string, days: number, extra: object = {}) => ({
+		vendor, category: "Entertainment", cadence: "monthly", typical_amount: 649, last_charge_date: inDays(days - 30),
+		next_due_date: inDays(days), charges_count: 3, price_change: null, kind: "subscription", possibly_stopped: false, state: "active", ...extra,
+	});
+	await openHome(page, {
+		...typical,
+		recurring: [item("Netflix", 2), item("Spotify", 3, { state: "cancelled" }), item("Gym", 4, { possibly_stopped: true }), item("Rent", 45)],
+	});
+	await expect(page.getByTestId("bill-row")).toHaveCount(1);
+	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
+});

@@ -1,32 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { aiAnalyticsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary } from "@/lib/api/client";
-import { periods, type Range, type Txn } from "@/lib/home-math";
+import { aiAnalyticsApi, billsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary, type RecurringItem } from "@/lib/api/client";
+import { parseDay, periods, type Range, type Txn } from "@/lib/home-math";
 
 export type Reminder = { id: string | number; vendor: string; amount: number | null; date: string; type: string; category?: string };
-// GET /api/analytics/reminders as the backend sends it (ai/pattern_detection.generate_reminders).
-type ApiReminder = {
-	title?: string;
-	predicted_date?: string | null;
-	pattern_id?: string | number;
-	metadata?: { vendor_name?: string | null; average_amount?: number | null; category?: string | null } | null;
-};
-// Bills only: a recurring payment to a vendor with a date. Restock nudges ("You usually buy Groceries around the
-// 5th") have no vendor and aren't bills. Rows with no date are skipped rather than crashing the page.
-export function toReminders(rows: ApiReminder[]): Reminder[] {
-	return rows.flatMap((r, i) =>
-		r.predicted_date && r.metadata?.vendor_name
-			? [{
-					id: r.pattern_id ?? i,
-					vendor: r.metadata.vendor_name,
-					amount: r.metadata.average_amount ?? null,
-					date: r.predicted_date,
-					type: "upcoming",
-					category: r.metadata.category ?? undefined,
-				}]
-			: [],
-	);
+// Home's bills: active recurring charges due in the next 31 days (api/bills.py). Cancelled ones and ones that look
+// stopped aren't bills any more.
+export function toBills(items: RecurringItem[], today: Date): Reminder[] {
+	const until = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 31);
+	return items
+		.filter((r) => r.state === "active" && !r.possibly_stopped)
+		.filter((r) => {
+			const due = parseDay(r.next_due_date);
+			return due >= today && due <= until;
+		})
+		.map((r) => ({ id: r.vendor, vendor: r.vendor, amount: r.typical_amount, date: r.next_due_date, type: "upcoming", category: r.category ?? undefined }));
 }
 export type Forecast = { dates: string[]; values: number[] } | null;
 export type HomeData = {
@@ -106,7 +95,7 @@ export function useHomeData(range: Range, today: Date): HomeData {
 	useEffect(() => {
 		let live = true;
 		Promise.allSettled([
-			aiAnalyticsApi.getReminders(31).then((r: { reminders?: ApiReminder[] }) => toReminders(r.reminders ?? [])),
+			billsApi.recurring().then((r) => toBills(r.items, today)),
 			homeApi.summary(),
 			budgetApi.get(),
 		]).then(([reminders, summary, budget]) => {
@@ -121,6 +110,8 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		return () => {
 			live = false;
 		};
+		// today is a fresh Date each render; the day is what matters
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [day]);
 
 	const reload = useCallback(() => {

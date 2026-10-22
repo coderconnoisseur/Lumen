@@ -298,6 +298,15 @@ embeds the demo documents once per server and uploads the files in the backgroun
   pure in `lib/spending-math.ts` (tests: `e2e/spending-math.spec.ts`); data from `GET /transactions` (which now
   includes `source`) and `/api/home/summary` (spikes link to `/spending?category=<name>`). The old Analytics and
   AI Insights pages, their components and the API calls only they used are gone.
+- **Bills & subscriptions** (`app/(app)/bills/`, Phase 5c): "what's due, what recurs, what can I cut?" Everything
+  comes from `GET /api/bills/recurring` (`api/bills.py`): `ai/recurring.find_recurring` over the user's transactions
+  plus their saved choices in `recurring_states` (keyed by the detection's normalised vendor). `not_a_bill` moves a
+  vendor to `hidden`; `cancelled` keeps it listed as cancelled, or `charged_again` if a charge lands after the
+  cancel day; posting `active` forgets the choice (`POST /api/bills/recurring/state`). The page: three tiles (due in
+  30 days, recurring per month with weekly/yearly spread, subscriptions that look stopped), a six-row month calendar
+  with each bill on its projected days (‹ month › switcher), Upcoming grouped This week / Next week / Later, and the
+  table with tabs, price-rise / looks-stopped / charged-again pills, Mark as cancelled, Not a bill, and How to cancel
+  (`/ask?draft=How do I cancel X?`). Maths in `lib/bills-math.ts` (tests: `e2e/bills-math.spec.ts`).
 - **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
   Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
   period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,
@@ -305,9 +314,9 @@ embeds the demo documents once per server and uploads the files in the backgroun
   outlined, upcoming bill names on future days, always as tall as a six-week month) beside Recent transactions, then
   Lumen found as a list whose links act ("Ask Lumen" opens `/ask?draft=` with the question typed but not sent). The
   side column has Budget in <Month> (spent of total, % bar, top four categories by spend), Coming up (next four
-  bills), the draft-budget promo and Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
-  queue). `/api/analytics/reminders` sends `title`/`predicted_date`/`metadata`; `toReminders` turns that into bills
-  once (vendor patterns only, rows without a date skipped). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
+  bills), the draft-budget promo and Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, recurring
+  charges, forecast, review queue). Bills come from `GET /api/bills/recurring`: `toBills` keeps active ones that
+  don't look stopped and are due in the next 31 days. A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
   never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
   **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
   Lumen found and Activity:

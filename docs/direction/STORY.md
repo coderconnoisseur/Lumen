@@ -424,3 +424,20 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   tests; the e2e fixture now copies its data per test after a PUT leaked between tests. A screenshot against the
   approved mockup caught the wrapping period chips on phones, which a test then pinned.
 
+## 34. Bills & subscriptions you can act on (UI revamp, Phase 5c)
+- **S:** Bills had only the payment calendar and reminders cards, which read fields the backend never sent, and Home's
+  "Coming up" only had rows after a heavy analysis had run. Lumen already detected recurring charges well, but only the
+  agent and Home's signals used it.
+- **T:** One page answering "what's due, what recurs, what can I cut?" from that detection, where telling Lumen
+  "cancelled" or "that's not a bill" is remembered, and noticing when a cancel didn't stick.
+- **A:** A small `/api/bills` (TDD): recurring charges plus a `recurring_states` table keyed by the detection's own
+  normalised vendor, so "NETFLIX.com" and "Netflix com" are one choice; a charge after the cancel day flips the row to
+  "charged again". Home's bills switched to it. Pure maths (`lib/bills-math.ts`: monthly equivalents, projected due days
+  per cadence, a 30-day agenda, the tiles) under unit tests, then the page: tiles, a six-row month calendar that never
+  changes height, Upcoming, and a table whose actions save in place, with Undo for cancelled and hidden vendors and
+  "How to cancel" opening Ask with the question typed. Removed the interim list and the last caller of the old reminders.
+- **R:** Backend 986 passed (5 new: per-user states, cancel → charged again, hide/restore, vendor spelling,
+  validation). Frontend: 10 Bills e2e checks (tiles, the calendar across months without moving, groups, tabs, cancel and
+  undo, hide and undo, the Ask link, CLS under 0.01, tabs on one line at 375 px) and 4 maths tests. A screenshot against
+  the mockup caught the wrapping tabs on phones, now pinned by a test.
+
