@@ -112,3 +112,13 @@ test("bills has no layout shift while loading", async ({ page }) => {
 	await page.waitForTimeout(500);
 	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
 });
+
+test("tabs stay on one line at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openBills(page);
+	for (const name of [/^All/, /^Subscriptions/, /^Bills/]) {
+		const box = (await table(page).getByRole("tab", { name }).boundingBox())!;
+		expect(box.height, String(name)).toBeLessThan(28);
+	}
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

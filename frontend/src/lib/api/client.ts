@@ -558,15 +558,8 @@ export const transactionApi = {
 	},
 };
 
-// Analytics the redesigned pages still read: upcoming bills (Home, interim Bills) and the forecast line (Home).
+// Analytics the redesigned pages still read: the forecast line on Home.
 export const aiAnalyticsApi = {
-	getReminders: async (daysAhead: number = 7) => {
-		const response = await apiClient.get("/api/analytics/reminders", {
-			params: { days_ahead: daysAhead },
-		});
-		return response.data;
-	},
-
 	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
 	getForecast: (daysAhead: number = 30, insights = true) =>
 		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>

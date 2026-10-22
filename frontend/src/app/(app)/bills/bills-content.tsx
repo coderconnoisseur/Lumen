@@ -152,7 +152,7 @@ export default function BillsContent() {
 									role="tab"
 									aria-selected={tab === k}
 									onClick={() => setTab(k)}
-									className={cn("rounded-[7px] px-2.5 py-0.5 text-[12px]", tab === k ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+									className={cn("rounded-[7px] px-2.5 py-0.5 text-[12px] whitespace-nowrap max-sm:px-1.5", tab === k ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
 								>
 									{TAB_LABEL[k]} {counts[k]}
 								</button>
