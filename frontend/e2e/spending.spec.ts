@@ -65,3 +65,24 @@ test("the brief uses real numbers", async ({ page }) => {
 	await openSpending(page);
 	await expect(page.getByTestId("brief")).toContainText("₹12,348");
 });
+
+test("hero: total, change, the running line and six months of bars", async ({ page }) => {
+	await openSpending(page);
+	await expect(hero(page)).toContainText("₹12,348");
+	await expect(hero(page).locator('[data-series="current"]')).toHaveCount(1);
+	await expect(hero(page).locator('[data-series="previous"]')).toHaveCount(1);
+	const bars = hero(page).getByTestId("month-bar");
+	await expect(bars).toHaveCount(6);
+	await expect(bars.last()).toHaveAttribute("data-current", "true");
+	// turning comparison off hides the previous line and the change
+	await page.getByRole("switch").click();
+	await expect(hero(page).locator('[data-series="previous"]')).toHaveCount(0);
+	await expect(page.getByTestId("spending-delta")).toHaveCount(0);
+});
+
+test("3M and YTD show the months as the main chart", async ({ page }) => {
+	await openSpending(page);
+	await page.getByRole("button", { name: "3M", exact: true }).click();
+	await expect(hero(page).getByTestId("month-bars-main")).toBeVisible();
+	await expect(hero(page).locator('[data-series="current"]')).toHaveCount(0);
+});

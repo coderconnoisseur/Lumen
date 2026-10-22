@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/page/page-header";
 import { useMoney } from "@/lib/format";
 import { cumulative, dayIndex, sameDayDelta } from "@/lib/home-math";
-import { byCategory, spendPeriods, type Choice } from "@/lib/spending-math";
+import { byCategory, monthlyTotals, spendPeriods, type Choice } from "@/lib/spending-math";
 import { cn } from "@/lib/utils";
 import { Brief } from "../home/_components/brief";
 import { SpendingHero } from "./_components/hero";
@@ -111,6 +111,17 @@ export default function SpendingContent() {
 					prevLabel={p.prevLabel}
 					total={total}
 					delta={compare ? delta : null}
+					period={p.current}
+					cur={cur}
+					prev={compare ? prev : null}
+					t={t}
+					months={monthlyTotals(data.recent, today, 6)}
+					mainMonths={
+						preset === "3M" || preset === "YTD"
+							? monthlyTotals(data.txns, today, (today.getFullYear() - p.current.start.getFullYear()) * 12 + today.getMonth() - p.current.start.getMonth() + 1)
+							: null
+					}
+					today={today}
 					loading={data.status === "loading"}
 				/>
 			</div>
