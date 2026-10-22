@@ -10,13 +10,16 @@ export function PromptBar({
 	onSend,
 	busy,
 	hero = false,
+	initial = "",
 }: {
 	onSend: (text: string, file?: File) => void;
 	busy: boolean;
 	/** the large, centred version shown before the first question */
 	hero?: boolean;
+	/** text to start with (Ask's ?draft=); remount with a new key to change it */
+	initial?: string;
 }) {
-	const [draft, setDraft] = useState("");
+	const [draft, setDraft] = useState(initial);
 	const [file, setFile] = useState<File | null>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const fileRef = useRef<HTMLInputElement>(null);

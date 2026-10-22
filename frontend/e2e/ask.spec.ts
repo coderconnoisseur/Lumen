@@ -204,3 +204,23 @@ test("a question suggestion is still sent to Lumen", async ({ page }) => {
 	await page.getByRole("button", { name: "Show last month by category" }).click();
 	await expect(page.getByText("Answer to: Show last month by category")).toBeVisible();
 });
+
+test("draft prefills the composer without sending", async ({ page }) => {
+	const posts: string[] = [];
+	page.on("request", (r) => r.method() === "POST" && r.url().endsWith("/chat") && posts.push("x"));
+	await openAsk(page, {}, "/ask?draft=Why%20is%20Food%20up%3F");
+	await expect(composer(page)).toHaveValue("Why is Food up?");
+	await expect(composer(page)).toBeFocused();
+	await expect(page).toHaveURL(/\/ask$/);
+	await page.waitForTimeout(500);
+	expect(posts).toHaveLength(0);
+	await page.reload();
+	await expect(composer(page)).toHaveValue("");
+});
+
+test("a sent draft doesn't come back in the follow-up box", async ({ page }) => {
+	await openAsk(page, {}, "/ask?draft=Why%20is%20Food%20up%3F");
+	await composer(page).press("Enter");
+	await expect(page.getByText("Answer to: Why is Food up?")).toBeVisible();
+	await expect(composer(page)).toHaveValue("");
+});

@@ -246,8 +246,8 @@ const spike = { kind: "spike", tag: "SPENDING", headline: "Food is up 35%", deta
 test("lumen found shows server signals and worth", async ({ page }) => {
 	await openHome(page, { ...typical, summary: { found: [dupe, spike], worth_total: 2499 } });
 	const found = page.getByTestId("lumen-found");
-	await expect(found).toContainText("2 things worth a look · ₹2,499 you may get back");
-	await expect(found.getByTestId("found-tile")).toHaveCount(2);
+	await expect(found).toContainText("2 to look at · ₹2,499 you may get back");
+	await expect(found.getByTestId("found-row")).toHaveCount(2);
 	await expect(found).toContainText("Possible double charge: Croma ₹2,499");
 	await expect(found).toContainText("₹6,750 so far vs ₹5,000 by this point last month.");
 });
@@ -392,4 +392,16 @@ test("calendar marks today and names future bills", async ({ page }) => {
 	const card = page.getByTestId("calendar-card");
 	await expect(card.getByRole("link", { name: new RegExp(`${monthLong}, day by day`) })).toHaveAttribute("href", "/spending");
 	await expect(card.getByRole("link", { name: "See all" })).toHaveAttribute("href", "/spending");
+});
+
+test("lumen found rows do things", async ({ page }) => {
+	await openHome(page, { ...typical, summary: { found: [dupe, spike], worth_total: 2499 } });
+	const rows = page.getByTestId("lumen-found").getByTestId("found-row");
+	// the spike links to where you can act on it; a row with nowhere to go gets no dead link
+	await expect(rows.nth(1).getByRole("link", { name: "See in Spending" })).toHaveAttribute("href", "/spending");
+	await expect(rows.nth(0).getByRole("link", { name: /^Review|^See/ })).toHaveCount(0);
+	// "Ask Lumen" opens Ask with the question typed, never sent
+	const ask = rows.nth(1).getByRole("link", { name: "Ask Lumen" });
+	await expect(ask).toHaveAttribute("href", /^\/ask\?draft=/);
+	expect(decodeURIComponent((await ask.getAttribute("href"))!.split("draft=")[1])).toBe("Tell me more about this: Food is up 35%");
 });
