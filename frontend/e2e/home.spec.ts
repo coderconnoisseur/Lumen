@@ -446,3 +446,16 @@ test("calendar amounts stay readable at phone width", async ({ page }) => {
 	await expect(amount).toBeVisible();
 	expect(await amount.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
 });
+
+test("a restock reminder (no vendor) neither crashes Home nor shows as a bill", async ({ page }) => {
+	await openHome(page, {
+		...typical,
+		reminders: [
+			{ id: "g", vendor: "", category: "Groceries", amount: 900, date: inDays(1), type: "upcoming" },
+			{ id: "n", vendor: "Netflix", amount: 649, date: inDays(2), type: "upcoming" },
+		],
+	});
+	await expect(page.getByTestId("bill-row")).toHaveCount(1);
+	await expect(page.getByTestId("bill-row")).toContainText("Netflix");
+	await expect(page.getByTestId("calendar-card")).toBeVisible();
+});
