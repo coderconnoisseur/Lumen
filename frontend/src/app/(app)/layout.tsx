@@ -1,40 +1,10 @@
-"use client";
+import type { ReactNode } from "react";
+import type { Viewport } from "next";
+import { AppShell } from "@/components/app-shell";
 
-import { Suspense, type ReactNode } from "react";
-import { MotionConfig } from "motion/react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { AuthGuard } from "@/components/auth/auth-guard";
-import { ProfileProvider } from "@/components/profile/profile-provider";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+// Server file only so the light app can set its own browser-bar colour (a client layout can't export `viewport`).
+export const viewport: Viewport = { themeColor: "#f4f3ef", colorScheme: "light" };
 
-// The signed-in app's frame: auth check, sidebar and top bar are built once and stay mounted while you move between
-// pages (URLs are unchanged; "(app)" is a route group), so only the content area swaps, like tabs on X.
 export default function AppLayout({ children }: { children: ReactNode }) {
-	return (
-		// Sky (globals.css) wraps everything, auth loader included, so the first server paint is already light.
-		<div data-app-theme="sky" className="contents">
-		<Suspense>
-			<AuthGuard>
-				<ProfileProvider>
-				<MotionConfig reducedMotion="user">
-				<SidebarProvider>
-					<AppSidebar />
-					<SidebarInset id="main" className="min-h-screen bg-transparent">
-						<header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-							<div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
-								<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-								<Separator orientation="vertical" className="h-4" />
-								<div className="text-sm font-medium text-muted-foreground">Lumen</div>
-							</div>
-						</header>
-						{children}
-					</SidebarInset>
-				</SidebarProvider>
-				</MotionConfig>
-				</ProfileProvider>
-			</AuthGuard>
-		</Suspense>
-		</div>
-	);
+	return <AppShell>{children}</AppShell>;
 }

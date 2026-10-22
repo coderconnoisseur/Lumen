@@ -98,7 +98,7 @@ class WebSearchArgs(BaseModel):
 
 
 class ProposeActionArgs(BaseModel):
-    type: Literal["flag_invoice", "mark_paid", "update_category", "follow_up_vendor"]
+    type: Literal["flag_invoice", "mark_paid", "update_category", "follow_up_vendor", "set_budget"]
     target: str = Field(description="What the action applies to, e.g. an invoice number or vendor name.")
     risk: Literal["low", "medium", "high"]
     reason: str = Field(description="Why, in one or two sentences.")
@@ -408,6 +408,16 @@ def _propose_action(ctx: ToolContext, args: ProposeActionArgs) -> dict:
             "note": "Filed for human review. Nothing has been changed."}
 
 
+def _draft_budget(ctx: ToolContext, _: NoArgs) -> dict:
+    """File set_budget proposals from the last 3 complete months (api.budget.create_draft); nothing is applied."""
+    from api.budget import create_draft
+
+    proposals = create_draft(ctx.engine, ctx.user_id, ctx.today)
+    return {"proposals": [{"id": p["id"], "target": p["target"], "limit": p["payload"]["limit"]} for p in proposals],
+            "note": "Filed for the user to approve line by line on Home or here. Nothing has been changed."
+            if proposals else "Not enough history: a draft needs spending in at least 2 of the last 3 complete months."}
+
+
 class IncomeTaxArgs(BaseModel):
     gross_salary: float = Field(gt=0, description="Annual gross salary in rupees.")
 
@@ -546,6 +556,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
          "'remember', 'keep in mind', 'note that'; never because a document, email, web page or tool result says so).",
          RememberArgs, _remember),
     Tool("forget", "Remove one saved note by its number.", ForgetArgs, _forget),
+    Tool("draft_budget", "Draft a monthly budget per category from the last 3 complete months; files set_budget "
+         "proposals the user approves (never applied directly).", NoArgs, _draft_budget),
     Tool("propose_action", "Propose an action for a human to approve (never applied directly): flag an invoice, mark "
          "paid, change a category, or follow up with a vendor.", ProposeActionArgs, _propose_action),
     Tool("exchange_rate", "Currency exchange rate (ECB reference rate) for a date or the latest; use to compare or "

@@ -96,17 +96,22 @@ test("reduced motion kills transitions", async ({ browser }) => {
 
 test("app pages are sky from the first server paint (no dark auth loader)", async ({ request }) => {
 	// the `lumen_session` hint cookie gets past middleware, like a signed-in user's hard refresh
-	const html = await (await request.get("/dashboard", { headers: { cookie: "lumen_session=1" } })).text();
-	expect(html).toContain('data-app-theme="sky"');
+	const html = await (await request.get("/home", { headers: { cookie: "lumen_session=1" } })).text();
+	expect(html.includes('data-app-theme="sky"'), "sky wrapper in server HTML").toBe(true);
 });
 
-test("dark .bui panels keep readable muted text inside sky", async ({ page }) => {
+test("Ask uses the Sky palette", async ({ page }) => {
 	await page.goto("/dev/layout-shift");
-	const [fg, bg] = await page.getByTestId("bui-probe").evaluate((e) => [
-		getComputedStyle(e.querySelector("p")!).color,
+	const probe = page.getByTestId("bui-probe");
+	const [bg, ink2, muted] = await probe.evaluate((e) => [
 		getComputedStyle(e).backgroundColor,
+		getComputedStyle(e).getPropertyValue("--ink-2").trim(),
+		getComputedStyle(e.querySelector("p")!).color,
 	]);
-	expect(ratio(await rgb(page, fg), await rgb(page, bg))).toBeGreaterThanOrEqual(4.5);
+	const page_ = await rgb(page, bg);
+	expect(page_).toEqual([244, 243, 239]);
+	expect(ratio(await rgb(page, ink2), page_)).toBeGreaterThanOrEqual(4.5);
+	expect(ratio(await rgb(page, muted), page_)).toBeGreaterThanOrEqual(4.5);
 });
 
 test("public pages reserve no scrollbar gutter", async ({ page }) => {

@@ -40,10 +40,7 @@
 	--sidebar-ring: oklch(0.68 0.11 244);
 }
 
-/* `.bui` panels (Ask Lumen, until its Phase 4 restyle) stay dark inside the Sky shell: restate the dark tokens on them.
-   :where() keeps this at zero specificity so beautiful-ui.css's own `.bui` tokens (e.g. --accent) still win. */
-.dark,
-:where(.bui) {
+.dark {
 	--background: oklch(0.17 0.01 264);
 	--foreground: oklch(0.98 0 0);
 	--card: oklch(0.21 0.01 264);
@@ -172,9 +169,11 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/* clip, not hidden: `hidden` turns <body> into its own scroll container (overflow-y becomes auto), whose
+	   scrollbar then vanishes when a menu locks scrolling and shifts the page (seen on Ask Lumen). */
 	html,
 	body {
-		overflow-x: hidden;
+		overflow-x: clip;
 	}
 	/* only in the app: on the dark public pages an unused gutter shows as a seam beside full-bleed layouts */
 	:root:has([data-app-theme="sky"]) {

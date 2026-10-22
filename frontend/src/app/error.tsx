@@ -22,7 +22,7 @@ export default function Error({
 			<div className="flex gap-3">
 				<Button onClick={() => reset()}>Try again</Button>
 				<Button variant="outline" asChild>
-					<Link href="/dashboard">Go to dashboard</Link>
+					<Link href="/home">Go to home</Link>
 				</Button>
 			</div>
 		</div>

@@ -326,3 +326,62 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   12 e2e checks pass, including portal colours, AA contrast for muted text (4.9:1), login staying dark and
   reduced motion. framer-motion was removed. Story point: reproduce in a test first. Here the test environment
   was hiding the very bug.
+
+## 28. The new app shell, and the second half of the shifting-page bug (UI revamp, Phase 1)
+- **S:** The sidebar still had the November-2025 tabs ("Workspace", "Compare", a test link), so its labels no longer
+  matched what the app does. The Phase 0 fix had also left Ask Lumen shifting 15 px once in about four runs.
+- **T:** Ship the new navigation (Home · Track · Receipts · Ask) with old URLs still working. Collapse to an icon
+  rail without a jump on reload. Find the remaining shift.
+- **A:** Added a Playwright fixture that fakes a signed-in session and stubs the backend, so the real shell is
+  testable without servers. A probe showed `<body>` owning its own 15 px scrollbar: `overflow-x: hidden` on html and
+  body turns body into a scroll container, and a menu's scroll lock removes that scrollbar. Switched to `overflow-x:
+  clip`. The collapsed state is read on the sidebar's first (client-only) render, so app pages stay static on Vercel.
+- **R:** 31 e2e checks pass, including 8 redirects, auth on all new routes, a rail on first paint, shortcuts ignored
+  while typing, a live review badge and the mobile sheet closing. Avatar-menu shift checks passed 24/24 on repeat
+  (failed 1 in 4 before). Story point: a flaky test is a bug report. Here it caught the half of the original bug
+  that the first fix missed.
+
+## 29. A Home that says something (UI revamp, Phase 2)
+- **S:** The signed-in home was a stock "Financial Overview": four KPI tiles, an invoice list and a "What to watch"
+  card of static tips. Nothing on it was about *your* month.
+- **T:** Build the approved Origin-inspired Home: a brief, a spend-vs-last-month chart, "Lumen found", a calendar,
+  bills, budget and activity. Use only real data, keep it light on the free Vercel tier, and keep the owner's
+  "nothing moves unless you asked" rule.
+- **A:** Put all the maths in pure functions with 13 unit tests (periods, cumulative spend, the same-day comparison
+  clamped to month length, the brief sentence). Drew the chart as one SVG instead of pulling in the chart library.
+  Cards with no backend yet show honest empty states, not invented numbers. A test caught that changing the chart's
+  range blanked the brief; Home now keeps its old numbers until new ones arrive.
+- **R:** `/home` is static at 15.7 kB of route JS. 65 checks pass, including zero layout shift with a 1.5 s slow
+  backend, a failed forecast, a brand-new user with no data, and 15-lakh amounts with long vendor names. Story point:
+  an honest empty state beats a convincing placeholder.
+
+## 30. "Lumen found" and budgets you approve line by line (UI revamp, Phase 3)
+- **S:** Home's smart cards were placeholders: Lumen found only knew the review queue, Activity was guessed from
+  transactions, and Budget said "coming soon".
+- **T:** Back them with real, cheap, honest data. Use no LLM on every Home visit, never invent a saving, and keep Lumen's
+  rule that nothing changes without the user's approval.
+- **A:** Wrote pure, tested rules for double charges, category spikes measured by the same day last month (refunds
+  can't fake one), and subscription price rises. Built an activity feed from tables that already exist. Budgets: a
+  deterministic draft (3-month mean, rounded up) files one `set_budget` proposal per category, and approving one
+  upserts the limit. The same path is exposed as an agent tool, so "make me a budget" in Ask Lumen gives the same
+  approvable lines. Money travels as numbers with placeholders, so every amount shows in the user's currency.
+- **R:** 47 new backend tests (950 passing) and 82 e2e checks, including per-user isolation, a double approve
+  returning 409 with one row, re-drafts retiring stale suggestions, and a user with no history. Home is still static
+  (17.5 kB of route JS). Owner follow-up logged: make the rules smarter about one-off big purchases, measured against an
+  eval set.
+
+## 31. Ask Lumen gets conversations and a memory (UI revamp, Phase 4)
+- **S:** Ask Lumen always reopened one endless chat, and the agent answered every message alone, so "and last month?"
+  could never work. Users also saw a stray "Next:" under answers, and the chat was still dark inside the light app.
+- **T:** Real threads with a fresh chat on open and one-click resume, short-term memory without changing what the
+  evals measure, a ⌘K "Ask anything" from any page, and the Sky look, all without moving anything on screen.
+- **A:** Added a `chat_threads` table and a nullable `thread_id`, with legacy history folded into one "Earlier chats"
+  thread on first list. The agent gets the thread's last 6 turns (user/assistant only, trimmed), and none for evals,
+  so its prompt is byte-identical there. Widened the follow-up splitter to the "Next :", "Next：" and "Next -" shapes
+  models produce, plus a frontend guard. Restyled the chat by remapping Beautiful UI's tokens instead of rewriting
+  components. Approving a proposal now claims it with a conditional UPDATE before applying anything.
+- **R:** Backend: 978 passed (26 new tests: per-user threads, memory isolation between threads, prompt unchanged
+  without history, Next variants, the atomic claim). Frontend: 102 e2e checks, including a handoff that sends once and
+  never on reload, a rail that doesn't move the conversation, and Caps-Lock-proof ⌘K. Screenshots caught two bugs the
+  tests then pinned: an unreadable blue selected thread and a 24 px sidebar overflow left over from Phase 1.
+

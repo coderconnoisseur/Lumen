@@ -253,7 +253,16 @@ embeds the demo documents once per server and uploads the files in the backgroun
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
 ## 7b2. App frame and navigation (frontend)
-- The signed-in pages live in the route group `app/(app)/` (URLs unchanged: `/dashboard`, `/analytics`, ...).
+- The signed-in pages live in the route group `app/(app)/`: `/home`, `/spending`, `/bills`, `/receipts`
+  (`?tab=documents|import|review`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
+  `/chatbot`, `/documents`, `/import`, `/review`, `/upload`) redirect to them in `next.config.js` (temporary 307s, query
+  strings carried). Until UI revamp Phase 5, Spending, Bills and Receipts reuse the old pages' `*Content.tsx`.
+- **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Receipts & statements
+  (badge = flagged review items) · Ask Lumen (Ctrl/⌘+K). It collapses to a 56px icon rail with Ctrl/⌘+B, remembered
+  in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
+  client-side because the auth guard shows a loader on the server, so there's no jump and no server read. Shortcuts
+  skip key presses in text fields (`isTypingTarget` in `lib/utils.ts`). **Account** (Settings, API keys, Log out) is the
+  top-right `components/avatar-menu.tsx`.
   `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
   pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
   `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
@@ -268,17 +277,59 @@ embeds the demo documents once per server and uploads the files in the backgroun
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
-  production). Firefox is opt-in with `E2E_FIREFOX=1`.
+  production). Firefox is opt-in with `E2E_FIREFOX=1`. `html, body` use `overflow-x: clip`, never `hidden`:
+  `hidden` makes `<body>` a scroll container whose scrollbar disappears when a menu opens.
+- **Home** (`app/(app)/home/`, UI revamp Phase 2): greeting and a serif brief over a sky band, then the cards.
+  The main column has Spent this period (a hand-drawn SVG: cumulative now vs the previous period, a forecast to month-end, bill pins,
+  1W/1M/3M/YTD), Lumen found, and Spending calendar + Recent transactions. The side column has Budget, Upcoming bills, the draft-budget promo and
+  Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, reminders, forecast, review
+  queue). A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
+  never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
+  **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
+  Lumen found and Activity:
+  - Lumen found shows double charges (the only items with a "you may get back" ₹), receipts to review, category spikes
+    vs the same day last month, and subscription price rises from `ai.recurring`.
+  - Activity shows statement imports grouped into one line, receipts read, and your approve/reject decisions.
+
+  Text carries `{0}` placeholders plus `amounts`, which the client fills in the user's currency (`fill` in
+  `lib/home-math.ts`). The brief adds "The one thing worth a look" from the top item.
+
+  Budgets: the overall budget is `User.monthly_budget` (onboarding); per-category limits are the `budgets` table.
+  - `GET/PUT /api/budget` (`api/budget.py`).
+  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean, rounded up) and files `set_budget`
+    proposals. Approving one (`/api/agent/proposals/{id}/approve`) upserts the row. A new draft retires pending ones.
+  - Ask Lumen's `draft_budget` tool files the same proposals.
+  - Home's draft dialog approves lines one by one or all at once.
+
+  The sidebar badge uses `GET /api/review?count=1`. `(app)/layout.tsx` is a
+  tiny server file exporting the light `theme-color`; the client shell is `components/app-shell.tsx`.
+- **Signed-in e2e:** `e2e/fixtures.ts` `signIn(page)` fakes a Supabase session (localStorage) plus the
+  `lumen_session` cookie, and stubs every backend call, so `e2e/shell.spec.ts` drives the real shell without servers.
 - **Motion:** use `motion/react` only (framer-motion was removed). Shared timings live in `lib/motion.ts`
   (`DURATION`, `EASE_OUT`, `fadeUp`). Reduced motion is honoured globally by `MotionConfig reducedMotion="user"`
   in the app layout and a CSS rule in `globals.css`.
 
 ## 7c. Ask Lumen screen (frontend, UI phase)
-- `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
-  It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
-  original's `file_key`), `steps` (tool, summary, `latency_ms`), `proposals`. The SQL the agent ran stays
-  server-side (not shown to users). History (`GET /chat/history`)
-  keeps only the text, so older answers show citation numbers without passages.
+- `/ask` (`app/(app)/ask/chatbotContent.tsx`; `/chatbot` redirects) holds **conversations** with the agent (UI revamp
+  Phase 4).
+  - **Threads.** Threads live in `chat_threads`; `chat_messages.thread_id` was added through `_ADDED_COLUMNS`. The
+    routes in `routes/chat.py` are `GET /chat/threads`, `GET`/`DELETE /chat/threads/<id>`, and `POST /chat` with an
+    optional `thread_id` (none starts a thread titled from the question). Another user's id is a 404.
+  - **Legacy history.** Messages saved before threads fold into one "Earlier chats" thread the first time you list
+    threads. `GET/DELETE /chat/history` are gone.
+  - **Memory.** The agent gets the thread's last 6 messages (user/assistant only, 1,500 chars each) between the system
+    prompt and the question (`run_agent(history=...)`). With no history the prompt is unchanged, which keeps the evals
+    comparable.
+  - **The page.** Opening Ask starts a fresh chat with suggestions (from Home's "Lumen found" via
+    `suggestedQuestions`, then `/chat/suggestions`). Past chats sit in `thread-rail.tsx` (a column on desktop, a Sheet
+    on small screens). `/ask?q=…` starts a new chat with that question once, then cleans the URL.
+  - **Answers.** `POST /chat` returns the markdown answer plus its evidence: `sources` (passage `text` and the original's
+    `file_key`), `steps` (tool, summary, `latency_ms`) and `proposals`. The SQL the agent ran stays server-side. Saved
+    messages keep only the text, so older answers show citation numbers without passages.
+  - **Next: line.** The agent's last "Next: …" line becomes the follow-up chip (`split_follow_up` also accepts
+    "Next :", the full-width colon and dashes), and `answer.tsx` never renders a bare trailing "Next:".
+- **Ask anything** (`components/ask-palette.tsx`): the sidebar button, or ⌘/Ctrl+K anywhere outside a text field
+  (`e.code === "KeyK"`, so Caps Lock and Shift work), opens a one-line dialog; Enter goes to `/ask?q=…`.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
   `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
   `invoice-card.tsx` (paperclip in the prompt bar sends the file as multipart `file` with the question; the answer
@@ -287,10 +338,11 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
-- Look: components adapted from Beautiful UI (beautifului.dev, MIT), styled after the owner's reference (near-black
-  canvas, flat colour steps, light serif display = Newsreader, Inter UI, Roboto Mono uppercase labels, white as the
-  only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
-  theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
+- Look: components adapted from Beautiful UI (beautifului.dev, MIT). Its tokens live in `app/beautiful-ui.css`,
+  scoped to a `.bui` wrapper. Inside the signed-in app, `:root:has([data-app-theme="sky"]) .bui` remaps every token to
+  Sky (light paper, blue accent, AA text), so Ask is light with no component changes. Inside `.bui`, use its own
+  tokens (`bg-hover`, `bg-surface`, `border-line`, `text-ink-2`), not shadcn's `accent`, which resolves to bui's blue
+  `--accent` there. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
 ## 7d. Landing page (frontend, UI phase)
 - `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with

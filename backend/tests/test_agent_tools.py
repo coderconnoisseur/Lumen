@@ -701,3 +701,21 @@ def test_web_search_user_key_rejected(db, world, monkeypatch, tavily_user):
     with Session(engine) as s:
         err = s.query(UserKey).one().last_error
     assert err == "Tavily rejected the key (HTTP 401)." and not any(key[i:i + 8] in err for i in range(len(key) - 7))
+
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("text, answer, chip", [
+    ("Which period would you like to see?\nNext:", "Which period would you like to see?", None),
+    ("Here it is.\n**Next:**", "Here it is.", None),
+    ("Here it is.\nNext : Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext：Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext - Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext:   \n\n", "Here it is.", None),
+    ("Here it is.\nNEXT: Show my bills", "Here it is.", "Show my bills"),
+])
+def test_split_follow_up_variants(text, answer, chip):
+    from agent.graph import split_follow_up
+
+    assert split_follow_up(text) == (answer, chip)

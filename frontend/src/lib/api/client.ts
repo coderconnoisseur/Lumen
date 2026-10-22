@@ -410,31 +410,39 @@ export interface ChatAttachment {
 	code?: string;
 }
 
+/** One Ask Lumen conversation (UI revamp Phase 4). */
+export interface ChatThread {
+	id: string;
+	title: string;
+	updated_at: string | null;
+	message_count: number;
+}
+
 export const chatApi = {
-	sendMessage: async (query: string, file?: File): Promise<ChatAnswer> => {
+	/** No threadId starts a new conversation; the answer says which thread it landed in. */
+	sendMessage: async (query: string, file?: File, threadId?: string | null): Promise<ChatAnswer & { thread_id: string }> => {
 		const form = new FormData();
 		form.append("query", query);
 		if (file) form.append("file", file);
+		if (threadId) form.append("thread_id", threadId);
 		const response = file
 			? await apiClient.post("/chat", form, { headers: { "Content-Type": undefined } })
-			: await apiClient.post("/chat", { query });
+			: await apiClient.post("/chat", threadId ? { query, thread_id: threadId } : { query });
 		return response.data.data;
+	},
+
+	threads: async (): Promise<ChatThread[]> => (await apiClient.get("/chat/threads")).data.threads,
+
+	thread: async (id: string): Promise<{ thread: { id: string; title: string }; messages: { id: string; role: "user" | "assistant"; content: string }[] }> =>
+		(await apiClient.get(`/chat/threads/${encodeURIComponent(id)}`)).data,
+
+	deleteThread: async (id: string): Promise<void> => {
+		await apiClient.delete(`/chat/threads/${encodeURIComponent(id)}`);
 	},
 
 	getSuggestions: () =>
 		cached("/chat/suggestions", async () => (await apiClient.get("/chat/suggestions")).data),
 
-	getHistory: async (limit = 50) => {
-		const response = await apiClient.get("/chat/history", {
-			params: { limit },
-		});
-		return response.data;
-	},
-
-	clearHistory: async () => {
-		const response = await apiClient.delete("/chat/history");
-		return response.data;
-	},
 };
 
 /** A user's own model / search keys (SPEC-BYOK). The key itself never comes back, only its last 4. */
@@ -607,12 +615,12 @@ export const aiAnalyticsApi = {
 			params: riskLevel ? { risk_level: riskLevel } : {},
 		})).data),
 
-	getForecast: async (daysAhead: number = 30) => {
-		const response = await apiClient.get("/api/analytics/forecast", {
-			params: { days_ahead: daysAhead },
-		});
-		return response.data;
-	},
+	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
+	getForecast: (daysAhead: number = 30, insights = true) =>
+		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
+			(await apiClient.get("/api/analytics/forecast", {
+				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
+			})).data),
 
 	getRiskScore: async () => {
 		const response = await apiClient.get("/api/analytics/risk-score");
@@ -720,6 +728,49 @@ export interface Proposal {
 	created_at: string | null;
 }
 
+// Home (UI revamp Phase 3). Text carries {0}/{1} placeholders filled from `amounts` in the user's currency (fill()).
+export interface FoundItem {
+	kind: "duplicate" | "review" | "spike" | "price_rise";
+	tag: string;
+	/** the vendor or category it's about (null for the review queue) */
+	subject: string | null;
+	headline: string;
+	detail: string;
+	amounts: number[];
+	worth: number | null;
+	href: string | null;
+}
+export interface ActivityItem {
+	kind: "statement_import" | "receipt" | "decision";
+	text: string;
+	amounts: number[];
+	at: string;
+}
+export interface HomeSummary {
+	found: FoundItem[];
+	more: number;
+	worth_total: number;
+	activity: ActivityItem[];
+}
+export interface BudgetState {
+	month: string;
+	monthly_budget: number | null;
+	spent: number;
+	categories: { category: string; limit: number; spent: number }[];
+}
+
+export const homeApi = {
+	summary: (): Promise<HomeSummary> => cached("/api/home/summary", async () => (await apiClient.get("/api/home/summary")).data),
+};
+
+export const budgetApi = {
+	get: async (): Promise<BudgetState> => (await apiClient.get("/api/budget")).data,
+	put: async (body: { monthly_budget?: number | null; categories?: { category: string; limit: number | null }[] }): Promise<BudgetState> =>
+		(await apiClient.put("/api/budget", body)).data,
+	/** Files set_budget proposals (nothing is saved until each is approved); [] = not enough history. */
+	draft: async (): Promise<Proposal[]> => (await apiClient.post("/api/budget/draft")).data.proposals,
+};
+
 // The agent's proposals (SPEC-AGENT), served by the FastAPI routes under /api/agent. Questions go through chatApi.
 export const agentApi = {
 	proposals: async (): Promise<Proposal[]> => {
@@ -756,6 +807,12 @@ export const reviewApi = {
 	list: async (): Promise<ReviewItem[]> => {
 		const response = await apiClient.get("/api/review", { params: { status: "flagged" } });
 		return response.data.items;
+	},
+
+	/** Just the number waiting (the sidebar badge). */
+	count: async (): Promise<number> => {
+		const response = await apiClient.get("/api/review", { params: { status: "flagged", count: 1 } });
+		return response.data.count ?? 0;
 	},
 
 	decide: async (id: string, decision: "approve" | "reject", body: { edits?: Record<string, unknown>; note?: string } = {}): Promise<ReviewItem> => {

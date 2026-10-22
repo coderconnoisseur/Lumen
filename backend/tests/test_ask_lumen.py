@@ -153,7 +153,7 @@ def test_chat_llm_auth_failure_is_503_not_401(authed_client, monkeypatch):
     saved = []
     monkeypatch.setattr(chat, "_save_exchange", lambda *a: saved.append(a))
 
-    def dead_key(q, uid):
+    def dead_key(q, uid, *_):
         raise LLMError(LLMError.AUTH, "OpenRouter HTTP 401: User not found.")
 
     monkeypatch.setattr(chat, "_ask", dead_key)
@@ -173,7 +173,7 @@ def test_chat_success_returns_answer_and_saves_history(authed_client, monkeypatc
 
     saved = []
     monkeypatch.setattr(chat, "_save_exchange", lambda *a: saved.append(a))
-    monkeypatch.setattr(chat, "_ask", lambda q, uid: {"query": q, "query_type": "agent",
+    monkeypatch.setattr(chat, "_ask", lambda q, uid, *_: {"query": q, "query_type": "agent",
                                                      "response": "You have no transactions yet."})
 
     resp = authed_client.post(
@@ -181,7 +181,8 @@ def test_chat_success_returns_answer_and_saves_history(authed_client, monkeypatc
     )
     assert resp.status_code == 200
     assert resp.get_json()["data"]["response"] == "You have no transactions yet."
-    assert saved == [("user-1", "total spend", "You have no transactions yet.")]
+    thread_id = resp.get_json()["data"]["thread_id"]  # a new chat gets its own thread (UI revamp Phase 4)
+    assert saved == [("user-1", thread_id, "total spend", "You have no transactions yet.")]
 
 
 @pytest.fixture

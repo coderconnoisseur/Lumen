@@ -7,6 +7,7 @@ the others are recorded decisions until the review queue lands (SPEC-EXTRACT).
 from __future__ import annotations
 
 import json
+import math
 import threading
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -146,16 +147,33 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         p = session.scalar(select(Proposal).where(Proposal.id == proposal_id, Proposal.user_id == user_id))
         if p is None:
             raise HTTPException(404, "Proposal not found")
-        if p.status != "pending":
+        # claim it first (UPDATE ... WHERE status = 'pending'): of two concurrent decisions only one can apply;
+        # anything raised below rolls the claim back with the rest of the transaction
+        now = datetime.utcnow()
+        if not session.execute(update(Proposal).where(
+                Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
+                .values(status=decision, decided_at=now).execution_options(synchronize_session=False)).rowcount:
             raise HTTPException(409, f"Proposal is already {p.status}")
+        p.status, p.decided_at = decision, now
         applied = None
+        if decision == "approved" and p.type == "set_budget":
+            from api.budget import upsert_budget
+
+            # the agent can file set_budget with any payload: only a real positive limit is ever applied
+            try:
+                limit = float(json.loads(p.payload or "{}")["limit"])
+            except (KeyError, TypeError, ValueError):
+                limit = math.nan
+            if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
+                raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
+            upsert_budget(session, user_id, p.target.strip(), limit)
+            applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")
             if category:
                 result = session.execute(update(Transaction).where(
                     Transaction.user_id == user_id, Transaction.invoice_number == p.target).values(category=category))
                 applied = {"category": category, "transactions_updated": result.rowcount}
-        p.status, p.decided_at = decision, datetime.utcnow()
         session.add(AuditEvent(user_id=user_id, actor="user", action=f"proposal_{decision}", proposal_id=p.id,
                                detail=json.dumps({"applied": applied})))
         session.flush()

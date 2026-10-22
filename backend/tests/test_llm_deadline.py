@@ -90,7 +90,7 @@ def test_flask_requests_run_under_the_default_deadline(authed_client, monkeypatc
 
     seen = {}
 
-    def fake_query(q, uid):
+    def fake_query(q, uid, *_):
         seen["remaining"] = remaining()
         return {"query": q, "query_type": "agent", "response": "ok"}
 

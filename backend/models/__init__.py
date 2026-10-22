@@ -144,12 +144,25 @@ class SpendingPattern(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ChatThread(db.Model):
+    """One Ask Lumen conversation (UI revamp Phase 4). Titled from its first question; legacy thread-less messages
+    are folded into an "Earlier chats" thread the first time the user lists threads (routes/chat.py)."""
+    __tablename__ = "chat_threads"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    title = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ChatMessage(db.Model):
-    """Persisted chat history per user."""
+    """Persisted chat history per user, grouped into threads (thread_id NULL = saved before threads existed)."""
     __tablename__ = "chat_messages"
 
     id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(String(36), nullable=False, index=True)
+    thread_id = db.Column(String(36), nullable=True, index=True)
     role = db.Column(db.String(20), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -285,6 +298,21 @@ class Proposal(db.Model):
     status = db.Column(db.String(20), nullable=False, default="pending")  # pending | saving (a save_invoice being applied) | approved | rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     decided_at = db.Column(db.DateTime, nullable=True)
+
+
+class Budget(db.Model):
+    """A monthly spending limit for one category (UI revamp Phase 3). The overall budget is User.monthly_budget.
+    Rows are written only by approving a set_budget proposal or by PUT /api/budget."""
+
+    __tablename__ = "budgets"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    category = db.Column(db.String, nullable=False)
+    monthly_limit = db.Column(db.Float, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "category", name="u_budget_user_category"),)
 
 
 class AuditEvent(db.Model):

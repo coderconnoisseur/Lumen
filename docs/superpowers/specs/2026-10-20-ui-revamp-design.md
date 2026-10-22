@@ -203,3 +203,41 @@ Keep `docs/CODEBASE-GUIDE.md` current in each PR.
 - Chart implementation (keep recharts or hand-rolled SVG like the mockup), as long as it matches the look and passes the perf budget.
 - Mobile layout details beyond "sidebar becomes a sheet".
 - Copy for empty states and the brief's rule templates.
+
+## 12. Deferred backlog (revisit in the phase named)
+
+Small items found while building, parked here so they aren't lost. Tick them off in the PR that fixes them.
+
+- [x] **Phase 2.** The `theme-color` meta is still `#050505` inside the light app, so the mobile browser bar stays black. Make it per route group (`viewport` export in `(app)/layout`). *(Phase 0 review)*
+- [x] **Phase 2.** Muted text on the `#cfe2fb` end of `--band` is about 4.2:1. Use `foreground` for text on the band. *(Phase 0 review)*
+- [x] **Phase 4.** The Ask Lumen chat still uses the dark `.bui` palette inside the light shell. Restyle it to Sky. *(Phase 0)*
+- [ ] **Phase 6.** The global reduced-motion rule also stops loading spinners. Consider exempting spinners with `motion-safe:` or giving them a static "Loading…" label. *(Phase 0 review)*
+- [ ] **Phase 6.** The e2e suite is local and Chromium-only. Add Firefox once Windows allows Playwright's build (`E2E_FIREFOX=1`), and consider running it in CI with the `signIn` fixture. *(Phase 0)*
+- [x] ~~**Phase 6.** `(app)/layout` reads the sidebar cookie on the server.~~ Not needed: the sidebar only renders client-side (behind the auth guard), so Phase 1 reads the cookie there and the app routes stay static. *(Phase 1)*
+- [ ] **Phase 5.** Spending and Bills both show the payment calendar and reminders cards in the interim. Remove the duplicate when the pages are redesigned. *(Phase 1 decision)*
+- [x] **Phase 3.** The sidebar's review badge downloads every flagged item just to count them. Add a count-only endpoint (e.g. `GET /api/review?status=flagged&count=1`). *(Phase 1 review)*
+- [ ] **Phase 5.** `/spending` stacks two old pages, so it has two `<h1>`s and fetches the calendar and reminders twice. It goes away with the redesign. *(Phase 1 review)*
+- [ ] **Phase 6.** iOS Safari 15 and older don't support `overflow-x: clip`, so wide landing marquees could scroll sideways there. If that matters, add an `@supports not (overflow-x: clip)` fallback (not `hidden` on body). *(Phase 1 review)*
+- [x] **Phase 4.** Ctrl/⌘+K checks `e.key === "k"`, so Caps Lock or Shift misses it. Use `e.code === "KeyK"`. *(Phase 1 review)*
+- [ ] **Phase 6.** The sidebar cookie expires after 7 days (shadcn default), so a collapsed rail reopens after a week away. Extend it to about a year. *(Phase 1 review)*
+- [x] **Phase 3.** Replace Home's interim parts: the brief (summary endpoint), Lumen found (subscriptions, spikes, duplicates), Activity (a real feed, including statement imports dated earlier than this month), and wire up Budget and the draft-budget promo. *(Phase 2)*
+- [ ] **Later.** Home sub-tabs (Overview / This month / Year). The chart's range chips cover this for now. *(Phase 2 decision)*
+- [ ] **Phase 5.** The Export and Upload buttons on Home still use the old loud blue `Button` and the dark upload dialog. Restyle them with the dialogs. *(Phase 2)*
+- [x] **Phase 3.** The calendar's `kShort` hardcodes `₹`; use the user's currency symbol like `useMoney`. *(Phase 2 review)*
+- [x] **Phase 3.** `sameDayDelta` only guards a zero previous total. A refund-heavy start of month (negative running total) flips the brief's "lighter"/"heavier". Use `then <= 0`. *(Phase 2 review)*
+- [ ] **Phase 6.** `CountUp` paints the final number for one frame before counting from 0. Start at 0 when it will animate. *(Phase 2 review)*
+- [ ] **Phase 6.** Measure each Home card's real content height against its `skeletonHeight` (the spend card's is estimated at about 270px vs 262px); the CLS test threshold of 0.01 can hide a small shift. *(Phase 2 review)*
+- [x] **Phase 3.** Confirm statement imports write rows before the POST returns. Confirmed: `api/statements.py` commits inside the request. *(Phase 2 review)*
+- [ ] **Later (owner request).** Make "Lumen found" and the budget draft smarter. A plain 3-month mean is skewed by one-off big purchases (a phone, a laptop). Ideas: a median or trimmed mean per category; treat single large purchases as one-offs and leave them out of the limit (or suggest a separate "planned purchases" line); use seasonality and income; let the agent (LLM) explain or adjust a draft line, while approval still stays with the user. Measure any new rule against an eval set before switching. *(Phase 3)*
+- [x] **Phase 4.** `_decide` (api/agent.py) checks `status == pending` without a conditional UPDATE. Two concurrent approvals on Postgres can both apply (duplicate audit lines), and two approvals for the same new category can return 500 on the unique constraint. Use the conditional `update(...).where(status=="pending")` pattern from `_save_invoice`. *(Phase 3 review)*
+- [ ] **Phase 4.** Drafting a budget (HTTP or the agent tool) retires all pending `set_budget` proposals. A draft from Ask while Home's dialog is open makes that dialog's approvals return 409. Two quick drafts can leave two pending sets. Consider scoping by draft id and a per-user lock. *(Phase 3 review; Phase 4: Home's dialog now says "This draft was replaced. Draft again." instead of erroring. Scoping is still open.)*
+- [x] **Phase 4.** After approving draft lines, Home reloads only the budget. Also reload the summary so Activity shows "You approved…" at once. *(Phase 3 review)*
+- [ ] **Phase 6.** `/api/home/summary` and `/api/budget` each scan all of a user's transactions in Python on every Home visit. Fine for a few thousand rows; filter by date in SQL (and cache) if a user grows past that. *(Phase 3 review)*
+- [ ] **Phase 5.** Draft dialog: per-line buttons are named just "Approve" / "Skip". Add the category to their accessible names. The `basis.months` list always shows 3 months even when only 2 had spend. *(Phase 3 review)*
+- [ ] **Phase 5.** `POST /chat` commits a new thread before saving its messages. If that save fails, the response points at an empty titled thread. Create both in one commit. *(Phase 4 review)*
+- [ ] **Phase 5.** A lost approval race returns 409 "Proposal is already pending" (status read before the claim). Re-read the status or use a generic message. *(Phase 4 review)*
+- [ ] **Phase 6.** The `chat_messages.thread_id` index exists only on fresh databases (`_ADDED_COLUMNS` adds the column, not the index). Add `CREATE INDEX IF NOT EXISTS`. Fine at current scale because every query also filters on the indexed `user_id`. *(Phase 4 review)*
+- [ ] **Phase 5.** Thread rail: disable Keep/Delete while an answer is in flight; move focus to "Keep" when the confirm row opens; the trash icon is hover-only, so it's invisible on touch (mobile Sheet). *(Phase 4 review)*
+- [ ] **Phase 5.** Below 768px the sidebar is a Sheet, and `AskPalette` renders inside it, so Ctrl+K on a tablet keyboard does nothing until the sheet is open. Render the palette outside `<Sidebar>`. *(Phase 4 review)*
+- [ ] **Later.** Suggested question "What's waiting for my review?": check the agent can answer it (no review-queue tool). `price_rise` could use its subject ("Why did Netflix go up?"). *(Phase 4 review)*
+- [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*

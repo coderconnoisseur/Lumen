@@ -28,7 +28,7 @@ export default function DemoPage() {
 				headers: { Authorization: `Bearer ${data.session.access_token}` },
 			});
 			if (!res.ok) throw new Error(`Demo setup failed (${res.status})`);
-			router.replace("/chatbot");
+			router.replace("/ask");
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Something went wrong.";
 			// Don't leave the visitor signed in to an empty demo account: sign out so a retry starts clean.
@@ -41,7 +41,7 @@ export default function DemoPage() {
 	useEffect(() => {
 		if (loading || started.current) return;
 		started.current = true;
-		if (user) router.replace("/chatbot");
+		if (user) router.replace("/ask");
 		else start();
 	}, [loading, user, router, start]);
 

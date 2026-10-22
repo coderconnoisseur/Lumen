@@ -209,9 +209,9 @@ class AnalyticsOrchestrator:
         
         return anomalies
     
-    def get_forecast(self, user_id: int, days_ahead: int = 30) -> Dict:
-        """Get spending forecast"""
-        return self.forecast_agent.forecast_spending(user_id, days_ahead)
+    def get_forecast(self, user_id: int, days_ahead: int = 30, use_llm: bool = True) -> Dict:
+        """Get spending forecast (use_llm=False skips the LLM-written insight text, e.g. for Home's chart)"""
+        return self.forecast_agent.forecast_spending(user_id, days_ahead, use_llm=use_llm)
     
     def _risk(self, user_id) -> Dict:
         """The risk score with the user's own budget and income from onboarding, when given (SPEC-ONBOARD)."""
