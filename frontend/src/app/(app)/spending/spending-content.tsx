@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/page/page-header";
 import { useMoney } from "@/lib/format";
 import { cumulative, dayIndex, sameDayDelta } from "@/lib/home-math";
-import { byCategory, monthlyTotals, spendPeriods, type Choice } from "@/lib/spending-math";
+import { byCategory, monthlyTotals, needsCategory, spendPeriods, type Choice } from "@/lib/spending-math";
 import { cn } from "@/lib/utils";
 import { Brief } from "../home/_components/brief";
+import { LumenFound } from "../home/_components/lumen-found";
+import { ByCategory } from "./_components/by-category";
 import { SpendingHero } from "./_components/hero";
 import { useSpendingData } from "./use-spending-data";
 
@@ -36,6 +39,18 @@ export default function SpendingContent() {
 	const choice: Choice = preset === "custom" ? { from: fromInput(custom.from), to: fromInput(custom.to) } : preset;
 	const p = spendPeriods(choice, today);
 	const data = useSpendingData(choice, today);
+	// the category filter lives in the URL (?category=), so it survives a reload and can be linked to
+	const router = useRouter();
+	const pathname = usePathname();
+	const params = useSearchParams();
+	const category = params.get("category");
+	const setCategory = (c: string | null) => {
+		const next = new URLSearchParams(params.toString());
+		if (c) next.set("category", c);
+		else next.delete("category");
+		const q = next.toString();
+		router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+	};
 
 	const t = Math.min(Math.max(dayIndex(p.current, today), 0), p.current.days - 1);
 	const cur = cumulative(data.txns, p.current);
@@ -124,6 +139,17 @@ export default function SpendingContent() {
 					today={today}
 					loading={data.status === "loading"}
 				/>
+				<div className="mt-3.5 grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
+					<ByCategory
+						rows={byCategory(data.txns, data.prevTxns)}
+						compare={compare}
+						selected={category}
+						onSelect={setCategory}
+						needsCategory={needsCategory(data.txns)}
+						loading={data.status === "loading"}
+					/>
+					<LumenFound title="Lumen noticed" summary={data.summary} loading={data.status === "loading"} />
+				</div>
 			</div>
 		</div>
 	);

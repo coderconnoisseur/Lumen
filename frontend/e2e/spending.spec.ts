@@ -86,3 +86,28 @@ test("3M and YTD show the months as the main chart", async ({ page }) => {
 	await expect(hero(page).getByTestId("month-bars-main")).toBeVisible();
 	await expect(hero(page).locator('[data-series="current"]')).toHaveCount(0);
 });
+
+test("by category: bars, filter by click, clear", async ({ page }) => {
+	await openSpending(page);
+	const card = page.getByTestId("by-category");
+	const rows = card.getByTestId("category-row");
+	await expect(rows).toHaveCount(3);
+	await expect(rows.first()).toContainText("Shopping");
+	await expect(rows.first()).toContainText("₹11,498");
+	await rows.first().click();
+	await expect(page).toHaveURL(/category=Shopping/);
+	await expect(card).toContainText("Filtering transactions: Shopping");
+	await expect(rows.first()).toHaveAttribute("aria-pressed", "true");
+	await card.getByRole("button", { name: "Clear" }).click();
+	await expect(page).not.toHaveURL(/category=/);
+	await expect(card).toContainText("1 transaction still needs a category");
+});
+
+test("lumen noticed uses the same findings as Home", async ({ page }) => {
+	const spike = { kind: "spike", tag: "SPENDING", subject: "Shopping", headline: "Shopping is up 35%", detail: "{0} so far.", amounts: [11498], worth: null, href: "/spending" };
+	await openSpending(page, { ...sample, summary: { found: [spike] } });
+	const card = page.getByTestId("lumen-found");
+	await expect(card).toContainText("Lumen noticed");
+	await expect(card.getByTestId("found-row")).toContainText("Shopping is up 35%");
+	await expect(card.getByRole("link", { name: "Ask Lumen" })).toHaveAttribute("href", /^\/ask\?draft=/);
+});

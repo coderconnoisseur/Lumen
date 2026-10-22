@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from urllib.parse import quote
 
 from ai.budget import _display_names, _key
 from ai.recurring import _norm
@@ -90,7 +91,8 @@ def _spikes(txns: list[dict], today: date) -> list[dict]:
             pct = round((n - p) / p * 100)
             out.append((pct, {"kind": "spike", "tag": "SPENDING", "subject": names[k], "headline": f"{names[k]} is up {pct}%",
                               "detail": "{0} so far vs {1} by this point last month.",
-                              "amounts": [round(n), round(p)], "worth": None, "href": "/spending"}))
+                              "amounts": [round(n), round(p)], "worth": None,
+                              "href": f"/spending?category={quote(names[k])}"}))
     return [s for _, s in sorted(out, key=lambda x: -x[0])]
 
 
