@@ -7,7 +7,7 @@ import { PageCard } from "@/components/page/page-card";
 import { PageHeader } from "@/components/page/page-header";
 import { VendorChip } from "@/components/page/vendor-chip";
 import { billsApi, type RecurringItem, type RecurringState } from "@/lib/api/client";
-import { billsOnCalendar, tiles, upcoming } from "@/lib/bills-math";
+import { billsOnCalendar, dateTag, nextBillSentence, tiles, upcoming } from "@/lib/bills-math";
 import { useMoney } from "@/lib/format";
 import { parseDay } from "@/lib/home-math";
 import { toast } from "@/lib/toast";
@@ -18,7 +18,6 @@ type Tab = "subscriptions" | "bills" | "all";
 const TAB_LABEL: Record<Tab, string> = { all: "All", subscriptions: "Subscriptions", bills: "Bills" };
 const monthYear = (y: number, m: number) => new Date(y, m, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
-const weekday = (d: Date) => d.toLocaleString("en-GB", { weekday: "long" });
 const isSubscription = (i: RecurringItem) => i.kind === "subscription";
 
 // Bills & subscriptions (UI revamp Phase 5c, spec 2026-10-22 §4.3): what's due, what recurs, what can I cut?
@@ -50,13 +49,12 @@ export default function BillsContent() {
 	const items = data?.items ?? [];
 	const t = tiles(items, today);
 	const groups = upcoming(items, today);
-	const next = groups[0]?.rows[0];
 	const brief = loading
 		? null
 		: items.length === 0
 			? "Lumen hasn't spotted any regular payments yet. They show up here after three similar charges."
 			: [
-					next && `${next.vendor} of ${money(next.amount)} is due ${next.date.getTime() === today.getTime() ? "today" : weekday(next.date)}.`,
+					nextBillSentence(groups, today, money),
 					t.stopped.count > 0 &&
 						`${t.stopped.count} ${t.stopped.count === 1 ? "subscription looks" : "subscriptions look"} stopped, about ${money(t.stopped.perMonth)} a month.`,
 				]
@@ -125,7 +123,7 @@ export default function BillsContent() {
 									{g.rows.map((r) => (
 										<div key={`${r.vendor}-${r.date.getTime()}`} className="flex items-center gap-3 border-b border-border/60 py-2 text-[13.5px] last:border-0">
 											<span className="w-[38px] shrink-0 rounded-[9px] border border-border py-1 text-center leading-tight">
-												<span className="block text-[10px] text-muted-foreground uppercase">{r.date.toLocaleString("en-GB", { weekday: "short" })}</span>
+												<span className="block text-[10px] text-muted-foreground uppercase">{dateTag(r.date, today)}</span>
 												<b className="block text-[14px] font-medium">{r.date.getDate()}</b>
 											</span>
 											<span className="min-w-0 flex-1">
@@ -177,7 +175,7 @@ export default function BillsContent() {
 									<VendorChip name={i.vendor} className="opacity-60" />
 									<span className="min-w-0 flex-1 truncate">{i.vendor}</span>
 									<span className="tabular-nums">{money(i.typical_amount)}</span>
-									<button type="button" onClick={() => void choose(i.vendor, "active")} className="label-ui text-primary hover:underline">
+									<button type="button" aria-label={`Undo cancelling ${i.vendor}`} onClick={() => void choose(i.vendor, "active")} className="label-ui text-primary hover:underline">
 										Undo
 									</button>
 								</div>
@@ -194,7 +192,7 @@ export default function BillsContent() {
 									{data!.hidden.map((h) => (
 										<div key={h.vendor_key} className="flex items-center gap-3 py-1 text-muted-foreground">
 											<span className="flex-1">{h.vendor} · not a bill</span>
-											<button type="button" onClick={() => void choose(h.vendor, "active")} className="label-ui text-primary hover:underline">
+											<button type="button" aria-label={`Undo hiding ${h.vendor}`} onClick={() => void choose(h.vendor, "active")} className="label-ui text-primary hover:underline">
 												Undo
 											</button>
 										</div>
@@ -240,13 +238,13 @@ function RecurringRow({ item: i, onChoose }: { item: RecurringItem; onChoose: (v
 				<span className="block text-[11px] font-normal text-muted-foreground">a {i.cadence === "weekly" ? "week" : i.cadence === "yearly" ? "year" : "month"}</span>
 			</span>
 			<span className="col-span-2 flex flex-wrap justify-end gap-3 text-[12px] md:col-span-1">
-				<button type="button" onClick={() => onChoose(i.vendor, "cancelled")} className="text-muted-foreground hover:text-foreground">
+				<button type="button" aria-label={`Mark ${i.vendor} as cancelled`} onClick={() => onChoose(i.vendor, "cancelled")} className="text-muted-foreground hover:text-foreground">
 					Mark as cancelled
 				</button>
-				<button type="button" onClick={() => onChoose(i.vendor, "not_a_bill")} className="text-muted-foreground hover:text-foreground">
+				<button type="button" aria-label={`Mark ${i.vendor} as not a bill`} onClick={() => onChoose(i.vendor, "not_a_bill")} className="text-muted-foreground hover:text-foreground">
 					Not a bill
 				</button>
-				<Link href={`/ask?draft=${encodeURIComponent(`How do I cancel ${i.vendor}?`)}`} className="text-primary hover:underline">
+				<Link href={`/ask?draft=${encodeURIComponent(`How do I cancel ${i.vendor}?`)}`} aria-label={`How to cancel ${i.vendor}`} className="text-primary hover:underline">
 					How to cancel
 				</Link>
 			</span>

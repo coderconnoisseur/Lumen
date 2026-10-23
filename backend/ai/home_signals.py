@@ -46,7 +46,7 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
     per_vendor = defaultdict(int)
     for v, *_ in recent:
         per_vendor[v] += 1
-    recent = [r for r in recent if per_vendor[r[0]] < HABIT_CHARGES]
+    # ...on neighbouring days. The same amount twice on the same day is still worth a look, even from a habit
     recent.sort(key=lambda r: (r[0], r[1]))
     out, used = [], set()
     for i, (v, d, amount, t) in enumerate(recent):
@@ -54,6 +54,8 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
             v2, d2, amount2, _ = recent[j]
             if v2 != v or (d2 - d).days > 1:
                 break
+            if per_vendor[v] >= HABIT_CHARGES and d2 != d:
+                continue
             if j not in used and i not in used and abs(amount2 - amount) <= 1:
                 used |= {i, j}
                 when = f"Charged twice on {_short(d)}." if d == d2 else f"Charged on {_short(d)} and {_short(d2)}."

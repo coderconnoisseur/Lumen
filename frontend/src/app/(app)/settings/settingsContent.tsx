@@ -2,7 +2,7 @@
 
 // Settings: the user's own model keys (SPEC-BYOK). Bare-bones on purpose; the inner-app revamp restyles it.
 import { useCallback, useEffect, useState } from "react";
-import { DashboardShell } from "@/components/dashboard-shell";
+import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -174,22 +174,22 @@ export default function SettingsContent() {
 	useEffect(load, [load]);
 
 	return (
-		<DashboardShell
-			title="Settings"
-			description="Add your own model keys. Without one, Lumen's free allowance applies."
-			eyebrow="Account"
-		>
+		<div className="px-4 py-6 sm:px-6 lg:px-8">
+			<PageHeader
+				title="Settings"
+				brief={<p className="font-serif text-[19px] leading-[1.45] text-foreground/80">Add your own model keys. Without one, Lumen&apos;s free allowance applies.</p>}
+			/>
 			<div id="keys" className="flex max-w-3xl flex-col gap-3">
-				{data?.providers.map((p) => (
+				{data?.providers?.map((p) => (
 					<KeyRow key={p.provider} p={p} onChange={load} />
 				))}
 				{data && (
 					<p className="text-sm text-muted-foreground">
 						Models in use:{" "}
-						{ROLES.map(([role, label]) => `${label} → ${data.in_use[role] ?? "platform"}`).join(" · ")}
+						{ROLES.map(([role, label]) => `${label} → ${!data.in_use?.[role] || data.in_use[role] === "platform" ? "Lumen's free allowance" : data.in_use[role]}`).join(" · ")}
 					</p>
 				)}
 			</div>
-		</DashboardShell>
+		</div>
 	);
 }

@@ -302,3 +302,17 @@ def test_writes_can_name_the_clients_month_within_one_of_the_servers(setup):
     assert c.put("/api/budget", headers=bearer(A), json={"month": ym(2), "categories": []}).status_code == 422
     assert c.get(f"/api/budget/history?months=2&to={nxt}", headers=bearer(A)).json()["months"][-1]["month"] == nxt
     assert c.get(f"/api/budget/history?months=2&to={ym(3)}", headers=bearer(A)).status_code == 422
+
+
+def test_draft_reasons_show_amounts_in_the_users_currency(setup):
+    c, engine = setup
+    history(engine, A)
+    food = next(p for p in c.post("/api/budget/draft", headers=bearer(A)).json()["proposals"] if p["target"] == "Food")
+    assert "₹4,000 a month" in food["reason"]  # no profile currency: the default (INR)
+    c.put("/api/budget", headers=bearer(A), json={"month": ym(0), "monthly_budget": 1})
+    from models import User
+
+    with Session(engine) as s, s.begin():
+        s.get(User, A).currency = "USD"
+    food = next(p for p in c.post("/api/budget/draft", headers=bearer(A)).json()["proposals"] if p["target"] == "Food")
+    assert "$4,000 a month" in food["reason"]

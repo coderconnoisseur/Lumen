@@ -62,18 +62,19 @@ export default function SpendingContent() {
 	const total = cur[t] ?? 0;
 	const delta = sameDayDelta(cur, prev, t);
 
-	// "Shopping is most of the jump, and one Croma order is ₹9,999 of it." only when it's true; otherwise the total.
+	// "Shopping is up ₹18,514, more than the whole rise, including one TechHub payment of ₹18,514." Only when it's true;
+	// otherwise the total. The category's rise is compared with the month's rise, so the sentence can't contradict itself.
 	const brief = (() => {
 		if (data.status === "loading") return null;
 		const cats = byCategory(data.txns, data.prevTxns);
 		const top = [...cats].sort((a, b) => b.change - a.change)[0];
-		if (delta && delta.abs > 0 && top && top.change > delta.abs * 0.4) {
-			// name a payment only if it explains the rise: inside it ("one ₹9,999 payment" can't be most of a ₹2,000
-			// rise) and at least half of it (a ₹1 payment explains nothing)
+		if (delta && delta.abs > 0 && top && top.change >= delta.abs * 0.5) {
+			const share = top.change > delta.abs ? "more than the whole rise" : top.change === delta.abs ? "all of the rise" : "most of the rise";
+			// name a payment only if it explains the category's rise: inside it and at least half of it
 			const biggest = data.txns
 				.filter((x) => (x.category || "Uncategorised") === top.category && (x.total_amount ?? 0) <= top.change && (x.total_amount ?? 0) >= top.change / 2)
 				.sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0))[0];
-			return `${top.category} is most of the jump${biggest?.vendor_name ? `, and one ${biggest.vendor_name} payment is ${money(biggest.total_amount ?? 0)} of it` : ""}.`;
+			return `${top.category} is up ${money(Math.round(top.change))}, ${share}${biggest?.vendor_name ? `, including one ${biggest.vendor_name} payment of ${money(biggest.total_amount ?? 0)}` : ""}.`;
 		}
 		return `You've spent ${money(Math.round(total))} in ${p.label}${preset === "this-month" ? " so far" : ""}.`;
 	})();

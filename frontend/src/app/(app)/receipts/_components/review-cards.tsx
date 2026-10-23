@@ -165,15 +165,15 @@ function ReviewCard({ item, onDecided }: { item: ReviewItem; onDecided: (id: str
 					</>
 				) : (
 					<>
-						<button type="button" disabled={busy} onClick={() => void decide("approve")} className="rounded-full border border-good/40 bg-good/10 px-3 py-1 text-[12.5px] text-good disabled:opacity-50">
+						<button type="button" aria-label={duplicate ? `Keep both ${vendor} receipts` : `Approve ${vendor}`} disabled={busy} onClick={() => void decide("approve")} className="rounded-full border border-good/40 bg-good/10 px-3 py-1 text-[12.5px] text-good disabled:opacity-50">
 							{duplicate ? "Keep both" : "Approve"}
 						</button>
 						{!duplicate && (
-							<button type="button" onClick={() => setEditing(true)} className="rounded-full border border-border bg-card px-3 py-1 text-[12.5px]">
+							<button type="button" aria-label={`Edit ${vendor}`} onClick={() => setEditing(true)} className="rounded-full border border-border bg-card px-3 py-1 text-[12.5px]">
 								Edit
 							</button>
 						)}
-						<button type="button" disabled={busy} onClick={() => void decide("reject")} className="ml-auto rounded-full px-3 py-1 text-[12.5px] text-bad hover:bg-bad/10 disabled:opacity-50">
+						<button type="button" aria-label={`Reject ${vendor}`} disabled={busy} onClick={() => void decide("reject")} className="ml-auto rounded-full px-3 py-1 text-[12.5px] text-bad hover:bg-bad/10 disabled:opacity-50">
 							Reject
 						</button>
 					</>

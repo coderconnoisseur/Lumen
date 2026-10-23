@@ -14,8 +14,10 @@ export function spendPeriods(choice: Choice, today: Date): { current: Period; pr
 	const y = today.getFullYear();
 	const m = today.getMonth();
 	if (typeof choice === "object") {
-		const current = period(choice.from, choice.to);
-		const prevEnd = new Date(choice.from.getFullYear(), choice.from.getMonth(), choice.from.getDate() - 1);
+		// a date typed past the other input's limit can arrive backwards; read it forwards rather than as -n days
+		const [from, to] = choice.from <= choice.to ? [choice.from, choice.to] : [choice.to, choice.from];
+		const current = period(from, to);
+		const prevEnd = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
 		const previous = period(new Date(prevEnd.getFullYear(), prevEnd.getMonth(), prevEnd.getDate() - current.days + 1), prevEnd);
 		return { current, previous, label: `${dayMonth(current.start)} – ${dayMonth(current.end)}`, prevLabel: "the days before" };
 	}

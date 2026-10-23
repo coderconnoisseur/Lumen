@@ -46,7 +46,7 @@ export function BudgetHero({
 			extra={
 				total !== null && (
 					<span className={cn("rounded-full px-2 py-0.5 normal-case", tone === "bad" ? "bg-bad/10 text-bad" : tone === "warn" ? "bg-amber-500/10 text-amber-700" : "bg-good/10 text-good")}>
-						{over ? "Over budget" : p.evenPct === null ? "Within budget" : tone === "warn" ? "Ahead of pace" : "On track"}
+						{over ? "Over budget" : p.evenPct === null ? "Within budget" : tone === "warn" ? "Over pace" : "On track"}
 					</span>
 				)
 			}

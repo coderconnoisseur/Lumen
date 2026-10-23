@@ -84,7 +84,7 @@ export default function BudgetContent() {
 		if (!current) return spent > total ? `${monthLong(month)} went ${money(Math.round(spent - total))} over its ${money(total)} budget.${overText}` : `${monthLong(month)} came in ${money(Math.round(total - spent))} under its ${money(total)} budget.${overText}`;
 		if (spent > total) return `You're ${money(Math.round(spent - total))} over this month's budget.${overText}`;
 		const p = pace(total, spent, today, month);
-		return p.vsPace! <= 0 ? `You're on track: ${money(Math.round(-p.vsPace!))} under where an even pace would put you.${overText}` : `You're ${money(Math.round(p.vsPace!))} ahead of an even pace, with ${p.daysLeft} days to go.${overText}`;
+		return p.vsPace! <= 0 ? `You're on track: ${money(Math.round(-p.vsPace!))} under where an even pace would put you.${overText}` : `You're ${money(Math.round(p.vsPace!))} over an even pace, with ${p.daysLeft} days to go.${overText}`;
 	})();
 
 	const step = (d: number) => {

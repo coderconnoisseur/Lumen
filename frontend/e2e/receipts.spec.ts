@@ -44,15 +44,15 @@ test("review cards highlight the doubtful field and say why", async ({ page }) =
 	await expect(card(page, "FreshMart").locator("[data-doubtful]")).toHaveText(["Bill no."]);
 	await expect(card(page, "FreshMart")).toContainText("Looks like a duplicate.");
 	await expect(card(page, "FreshMart")).toContainText("from email");
-	await expect(card(page, "FreshMart").getByRole("button", { name: "Keep both" })).toBeVisible();
-	await expect(card(page, "FreshMart").getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+	await expect(card(page, "FreshMart").getByRole("button", { name: "Keep both FreshMart receipts" })).toBeVisible();
+	await expect(card(page, "FreshMart").getByRole("button", { name: /^Approve/ })).toHaveCount(0);
 });
 
 test("edit then approve sends only the changed fields", async ({ page }) => {
 	const bodies: unknown[] = [];
 	page.on("request", (r) => r.url().endsWith("/api/review/r1/approve") && bodies.push(r.postDataJSON()));
 	await openReceipts(page);
-	await card(page, "Croma").getByRole("button", { name: "Edit" }).click();
+	await card(page, "Croma").getByRole("button", { name: "Edit Croma" }).click();
 	await card(page, "Croma").getByRole("textbox", { name: "Total" }).fill("9990");
 	await card(page, "Croma").getByRole("button", { name: "Save & approve" }).click();
 	await expect(card(page, "Croma")).toHaveCount(0);
@@ -62,7 +62,7 @@ test("edit then approve sends only the changed fields", async ({ page }) => {
 test("reject removes the card and the sidebar badge drops", async ({ page }) => {
 	await openReceipts(page);
 	await expect(page.locator('[data-sidebar="menu-badge"]')).toHaveText("2");
-	await card(page, "FreshMart").getByRole("button", { name: "Reject" }).click();
+	await card(page, "FreshMart").getByRole("button", { name: "Reject FreshMart" }).click();
 	await expect(card(page, "FreshMart")).toHaveCount(0);
 	await expect(page.locator('[data-sidebar="menu-badge"]')).toHaveText("1");
 });
@@ -191,14 +191,14 @@ test("a review card and a document open their original", async ({ page }) => {
 
 test("a decision the server refuses says why", async ({ page }) => {
 	await openReceipts(page, { ...sample, replaced: ["r1"] });
-	await card(page, "Croma").getByRole("button", { name: "Approve", exact: true }).click();
+	await card(page, "Croma").getByRole("button", { name: "Approve Croma" }).click();
 	await expect(page.getByText("This invoice is already recorded")).toBeVisible();
 	await expect(card(page, "Croma")).toHaveCount(1);
 });
 
 test("an edit can't approve an empty or non-numeric total", async ({ page }) => {
 	await openReceipts(page);
-	await card(page, "Croma").getByRole("button", { name: "Edit" }).click();
+	await card(page, "Croma").getByRole("button", { name: "Edit Croma" }).click();
 	const total = card(page, "Croma").getByRole("textbox", { name: "Total" });
 	const save = card(page, "Croma").getByRole("button", { name: "Save & approve" });
 	await total.fill("");

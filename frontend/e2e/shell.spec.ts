@@ -275,3 +275,11 @@ test("spending and bills show no cards that can never load", async ({ page }) =>
 	await expect(page.getByTestId("recurring-table")).toContainText("Netflix");
 	await expect(page.getByText(/Could not load/)).toHaveCount(0);
 });
+
+test("settings uses the shared page header, not the old all-caps eyebrow card", async ({ page }) => {
+	await signIn(page);
+	await page.goto("/settings");
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+	await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-size", "26px");
+	await expect(page.getByText("Account", { exact: true })).toHaveCount(0);
+});
