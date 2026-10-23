@@ -236,7 +236,7 @@ def test_split_follow_up():
     from agent.graph import split_follow_up
     assert split_follow_up("You spent 500.\nNext: Which vendor was it?") == ("You spent 500.", "Which vendor was it?")
     assert split_follow_up("No suggestion here.") == ("No suggestion here.", None)
-    assert split_follow_up("Next: a\nmore\nnext:  b ") == ("Next: a\nmore", "b")
+    assert split_follow_up("Next: a\nmore\nnext:  b ") == ("Next: a\nmore", "B")
     assert split_follow_up("A.\n**Next:** Which?") == ("A.", "Which?")
     assert split_follow_up("A.\n**Next: Which?**") == ("A.", "Which?")
     assert split_follow_up("We do this next: tomorrow.") == ("We do this next: tomorrow.", None)
@@ -726,3 +726,19 @@ def test_split_follow_up_variants(text, answer, chip):
     from agent.graph import split_follow_up
 
     assert split_follow_up(text) == (answer, chip)
+
+
+def test_advice_kept_in_the_answer_starts_with_a_capital():
+    """A "Next:" that is advice for the user goes back into the answer as its own sentence (seen live: "you might...")."""
+    from agent.graph import split_follow_up
+
+    nl = chr(10)
+    answer, chip = split_follow_up(f"You spent 500.{nl}Next: you might want to see the top 5 vendors.")
+    assert chip is None and answer == f"You spent 500.{nl}{nl}You might want to see the top 5 vendors."
+
+
+def test_a_suggestion_chip_starts_with_a_capital():
+    from agent.graph import split_follow_up
+
+    nl = chr(10)
+    assert split_follow_up(f"You spent 500.{nl}Next: show my top 5 vendors") == ("You spent 500.", "Show my top 5 vendors")

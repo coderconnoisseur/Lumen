@@ -47,6 +47,8 @@ export type ChatFixture = {
 	answer?: string;
 	/** the "Next:" suggestion POST /chat returns (default none) */
 	followUp?: string;
+	/** the agent's steps POST /chat returns (default none) */
+	steps?: { tool: string; args: object; summary: string }[];
 	suggestions?: string[];
 	/** hold each POST /chat this long (or per question), to test the in-flight state */
 	delayMs?: number | ((query: string) => number);
@@ -231,7 +233,7 @@ export async function signIn(
 			const response = opts.chat?.answer ?? `Answer to: ${body.query}`;
 			t.messages.push({ role: "user", content: body.query }, { role: "assistant", content: response });
 			return route.fulfill({
-				json: { success: true, data: { response, follow_up: opts.chat?.followUp ?? null, sources: [], steps: [], proposals: [], stopped: "answer", thread_id: t.id } },
+				json: { success: true, data: { response, follow_up: opts.chat?.followUp ?? null, sources: [], steps: opts.chat?.steps ?? [], proposals: [], stopped: "answer", thread_id: t.id } },
 			});
 		}
 		if (path === "/api/profile")

@@ -194,6 +194,25 @@ test("period chips stay on one line at phone width", async ({ page }) => {
 
 test("the brief only names a payment that fits inside the jump", async ({ page }) => {
 	await openSpending(page, { txns: [tx("a", "Croma", thisMonth(1), 9999, "Shopping"), tx("b", "Bata", thisMonth(1), 1, "Shopping"), tx("c", "Myntra", lastMonth(1), 8000, "Shopping")] });
-	await expect(page.getByTestId("brief")).toContainText("Shopping is most of the jump.");
+	await expect(page.getByTestId("brief")).toContainText("Shopping is up ₹2,000, all of the rise.");
 	await expect(page.getByTestId("brief")).not.toContainText("Croma");
+});
+
+test("a category that rose more than the whole month says so, with the payment behind it", async ({ page }) => {
+	// seen live: Shopping +₹18,514 while the month was only +₹9,114 ("one payment is ₹18,514 of it")
+	await openSpending(page, { txns: [tx("a", "TechHub Electronics", thisMonth(1), 18514, "Shopping"), tx("b", "Rent", thisMonth(1), 1000, "Rent"), tx("c", "Rent", lastMonth(1), 10400, "Rent")] });
+	await expect(page.getByTestId("brief")).toContainText("Shopping is up ₹18,514, more than the whole rise, including one TechHub Electronics payment of ₹18,514.");
+});
+
+
+test("a custom range typed backwards doesn't break the page", async ({ page }) => {
+	const errors: string[] = [];
+	page.on("pageerror", (e) => errors.push(e.message));
+	await openSpending(page);
+	await page.getByRole("button", { name: "Custom", exact: true }).click();
+	await page.getByLabel("To", { exact: true }).fill(lastMonth(2));
+	await page.getByLabel("From", { exact: true }).fill(thisMonth(1));
+	await page.waitForTimeout(1500);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Spending");
+	expect(errors).toEqual([]);
 });

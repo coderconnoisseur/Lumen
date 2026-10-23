@@ -124,11 +124,14 @@ def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
     """File one pending set_budget proposal per drafted line, after retiring the user's still-pending ones."""
     from ai.budget import draft_budget
     from api.agent import _proposal_dict
-    from models import AuditEvent, Proposal
+    from models import AuditEvent, Proposal, User
+    from utils.money import fmt
 
     with engine.connect() as conn:
         lines = draft_budget(_txns(conn, user_id), today)
     with Session(engine) as session, session.begin():
+        user = session.get(User, user_id)
+        currency = user.currency if user else None
         for old in session.scalars(select(Proposal).where(Proposal.user_id == user_id, Proposal.type == "set_budget",
                                                           Proposal.status == "pending")).all():
             old.status, old.decided_at = "rejected", datetime.utcnow()
@@ -140,7 +143,7 @@ def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
             span = f"{date.fromisoformat(months[0] + '-01'):{_MONTH}}–{date.fromisoformat(months[-1] + '-01'):{_MONTH}}"
             p = Proposal(user_id=user_id, type="set_budget", target=line["category"], risk="low",
                          payload=json.dumps({"limit": line["limit"], "basis": line["basis"], "month": this_month(today)}),
-                         reason=f"Averaged {line['basis']['average']:,.0f} a month over {span}, rounded up.",
+                         reason=f"Averaged {fmt(line['basis']['average'], currency)} a month over {span}, rounded up.",
                          evidence="[]", status="pending")
             session.add(p)
             session.flush()

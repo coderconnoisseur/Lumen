@@ -135,3 +135,17 @@ def test_spike_links_to_spending_filtered_to_its_category():
     big = [t("2026-09-05", 5000, "X", "Food & Dining"), t("2026-10-05", 6750, "X", "Food & Dining")]
     [s] = find_signals(big, TODAY, 0, [])
     assert s["href"] == "/spending?category=Food%20%26%20Dining"
+
+
+def test_a_same_day_double_charge_from_a_vendor_you_use_often_is_still_flagged():
+    """Seen live: QuickBite (4 orders this month) charged 571 twice on 9 Oct, and Lumen found said nothing."""
+    orders = [t("2026-10-04", 288, "QuickBite", "Food"), t("2026-10-08", 346, "QuickBite", "Food"),
+              t("2026-10-09", 571, "QuickBite", "Food"), t("2026-10-09", 571, "QuickBite", "Food")]
+    [d] = find_signals(orders, TODAY, 0, [])
+    assert d["kind"] == "duplicate" and d["subject"] == "QuickBite" and d["detail"] == "Charged twice on 9 Oct."
+
+
+def test_a_habit_vendor_on_neighbouring_days_is_still_not_a_duplicate():
+    coffee = [t("2026-10-10", 180, "Blue Tokai", "Food"), t("2026-10-11", 180, "Blue Tokai", "Food"),
+              t("2026-10-12", 180, "Blue Tokai", "Food")]
+    assert find_signals(coffee, TODAY, 0, []) == []
