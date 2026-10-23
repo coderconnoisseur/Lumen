@@ -76,3 +76,9 @@ test("inCategory matches regardless of case (links carry the most common spellin
 	expect(inCategory(t(null), "Uncategorised")).toBe(true);
 	expect(inCategory(t("Other"), "Uncategorised")).toBe(true);
 });
+
+test("spendPeriods: a custom range given backwards is read forwards", () => {
+	const p = spendPeriods({ from: new Date(2026, 9, 20), to: new Date(2026, 9, 1) }, new Date(2026, 9, 22));
+	expect([p.current.start.getDate(), p.current.end.getDate(), p.current.days]).toEqual([1, 20, 20]);
+	expect(p.previous.days).toBe(20);
+});

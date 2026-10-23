@@ -38,7 +38,8 @@ type Message = {
 };
 
 // Tools whose results are the user's own data; an answer built on them has evidence even without a cited passage.
-const DATA_TOOLS = new Set(["run_sql", "get_invoice", "get_anomalies", "forecast", "lookup_vendors"]);
+// tools that read the user's own data (backend agent/tools.py): an answer that used one is backed by it
+const DATA_TOOLS = new Set(["get_overview", "run_sql", "get_invoice", "get_anomalies", "forecast", "lookup_vendors", "get_recurring"]);
 
 function greeting() {
 	const hour = new Date().getHours();

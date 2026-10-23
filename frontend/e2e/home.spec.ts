@@ -488,3 +488,23 @@ test("budget card: refunds draw an empty bar", async ({ page }) => {
 	await openHome(page, { ...typical, budget: { monthly_budget: 28000, spent: -500, categories: [{ category: "Food", limit: 8000, spent: -500 }] } });
 	await expect(page.getByTestId("budget-cat").locator("i")).toHaveAttribute("style", /width: 0%/);
 });
+
+test("an empty Lumen found says what it watches for", async ({ page }) => {
+	await openHome(page, { ...typical, summary: { found: [] } });
+	await expect(page.getByTestId("lumen-found")).toContainText("Nothing needs you right now.");
+	await expect(page.getByTestId("lumen-found")).toContainText("double charges");
+});
+
+test("coming up: a bill in next month shows the month, not a weekday that reads like this month", async ({ page }) => {
+	const first = ymd(Y, M + 1, 1);
+	await openHome(page, { ...typical, reminders: [{ id: "w", vendor: "AquaWorks", amount: 573, date: first, type: "upcoming" }] });
+	const nextShort = new Date(Y, M + 1, 1).toLocaleString("en-GB", { month: "short" });
+	await expect(page.getByTestId("bills-card").getByText(nextShort, { exact: true })).toBeVisible();
+});
+
+test("coming up keeps a bill that's late but not stopped, marked late", async ({ page }) => {
+	const late = { vendor: "City Power", category: "Bills", cadence: "monthly", typical_amount: 2444, last_charge_date: inDays(-33),
+		next_due_date: inDays(-3), charges_count: 3, price_change: null, kind: "bill", possibly_stopped: false, state: "active" };
+	await openHome(page, { ...typical, recurring: [late] });
+	await expect(page.getByTestId("bill-row").filter({ hasText: "City Power" })).toContainText("Late");
+});

@@ -93,3 +93,23 @@ export function billsOnCalendar(items: RecurringItem[], year: number, month: num
 	}
 	return out;
 }
+
+// The brief's first sentence, about the soonest charge. A weekday name alone is only safe within the next six days
+// ("Sunday" read on a Friday means the day after tomorrow, not the Sunday after); past that it gives the date.
+export function nextBillSentence(groups: ReturnType<typeof upcoming>, today: Date, money: (n: number) => string): string | null {
+	const next = groups[0]?.rows[0];
+	if (!next) return null;
+	const who = `${next.vendor} (${money(next.amount)})`;
+	const days = Math.round((next.date.getTime() - today.getTime()) / DAY);
+	if (next.late) return `${who} was expected on ${next.date.toLocaleString("en-GB", { day: "numeric", month: "short" })} and hasn't shown up yet.`;
+	const when =
+		days === 0 ? "today" : days === 1 ? "tomorrow" : days < 7 ? next.date.toLocaleString("en-US", { weekday: "long" }) : `on ${next.date.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
+	return `${who} is due ${when}.`;
+}
+
+// The small label over a date chip: the weekday this month, the month when it's another one ("Nov" over a 1 read in
+// October would otherwise look like the 1st that has passed).
+export const dateTag = (d: Date, today: Date) =>
+	d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
+		? d.toLocaleString("en-GB", { weekday: "short" })
+		: d.toLocaleString("en-GB", { month: "short" });

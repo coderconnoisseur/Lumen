@@ -255,3 +255,15 @@ test("a late answer can't take over a chat started after it", async ({ page }) =
 	expect(follow.thread_id).toBe(threadOf["Fast one"]);
 	expect(threadOf["Fast one"]).not.toBe(threadOf["Slow one"]);
 });
+
+test("an answer from your data never says it doesn't cite your data", async ({ page }) => {
+	for (const tool of ["get_overview", "get_recurring", "run_sql"]) {
+		await signIn(page, { chat: { answer: "You've spent ₹65,949 so far.", steps: [{ tool, args: {}, summary: "ok" }] } });
+		await page.goto("/ask?q=How%20much%20did%20I%20spend%20this%20month%3F");
+		await expect(page.getByText("You've spent ₹65,949 so far.")).toBeVisible({ timeout: 20_000 });
+		await expect(page.getByText("doesn't cite a document or your data"), tool).toHaveCount(0);
+	}
+	await signIn(page, { chat: { answer: "Hello!" } });
+	await page.goto("/ask?q=hi");
+	await expect(page.getByText("doesn't cite a document or your data")).toBeVisible({ timeout: 20_000 });
+});

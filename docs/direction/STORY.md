@@ -486,3 +486,21 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   to open the original receipt, the wrong error text, an edit that could approve a ₹0 total (now refused by the API
   too), and spreadsheet formulas in the CSV export. Backend 1004 passed, e2e 207. Nine minors went to the backlog.
 
+## 37. Testing the live site like a visitor (after the UI revamp release, #103)
+- **S:** The UI revamp shipped to lumen.nishantbuilds.me. Every local suite was green, but nobody had clicked through
+  the real deployment with real data and real model answers.
+- **T:** Walk the live site the way a visitor does, find what is wrong or misleading, and fix it test-first.
+- **A:** A throwaway Playwright run through the one-click demo (every page, the main actions, phone width; console
+  errors, page errors and failed API calls collected) plus a hand check in the browser. Found and fixed: an answer
+  from your data labelled "doesn't cite your data" (two data tools missing from the list); a "Next:" suggestion that
+  was really advice becoming a lowercase chip that would send the advice back to Lumen; draft reasons without a
+  currency; "₹12,830 ahead of an even pace" reading like good news; the demo's seeded double charge never shown
+  (a vendor you use often was skipped entirely, even for two identical charges on the same day); "is due Sunday" for
+  a bill nine days away; dates in next month shown without the month; late bills dropped from Home; the Spending
+  brief calling an ₹18,514 payment "part of" a ₹9,114 rise; a backwards custom date range crashing Spending;
+  Settings crashing on a partial response and still in the old style; row buttons on Bills and Receipts that a
+  screen reader couldn't tell apart.
+- **R:** The live run: 9 of 9 flows passed with 0 console errors and 0 failed API calls; the problems were all in
+  what the pages said, not whether they loaded. After the fixes: backend 1011 passed, e2e 225 + reruns green, each
+  fix with a test that failed first (including one that the seeded demo's double charge is found).
+

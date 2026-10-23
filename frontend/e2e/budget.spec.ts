@@ -232,3 +232,11 @@ test("budget has no layout shift while loading on a phone", async ({ page }) => 
 	await page.waitForTimeout(500);
 	expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.01);
 });
+
+test("spending faster than an even pace reads as over pace, not as good news", async ({ page }) => {
+	test.skip(daysLeft === 1, "on the last day an even pace is the whole budget");
+	await openBudget(page, { ...sample, budget: { monthly_budget: 100000, spent: 99999, categories: [] } });
+	await expect(page.getByTestId("brief")).toContainText("over an even pace");
+	await expect(page.getByTestId("brief")).not.toContainText("ahead");
+	await expect(page.getByTestId("budget-hero")).toContainText("Over pace");
+});
