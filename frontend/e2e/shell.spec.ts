@@ -283,3 +283,23 @@ test("settings uses the shared page header, not the old all-caps eyebrow card", 
 	await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-size", "26px");
 	await expect(page.getByText("Account", { exact: true })).toHaveCount(0);
 });
+
+test("everything you can click shows the hand cursor; disabled things don't", async ({ page }) => {
+	await signIn(page, { home: { budget: { monthly_budget: 100000, spent: 500, categories: [{ category: "Food", limit: 6000, spent: 500 }] } } });
+	await page.goto("/budget");
+	await expect(page.getByRole("button", { name: "Edit Food budget" })).toBeVisible({ timeout: 15_000 });
+	const cursor = (l: import("@playwright/test").Locator) => l.evaluate((e) => getComputedStyle(e).cursor);
+	for (const l of [
+		page.getByRole("button", { name: "Edit Food budget" }),
+		page.getByRole("button", { name: "Let Lumen draft" }),
+		page.getByRole("button", { name: "Previous month" }),
+		page.getByRole("button", { name: "Add category" }),
+		page.locator('[data-sidebar="menu-button"]').first(),
+	])
+		expect(await cursor(l)).toBe("pointer");
+	expect(await cursor(page.getByRole("button", { name: "Next month" }))).toBe("not-allowed"); // disabled on this month
+	await page.goto("/spending");
+	await expect(page.getByRole("button", { name: "Last month", exact: true })).toBeVisible({ timeout: 15_000 });
+	expect(await cursor(page.getByRole("button", { name: "Last month", exact: true }))).toBe("pointer");
+	expect(await cursor(page.getByRole("switch"))).toBe("pointer");
+});
