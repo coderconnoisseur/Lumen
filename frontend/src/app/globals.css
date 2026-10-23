@@ -169,6 +169,29 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/* Tailwind v4 gives buttons the default arrow; anything you can click shows the hand, anything disabled says so.
+	   Classes (e.g. cursor-grab) still win: utilities sit in a later layer. */
+	button,
+	[role="button"],
+	[role="tab"],
+	[role="radio"],
+	[role="switch"],
+	[role="checkbox"],
+	[role="menuitem"],
+	[role="menuitemradio"],
+	[role="option"],
+	summary,
+	select,
+	label[for],
+	input[type="file"],
+	input[type="checkbox"],
+	input[type="radio"] {
+		cursor: pointer;
+	}
+	:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
 	/* clip, not hidden: `hidden` turns <body> into its own scroll container (overflow-y becomes auto), whose
 	   scrollbar then vanishes when a menu locks scrolling and shifts the page (seen on Ask Lumen). */
 	html,
