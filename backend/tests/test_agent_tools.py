@@ -222,6 +222,16 @@ def test_exchange_rate_bad_code_rejected(db, world):
     assert "error" in run_tool(_ctx(db, world), "exchange_rate", {"base": "DOLLARS", "quote": "INR"})
 
 
+def test_lumen_citations():
+    from agent.graph import lumen_citations
+    real = {"doc-1#s02", "web:1"}
+    # seen in the first ask_lumen recording (audit-L07, audit-C24)
+    assert lumen_citations("Ends **1 November 2026**【doc-1#s02】.", real) == "Ends **1 November 2026**[doc-1#s02]."
+    assert lumen_citations("= **26,000 INR**【exchange_rate】", real) == "= **26,000 INR**"
+    assert lumen_citations("A 【 web:1 】 b【doc-9#s01】.", real) == "A[web:1] b."
+    assert lumen_citations("Plain [doc-1#s02] stays.", real) == "Plain [doc-1#s02] stays."
+
+
 def test_split_follow_up():
     from agent.graph import split_follow_up
     assert split_follow_up("You spent 500.\nNext: Which vendor was it?") == ("You spent 500.", "Which vendor was it?")
@@ -237,6 +247,13 @@ def test_split_follow_up():
                   "If you'd like a breakdown, ask", "You can ask for last month"):
         assert split_follow_up(f"Done.\nNext: {lumen}")[1] is None
     assert split_follow_up("Done.\nNext: Tell me my top vendors")[1] == "Tell me my top vendors"
+    # owner report 2026-10-22: a step for the user is not a question for Lumen; clicking it sent it to the chat.
+    # Uploads stay a chip (the UI turns it into an "upload" button); other do-it-yourself steps stay in the answer.
+    assert split_follow_up("Empty.\nNext: Upload an invoice or receipt to get started.")[1] == \
+        "Upload an invoice or receipt to get started."
+    for step in ("Connect your Gmail in Settings", "Go to Receipts and import a statement", "Log in to your bank app",
+                 "Visit your bank's website", "Click Draft budget on Home"):
+        assert split_follow_up(f"Done.\nNext: {step}") == (f"Done.\n\n{step}", None)
     assert split_follow_up("Here it is.\nNext: Would you like last month or the last three?") == (
         "Here it is.\n\nWould you like last month or the last three?", None)
     assert split_follow_up("Done.\nNext: Can I afford a trip in December?") == (
@@ -637,3 +654,75 @@ def test_web_search_description_and_prompt():
     assert "Never put the user's data" in d and "untrusted data" in d and "[web:n]" in d
     text = system_prompt(date(2026, 10, 17))
     assert "web_search when available" in text and "currency" not in text
+
+
+@pytest.fixture
+def tavily_user(tmp_path, monkeypatch):
+    """A user with their own Tavily key, inside keys.for_user, and no platform key."""
+    from llm import keys
+    from models import UserKey
+    from models.database import db as flask_db
+    from sqlalchemy.orm import Session
+    from utils.crypto import encrypt_secret
+
+    monkeypatch.setenv("KEYS_ENCRYPTION_KEY", "k" * 32)
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    engine = create_engine(f"sqlite:///{tmp_path / 'k.db'}")
+    flask_db.metadata.create_all(engine, tables=[flask_db.metadata.tables["user_keys"]])
+    key = "tvly-user-1234567890abcd"
+    with Session(engine) as s, s.begin():
+        s.add(UserKey(user_id="tav-user", provider="tavily", key_enc=encrypt_secret(key, key_env=keys.KEY_ENV)))
+    with keys.for_user("tav-user", engine):
+        yield key, engine
+
+
+def test_web_search_uses_user_tavily_key_without_caps(db, world, monkeypatch, tavily_user):
+    from agent import tools
+    from agent.tools import WEB_SEARCH_PER_DAY, run_tool, tool_schemas
+
+    key, _ = tavily_user
+    sent = []
+
+    def post(url, json=None, headers=None, timeout=None):
+        sent.append(headers)
+        return _Tavily(body={"results": []})
+    monkeypatch.setattr(tools.requests, "post", post)
+    assert "web_search" in [s["function"]["name"] for s in tool_schemas()]
+    me = _web_ctx(db, world)
+    for _ in range(WEB_SEARCH_PER_DAY + 2):
+        assert "results" in run_tool(me, "web_search", {"query": "repo rate"})
+    assert all(h == {"Authorization": f"Bearer {key}"} for h in sent) and len(sent) == WEB_SEARCH_PER_DAY + 2
+    assert me.user_id not in tools._web_searches
+
+
+def test_web_search_user_key_rejected(db, world, monkeypatch, tavily_user):
+    from agent import tools
+    from agent.tools import run_tool
+    from models import UserKey
+    from sqlalchemy.orm import Session
+
+    key, engine = tavily_user
+    monkeypatch.setattr(tools.requests, "post", lambda *a, **k: _Tavily(401, {"detail": f"bad key {key}"}))
+    out = run_tool(_web_ctx(db, world), "web_search", {"query": "repo rate"})
+    assert "Your Tavily key was rejected" in out["error"]
+    with Session(engine) as s:
+        err = s.query(UserKey).one().last_error
+    assert err == "Tavily rejected the key (HTTP 401)." and not any(key[i:i + 8] in err for i in range(len(key) - 7))
+
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("text, answer, chip", [
+    ("Which period would you like to see?\nNext:", "Which period would you like to see?", None),
+    ("Here it is.\n**Next:**", "Here it is.", None),
+    ("Here it is.\nNext : Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext：Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext - Show last month by category", "Here it is.", "Show last month by category"),
+    ("Here it is.\nNext:   \n\n", "Here it is.", None),
+    ("Here it is.\nNEXT: Show my bills", "Here it is.", "Show my bills"),
+])
+def test_split_follow_up_variants(text, answer, chip):
+    from agent.graph import split_follow_up
+
+    assert split_follow_up(text) == (answer, chip)

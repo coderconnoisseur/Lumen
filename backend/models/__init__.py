@@ -144,12 +144,25 @@ class SpendingPattern(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ChatThread(db.Model):
+    """One Ask Lumen conversation (UI revamp Phase 4). Titled from its first question; legacy thread-less messages
+    are folded into an "Earlier chats" thread the first time the user lists threads (routes/chat.py)."""
+    __tablename__ = "chat_threads"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    title = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ChatMessage(db.Model):
-    """Persisted chat history per user."""
+    """Persisted chat history per user, grouped into threads (thread_id NULL = saved before threads existed)."""
     __tablename__ = "chat_messages"
 
     id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(String(36), nullable=False, index=True)
+    thread_id = db.Column(String(36), nullable=True, index=True)
     role = db.Column(db.String(20), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -287,6 +300,39 @@ class Proposal(db.Model):
     decided_at = db.Column(db.DateTime, nullable=True)
 
 
+class Budget(db.Model):
+    """A monthly spending limit for one category (UI revamp Phase 3). The overall budget is User.monthly_budget.
+    Rows are written only by approving a set_budget proposal or by PUT /api/budget.
+    Versioned by month (Phase 5d): a month's limit is the latest row with effective_from <= that month, so changing
+    a budget never rewrites past months. A monthly_limit of 0 removes the category from that month on."""
+
+    __tablename__ = "budgets"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    category = db.Column(db.String, nullable=False)
+    monthly_limit = db.Column(db.Float, nullable=False)
+    effective_from = db.Column(db.String(7))  # "YYYY-MM"; always set by the writers (older rows: migrated)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "category", "effective_from", name="u_budget_user_category_month"),)
+
+class RecurringState(db.Model):
+    """What the user said about a recurring charge on the Bills page (UI revamp Phase 5c): "cancelled" keeps it listed
+    (and flags a charge after the cancel), "not_a_bill" hides it. Keyed by ai.recurring._norm(vendor), the same key
+    the detection groups charges by. No row = active."""
+
+    __tablename__ = "recurring_states"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    vendor_key = db.Column(db.String, nullable=False)
+    state = db.Column(db.String(20), nullable=False)  # cancelled | not_a_bill
+    changed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "vendor_key", name="u_recurring_state_user_vendor"),)
+
+
 class AuditEvent(db.Model):
     """Append-only log of proposals and decisions (who, what, when)."""
 
@@ -346,3 +392,40 @@ class ProcessedEmail(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("user_id", "message_id", name="u_processed_email"),)
+
+
+class UserKey(db.Model):
+    """SPEC-BYOK: a user's own model key for one provider, encrypted with KEYS_ENCRYPTION_KEY."""
+    __tablename__ = "user_keys"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    provider = db.Column(db.String, nullable=False)
+    key_enc = db.Column(Text, nullable=False)
+    models = db.Column(Text)  # JSON {role: model}: the user's "advanced" pick
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_ok_at = db.Column(db.DateTime)
+    last_error = db.Column(Text)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "provider", name="u_user_key"),)
+
+
+class StatementImport(db.Model):
+    """One bank-statement import (UI revamp Phase 5e), for the Receipts page's history. Counts are as the import
+    returned them ("matched" is at import time; a re-import is a new row). The CSV itself isn't kept."""
+
+    __tablename__ = "statement_imports"
+
+    id = db.Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(String(36), nullable=False, index=True)
+    file_name = db.Column(db.String)
+    label = db.Column(db.String(60))
+    period_from = db.Column(db.String(10))
+    period_to = db.Column(db.String(10))
+    lines = db.Column(db.Integer, nullable=False, default=0)
+    imported = db.Column(db.Integer, nullable=False, default=0)
+    matched = db.Column(db.Integer, nullable=False, default=0)
+    duplicates = db.Column(db.Integer, nullable=False, default=0)
+    credits = db.Column(db.Integer, nullable=False, default=0)
+    unreadable = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

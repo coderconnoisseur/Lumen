@@ -18,6 +18,9 @@ Tests: `cd backend && env -u OPENROUTER_API_KEY python -m pytest -q` and `... py
 | — | SPEC-AGENT / SPEC-EXTRACT / SPEC-UX one-pagers | ✅ approved 2026-10-04 (LangGraph; auto-approve high confidence; UX: ship, don't polish) | |
 | 7 | LLM-02 Groq SQL bench | ✅ done | PR #10 |
 | 8 | SPEC-AGENT: tools, loop + API, evals, test page | 🔄 PRs #11, #12 open; evals recording | PR #11, #12 |
+| 9 | SPEC-BYOK: users' own model keys, free allowance, Settings page | ✅ done 2026-10-20 (backend suite 857 -> 898 passed) | branch `feat/byok` |
+
+BYOK note: the agent eval cassettes still need their one re-record after SPEC-AGENT-TOOLS; BYOK does not re-record them.
 
 Last commit: EVAL-03 in progress (see the branch history).
 Suite: 422 passed, 1 skipped (the Postgres dialect check; it runs when `LUMEN_TEST_POSTGRES_URL` is set, and in

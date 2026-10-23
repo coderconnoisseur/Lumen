@@ -7,6 +7,7 @@ the others are recorded decisions until the review queue lands (SPEC-EXTRACT).
 from __future__ import annotations
 
 import json
+import math
 import threading
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -19,6 +20,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from api.deps import current_user, rate_limit
+from llm import keys
+from llm.errors import LLMError
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -53,30 +56,22 @@ class Question(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
 
 
-DEMO_QUESTIONS_PER_DAY = 20  # all visitors share one free Groq quota (~1K requests/day; SPEC-DEPLOY)
-
-
-def count_demo_question(claims: dict, authorization: str, client: str) -> bool:
-    """One daily allowance per demo (anonymous) account, shared by /chat and /api/agent/ask. False = used up."""
+def count_platform_question(claims: dict, authorization: str, client: str) -> bool:
+    """Daily free allowance on the platform key for any user without their own agent key (demo or signed up),
+    shared by /chat and /api/agent/ask. Needs the `keys.for_user` context. False = used up."""
     from limits import parse
 
+    from config import Config
     from utils.limiter import limiter, rate_limit_key
 
-    if not claims.get("is_anonymous") or not limiter.enabled:
+    if not limiter.enabled or keys.has_key("agent"):
         return True
-    return limiter.limiter.hit(parse(f"{DEMO_QUESTIONS_PER_DAY} per day"), rate_limit_key(authorization, client),
-                               "demo-questions")
+    return limiter.limiter.hit(parse(f"{Config.PLATFORM_QUESTIONS_PER_DAY} per day"),
+                               rate_limit_key(authorization, client), "platform-questions")
 
 
-def demo_quota(request: Request, claims: dict = Depends(current_user)) -> None:
-    """Anonymous demo visitors get a daily question cap; signed-up accounts don't."""
-    if not count_demo_question(claims, request.headers.get("Authorization", ""),
-                               request.client.host if request.client else "127.0.0.1"):
-        raise HTTPException(429, f"The demo allows {DEMO_QUESTIONS_PER_DAY} questions a day. Sign up to keep going.")
-
-
-@router.post("/ask", dependencies=[Depends(rate_limit("10 per minute")), Depends(demo_quota)])
-def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = Depends(get_agent_deps)):
+@router.post("/ask", dependencies=[Depends(rate_limit("10 per minute"))])
+def ask(body: Question, request: Request, claims: dict = Depends(current_user), deps: AgentDeps = Depends(get_agent_deps)):
     from agent.graph import run_agent
     from agent.tools import ToolContext
     from api.profile import profile_for
@@ -84,7 +79,11 @@ def ask(body: Question, claims: dict = Depends(current_user), deps: AgentDeps = 
     ctx = ToolContext(user_id=claims["sub"], engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today(), profile=profile_for(deps.engine, claims["sub"]),
                       question=body.question)
-    out = run_agent(body.question, ctx, complete=deps.complete)
+    with keys.for_user(claims["sub"], deps.engine):
+        if not count_platform_question(claims, request.headers.get("Authorization", ""),
+                                       request.client.host if request.client else "127.0.0.1"):
+            raise LLMError(LLMError.NEEDS_KEY, "free question allowance used")  # 402 needs_key (api/errors.py)
+        out = run_agent(body.question, ctx, complete=deps.complete)
     return {"success": True, **out}
 
 
@@ -121,7 +120,7 @@ def _save_invoice(proposal_id: str, user_id: str, deps: AgentDeps) -> dict | Non
         if not session.execute(update(Proposal).where(
                 Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
                 .values(status="saving")).rowcount:
-            raise HTTPException(409, f"Proposal is already {p.status}")
+            raise HTTPException(409, "This proposal was already decided.")
         payload = json.loads(p.payload or "{}")
     try:
         item = submit_invoice(deps.engine, user_id, payload, warnings_seen=True)
@@ -148,16 +147,36 @@ def _decide(proposal_id: str, user_id: str, decision: str, deps: AgentDeps) -> d
         p = session.scalar(select(Proposal).where(Proposal.id == proposal_id, Proposal.user_id == user_id))
         if p is None:
             raise HTTPException(404, "Proposal not found")
-        if p.status != "pending":
-            raise HTTPException(409, f"Proposal is already {p.status}")
+        # claim it first (UPDATE ... WHERE status = 'pending'): of two concurrent decisions only one can apply;
+        # anything raised below rolls the claim back with the rest of the transaction. The 409 doesn't name p.status:
+        # it was read before the claim, so the loser of a race would still see "pending"
+        now = datetime.utcnow()
+        if not session.execute(update(Proposal).where(
+                Proposal.id == proposal_id, Proposal.user_id == user_id, Proposal.status == "pending")
+                .values(status=decision, decided_at=now).execution_options(synchronize_session=False)).rowcount:
+            raise HTTPException(409, "This proposal was already decided.")
+        p.status, p.decided_at = decision, now
         applied = None
+        if decision == "approved" and p.type == "set_budget":
+            from api.budget import this_month, upsert_budget, valid_month
+
+            # the agent can file set_budget with any payload: only a real positive limit is ever applied
+            try:
+                payload = json.loads(p.payload or "{}")
+                limit = float(payload["limit"])
+            except (KeyError, TypeError, ValueError):
+                payload, limit = {}, math.nan
+            if not math.isfinite(limit) or limit <= 0 or not p.target.strip():
+                raise HTTPException(422, "This budget suggestion has no valid limit; reject it instead.")
+            # from the month the draft was for, but never earlier than this one: past months stay as they were
+            upsert_budget(session, user_id, p.target.strip(), limit, max(valid_month(payload.get("month")) or "", this_month()))
+            applied = {"category": p.target.strip(), "limit": limit}
         if decision == "approved" and p.type == "update_category":
             category = json.loads(p.payload or "{}").get("category")
             if category:
                 result = session.execute(update(Transaction).where(
                     Transaction.user_id == user_id, Transaction.invoice_number == p.target).values(category=category))
                 applied = {"category": category, "transactions_updated": result.rowcount}
-        p.status, p.decided_at = decision, datetime.utcnow()
         session.add(AuditEvent(user_id=user_id, actor="user", action=f"proposal_{decision}", proposal_id=p.id,
                                detail=json.dumps({"applied": applied})))
         session.flush()

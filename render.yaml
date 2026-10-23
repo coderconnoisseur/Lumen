@@ -28,6 +28,14 @@ services:
         generateValue: true
       - key: EMAIL_ENCRYPTION_KEY
         generateValue: true
+      # Encrypts users' own model keys. Changing it makes stored keys unreadable (users re-add them).
+      - key: KEYS_ENCRYPTION_KEY
+        generateValue: true
+      # Free allowance for users without their own key.
+      - key: PLATFORM_QUESTIONS_PER_DAY
+        value: "20"
+      - key: PLATFORM_INVOICE_READS
+        value: "20"
       # Supabase: the session pooler connection string (IPv4; Render's free tier has no IPv6).
       - key: DATABASE_URL
         sync: false

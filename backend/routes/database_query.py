@@ -39,6 +39,7 @@ def get_transactions(user_id=None):
         vendor = request.args.get('vendor')
         min_amount = request.args.get('min_amount', type=float)
         max_amount = request.args.get('max_amount', type=float)
+        exclude_source = request.args.get('exclude_source')  # e.g. "statement": Receipts lists files, not bank lines
         
         # Get sorting parameters
         sort_by = request.args.get('sort_by', 'created_at')
@@ -60,6 +61,9 @@ def get_transactions(user_id=None):
         if vendor:
             query = query.filter(Transaction.vendor_name.like(f'%{vendor}%'))
         
+        if exclude_source:
+            query = query.filter(or_(Transaction.source.is_(None), Transaction.source != exclude_source))
+
         if min_amount is not None:
             query = query.filter(Transaction.total_amount >= min_amount)
         
@@ -92,6 +96,7 @@ def get_transactions(user_id=None):
                 'currency': txn.currency,
                 'po_number': txn.po_number,
                 'file_key': txn.file_key,
+                'source': txn.source,  # "statement" for imported rows, None for receipts
                 'created_at': txn.created_at.isoformat() if txn.created_at else None,
                 'items': [
                     {

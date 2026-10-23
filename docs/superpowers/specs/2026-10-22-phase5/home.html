@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Home v2 mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell.css">
+<style>
+.hello{display:flex;align-items:center;gap:12px}
+.hello h1{font-size:26px;font-weight:500;letter-spacing:-.015em}
+.hello .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink2)}
+.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.brief{font-family:Newsreader,serif;font-size:19px;color:var(--ink2);margin:8px 0 22px;max-width:780px;line-height:1.45}
+.brief em{color:var(--acc);font-style:italic}
+.hero{padding:18px 22px 16px}
+.hero .big{font-size:36px;font-weight:500;letter-spacing:-.02em;margin-top:14px}
+.hero .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.hero .sub b{font-weight:500}
+.plus{margin-left:auto;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;color:var(--acc)}
+.plus svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.8;fill:none}
+.chev{color:var(--faint);font-size:13px}
+.chips2{display:flex;justify-content:center;gap:6px;margin-top:6px}
+.chips2 span{font-size:12.5px;font-weight:500;padding:5px 14px;border-radius:8px;color:var(--mute)}
+.chips2 .on{background:var(--chip);color:var(--text)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--mute)}
+.legend i{display:inline-block;width:16px;height:0;border-top:2px solid var(--acc);vertical-align:middle;margin-right:6px}
+.legend i.d{border-top:2px dashed #bdbab2}
+.legend i.f{border-top:2px dotted var(--acc2)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:14px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.month{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px}
+.month .big{font-size:26px;font-weight:500;letter-spacing:-.015em;margin:4px 0 12px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal span{height:50px;border-radius:7px;border:1px solid var(--line2);font-size:10.5px;color:var(--mute);padding:4px 5px;line-height:1.25;display:flex;flex-direction:column;justify-content:space-between}
+.cal span b{font-weight:500;font-size:11px;color:var(--ink2)}
+.cal .h{height:auto;border:0;text-align:center;color:var(--faint);padding:0 0 2px}
+.cal .e{border:0}
+.cal .hi b{color:#fff}.cal .hi{color:#e8efff}
+.cal .t{outline:1.5px solid var(--acc);outline-offset:-1px}
+.cal .fut{border-style:dashed;color:var(--faint)}
+.tx{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.tx:last-child{border:0}
+.tx small{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.tx .logo{width:28px;height:28px;font-size:11px}
+.find{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
+.find:last-child{border:0;padding-bottom:2px}
+.find .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none}
+.find .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.find h4{font-weight:500;font-size:14px;line-height:1.35}
+.find p{color:var(--mute);font-size:12.5px;margin-top:2px;line-height:1.45}
+.find .acts{display:flex;gap:14px;margin-top:7px;font-size:12.5px;font-weight:500}
+.find .acts a{color:var(--acc)}
+.find .acts a.q{color:var(--mute)}
+.budget .big{font-size:26px;font-weight:500;letter-spacing:-.015em}
+.budget .big small{font-size:13px;color:var(--mute);font-weight:400}
+.bud{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12.5px;margin-top:12px}
+.bud .bar{grid-column:1/-1;height:5px}
+.dt{width:38px;text-align:center;flex:none;border:1px solid var(--line);border-radius:9px;padding:4px 0;line-height:1.1}
+.dt b{display:block;font-size:14px;font-weight:500}
+.dt small{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+</style></head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="../../../../frontend/public/lumen_logo.svg" alt="">Lumen
+      <span class="col show" title="Collapse sidebar (Ctrl+B)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></span></div>
+    <div class="grp">Overview</div>
+    <a class="it on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <div class="grp">Track</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Spending</a>
+    <a class="it"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Bills &amp; subscriptions</a>
+    <div class="grp">Plan</div>
+    <a class="it"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg>Budget</a>
+    <div class="grp">Records</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h5"/></svg>Receipts &amp; statements<span class="n">4</span></a>
+    <div class="grp">Assistant</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask Lumen</a>
+    <div class="foot">
+      <div class="askbox"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask anything<kbd>Ctrl K</kbd></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="band" style="height:300px;opacity:.7"></div>
+    <div class="wrap">
+      <div class="hello">
+        <h1>Good evening, Nishant</h1>
+        <div class="r">
+          <span class="btn"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload</span>
+          <span class="icon" title="Export"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg></span>
+          <span class="icon" title="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6M12 17h.01"/></svg></span>
+          <span class="av" style="width:34px;height:34px">NB</span>
+        </div>
+      </div>
+      <p class="brief">October is running <em>34% heavier</em> than September, mostly shopping. Rent of ₹25,000 is due Friday.</p>
+
+      <section class="card hero">
+        <div class="ch" style="margin:0"><span class="label">Spent in October</span><span class="chev">›</span>
+          <div class="legend" style="margin-left:auto;margin-right:12px"><span><i></i>October</span><span><i class="d"></i>September</span><span><i class="f"></i>Forecast</span></div>
+          <span class="plus" style="margin-left:0"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></div>
+        <div class="big num">₹62,182</div>
+        <div class="sub"><b style="color:var(--bad)">+₹15,822 (34%)</b> vs September by the 22nd · heading for ₹86,400</div>
+        <svg id="chart" viewBox="0 0 1080 230" width="100%" height="230" style="margin-top:4px;overflow:visible"></svg>
+        <div class="chips2"><span>1W</span><span class="on">1M</span><span>3M</span><span>YTD</span></div>
+      </section>
+
+      <div class="g2">
+        <div class="stack">
+          <section class="card">
+            <div class="month">
+              <div>
+                <div class="ch" style="margin:0"><span class="label">October, day by day</span><span class="chev">›</span></div>
+                <div class="big num">₹62,182 <span class="mute" style="font-size:13px;font-weight:400">across 21 days</span></div>
+                <div class="cal" id="cal"></div>
+              </div>
+              <div>
+                <div class="ch"><span class="label">Recent transactions</span><a>See all</a></div>
+                <div class="tx"><span class="logo" style="background:#fde8e1;color:#c4572f">FM</span><span>FreshMart<small>21 Oct · Groceries</small></span><span class="amt">₹1,284</span></div>
+                <div class="tx"><span class="logo" style="background:#e4edfc;color:#2f6fe0">Sw</span><span>Swiggy<small>21 Oct · Food delivery</small></span><span class="amt">₹436</span></div>
+                <div class="tx"><span class="logo" style="background:#ecebe6;color:#46453f">Ub</span><span>Uber<small>20 Oct · Travel</small></span><span class="amt">₹212</span></div>
+                <div class="tx"><span class="logo" style="background:#e3f1e8;color:#2e8b57">Cr</span><span>Croma<small>12 Oct · Shopping</small></span><span class="amt">₹9,999</span></div>
+                <div class="tx"><span class="logo" style="background:#faf0dc;color:#b7791f">Jf</span><span>Jio Fiber<small>9 Oct · Bills</small></span><span class="amt">₹999</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="ch"><span class="label">Lumen found</span><span class="pill acc">3 to look at</span><a>See all</a></div>
+            <div class="find">
+              <span class="ic" style="background:var(--badSoft);color:var(--bad)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></span>
+              <div><h4>FreshMart charged you twice for one order</h4><p>₹1,284 on 18 Oct, same items, 4 minutes apart.</p>
+              <div class="acts"><a>Review duplicate</a><a class="q">Ask why</a></div></div></div>
+            <div class="find">
+              <span class="ic" style="background:var(--warnSoft);color:var(--warn)"><svg viewBox="0 0 24 24"><path d="M12 3v18M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <div><h4>Shopping is ₹11,400 over your usual</h4><p>Mostly one Croma order on 12 Oct (₹9,999).</p>
+              <div class="acts"><a>See in Spending</a><a class="q">Mark as one-off</a></div></div></div>
+            <div class="find">
+              <span class="ic" style="background:var(--accSoft);color:var(--acc)"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></svg></span>
+              <div><h4>Spotify hasn't been used in 7 weeks</h4><p>₹119 a month, renews 2 Nov.</p>
+              <div class="acts"><a>Open subscription</a><a class="q">Keep it</a></div></div></div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="card budget">
+            <div class="ch"><span class="label">Budget in October</span><span class="chev">›</span><span class="plus"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></div>
+            <div class="big num">₹62,182 <small>of ₹1,00,000</small></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><div class="bar" style="flex:1;height:8px"><i style="width:62%;background:var(--good)"></i></div><span class="mute num" style="font-size:12.5px">62%</span></div>
+            <div class="bud">
+              <span>Rent &amp; housing</span><span class="num mute">₹25,000 / 25,000</span><div class="bar"><i style="width:100%;background:var(--acc)"></i></div>
+              <span>Shopping</span><span class="num" style="color:var(--bad)">₹16,840 / 8,000</span><div class="bar"><i style="width:100%;background:var(--bad)"></i></div>
+              <span>Groceries</span><span class="num mute">₹8,120 / 12,000</span><div class="bar"><i style="width:68%;background:var(--acc)"></i></div>
+              <span>Food delivery</span><span class="num mute">₹5,930 / 6,000</span><div class="bar"><i style="width:98%;background:var(--warn)"></i></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="ch"><span class="label">Coming up</span><span class="chev">›</span><a>All bills</a></div>
+            <div class="row"><span class="dt"><small>Fri</small><b>24</b></span><span>Rent<small class="mute" style="display:block;font-size:12px">Monthly</small></span><span class="amt">₹25,000</span></div>
+            <div class="row"><span class="dt"><small>Mon</small><b>27</b></span><span>Jio Fiber<small class="mute" style="display:block;font-size:12px">Monthly</small></span><span class="amt">₹999</span></div>
+            <div class="row"><span class="dt"><small>Sat</small><b>1</b></span><span>Netflix<small class="mute" style="display:block;font-size:12px">Monthly</small></span><span class="amt">₹649</span></div>
+            <div class="row"><span class="dt"><small>Sun</small><b>2</b></span><span>Spotify <span class="pill warn" style="margin-left:4px">unused</span><small class="mute" style="display:block;font-size:12px">Monthly</small></span><span class="amt">₹119</span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+// smooth cumulative lines (Catmull-Rom → Bézier), mock data only
+const W=1000,H=200,max=95000;
+const x=i=>i*(W/30), y=v=>H-v/max*(H-10);
+function cum(daily){let s=0;return daily.map(d=>s+=d)}
+const oct=cum([800,600,25640,900,2100,500,800,400,2900,700,4200,10300,500,900,400,700,2200,3400,800,400,900,1300]);
+const sep=cum([700,900,25400,600,1200,700,400,1100,800,2200,600,900,700,1500,800,600,1100,900,700,2300,800,600,500,900,1200,600,700,800,900,700]);
+const fc=[oct[21]]; for(let i=22;i<31;i++) fc.push(fc[fc.length-1]+2690);
+function path(pts){let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;d+=` C${p1[0]+(p2[0]-p0[0])/6},${p1[1]+(p2[1]-p0[1])/6} ${p2[0]-(p3[0]-p1[0])/6},${p2[1]-(p3[1]-p1[1])/6} ${p2[0]},${p2[1]}`}return d}
+const P=a=>a.map((v,i)=>[x(i),y(v)]), F=fc.map((v,i)=>[x(i+21),y(v)]);
+const po=P(oct), ps=P(sep), today=po[21];
+let s=`<defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2f6fe0" stop-opacity=".28"/><stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/></linearGradient></defs>`;
+[30000,60000,90000].forEach(v=>s+=`<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="#f0eee9"/><text x="1080" y="${y(v)+4}" text-anchor="end">₹${v/1000}k</text>`);
+s+=`<path d="${path(ps)}" fill="none" stroke="#c9c6be" stroke-width="1.6" stroke-dasharray="4 4"/>`;
+s+=`<path d="${path(po)} L${today[0]},${H} L0,${H} Z" fill="url(#g)"/><path d="${path(po)}" fill="none" stroke="#2f6fe0" stroke-width="2.4"/>`;
+s+=`<path d="${path(F)}" fill="none" stroke="#7fa8ee" stroke-width="2.2" stroke-dasharray="1 5" stroke-linecap="round"/>`;
+s+=`<line x1="${today[0]}" x2="${today[0]}" y1="${today[1]}" y2="${H}" stroke="#2f6fe0" stroke-opacity=".25"/><circle cx="${today[0]}" cy="${today[1]}" r="5.5" fill="#2f6fe0" stroke="#fff" stroke-width="2.5"/>`;
+[[23,"Rent"],[31,"Netflix"]].forEach(([d,n])=>{const px=x(d-1);s+=`<line x1="${px}" x2="${px}" y1="${H}" y2="${y(fc[d-22]||fc[fc.length-1])}" stroke="#d9d6cf" stroke-dasharray="2 3"/><circle cx="${px}" cy="${H}" r="11" fill="#fff" stroke="#e7e5df"/><text x="${px}" y="${H+4}" text-anchor="middle" style="fill:#46453f;font-size:10px">${n[0]}</text>`});
+[[0,"1 Oct"],[7,"8"],[14,"15"],[21,"Today"],[29,"30"]].forEach(([i,t])=>s+=`<text x="${x(i)}" y="${H+26}" text-anchor="${i?'middle':'start'}" ${t=="Today"?'style="fill:#2f6fe0;font-weight:600"':''}>${t}</text>`);
+document.getElementById("chart").innerHTML=s;
+// calendar with day amounts
+const daily=[800,600,25640,900,2100,500,800,400,2900,700,4200,10300,500,900,400,700,2200,3400,800,400,900,1300];
+let c="MTWTFSS".split("").map(d=>`<span class="h">${d}</span>`).join("")+`<span class="e"></span><span class="e"></span>`;
+const shade=v=>v>9000?"#2f6fe0":v>3000?"#7fa8ee":v>1500?"#c9dbf8":v>700?"#e4edfc":"#f4f7fd";
+for(let d=1;d<=31;d++){const v=daily[d-1];
+ if(d<=22){const hi=v>3000;c+=`<span class="${hi?'hi':''} ${d==22?'t':''}" style="background:${shade(v)}">${d}<b>₹${v>=1000?(v/1000).toFixed(1)+'k':v}</b></span>`}
+ else c+=`<span class="fut">${d}${d==24?'<b style="color:#46453f">Rent</b>':d==27?'<b style="color:#46453f">Jio</b>':''}</span>`}
+document.getElementById("cal").innerHTML=c;
+</script>
+</body></html>

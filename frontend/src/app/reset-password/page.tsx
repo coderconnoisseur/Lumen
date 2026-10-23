@@ -50,7 +50,7 @@ export default function ResetPasswordPage() {
 				password,
 			});
 			if (updateError) throw updateError;
-			router.replace("/dashboard");
+			router.replace("/home");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Couldn't update your password.");
 			setSubmitting(false);

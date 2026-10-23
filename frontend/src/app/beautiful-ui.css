@@ -41,6 +41,36 @@
 	font-size: 15px;
 }
 
+/* Sky (UI revamp Phase 4): inside the signed-in app the same components draw light. Every token is remapped, so Ask
+   Lumen's components need no class changes. Text tokens are AA on --page (#f4f3ef): ink-2 ~6.9:1, ink-3 ~4.9:1. */
+:root:has([data-app-theme="sky"]) .bui {
+	--page: #f4f3ef;
+	--canvas: #efeee9;
+	--surface: #ffffff;
+	--inset: #ecebe6;
+	--hover: #ecebe6;
+	--hover-2: #e6e4de;
+
+	--ink: #1b1b1a;
+	--ink-2: #57554f;
+	--ink-3: #6b6963;
+
+	--line: rgb(27 27 26 / 0.1);
+	--line-strong: rgb(27 27 26 / 0.18);
+	--field: #e9eef8;
+
+	--accent: #2f6fe0;
+	--accent-ink: #1d4fb0;
+	--accent-tint: rgb(47 111 224 / 0.12);
+
+	--green: #2e8b57;
+	--green-tint: rgb(46 139 87 / 0.12);
+	--orange: #a8661f;
+	--orange-tint: rgb(168 102 31 / 0.12);
+	--red: #c4572f;
+	--red-tint: rgb(196 87 47 / 0.12);
+}
+
 @theme inline {
 	--color-page: var(--page);
 	--color-canvas: var(--canvas);
@@ -119,4 +149,4 @@
 }
 
 /* uppercase mono micro-label (eyebrows, badges, data annotations) */
-.bui-label { font-family: var(--font-label); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
+.bui-label { font-family: var(--font-label); font-size: 12.5px; font-weight: 500; letter-spacing: 0.01em; }

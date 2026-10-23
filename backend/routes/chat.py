@@ -1,13 +1,15 @@
 # routes/chat.py
 import logging
 import uuid
+from datetime import datetime
 
-from flask import Blueprint, g, request, jsonify
+from flask import Blueprint, abort, g, request, jsonify
+from sqlalchemy import func
 
-from models import ChatMessage
+from models import ChatMessage, ChatThread
 from models.database import db
 from utils.auth import require_auth
-from utils.errors import api_error, llm_api_error
+from utils.errors import KEY_MESSAGES, api_error, llm_api_error
 from utils.limiter import limiter
 from utils.llm import LLMError
 
@@ -45,7 +47,7 @@ def _attach(file, user_id: str) -> dict:
     return {"invoice": invoice, **checks, "proposal_id": proposal_id}
 
 
-def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
+def _ask(question: str, user_id: str, attachment: dict | None = None, history: list[dict] | None = None) -> dict:
     """Ask Lumen is the agent (SPEC-AGENT, switched after AGT-07 passed its gates on 2026-10-09): it picks its tools
     (SQL, documents, anomalies, forecast, invoices), cites evidence and only proposes changes."""
     from datetime import date
@@ -59,7 +61,7 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
     deps = get_agent_deps()
     ctx = ToolContext(user_id=user_id, engine=deps.engine, sql_agent=deps.sql_agent, rag=deps.rag,
                       today=deps.today or date.today(), profile=profile_for(deps.engine, user_id), question=question)
-    out = run_agent(question, ctx, complete=deps.complete, attachment=attachment)
+    out = run_agent(question, ctx, complete=deps.complete, attachment=attachment, history=history)
     # Evidence for the UI (passages, the original file, timings); built after the run, so prompts don't change.
     # The SQL stays server-side: it's an internal detail, not something to show users.
     return {"query": question, "query_type": "agent", "response": out["answer"], "follow_up": out["follow_up"],
@@ -72,16 +74,75 @@ def _ask(question: str, user_id: str, attachment: dict | None = None) -> dict:
             "proposals": out["proposals"], "attachment": attachment}
 
 
-def _save_exchange(user_id: str, question: str, answer: str) -> None:
+TITLE_CHARS = 60
+
+
+def _title(question: str) -> str:
+    """The first question, cut at a word boundary (no LLM-written titles)."""
+    q = " ".join(question.split())
+    if len(q) <= TITLE_CHARS:
+        return q
+    cut = q[: TITLE_CHARS - 1].rsplit(" ", 1)[0] or q[: TITLE_CHARS - 1]
+    return cut.rstrip(" ,.;:-") + "\u2026"
+
+
+def _own_thread(user_id: str, thread_id) -> ChatThread:
+    """The caller's thread, or a 404 (another user's id looks exactly like a missing one; so does a non-string id
+    from a hand-made request, which Postgres would otherwise reject with a 500)."""
+    if not isinstance(thread_id, str):
+        abort(404)
+    thread = db.session.get(ChatThread, thread_id)
+    if thread is None or thread.user_id != user_id:
+        abort(404)
+    return thread
+
+
+def _thread_for(user_id: str, thread_id: str | None, question: str) -> ChatThread:
+    """The thread to save into. A new one is only added to the session: _save_exchange commits it together with its
+    messages, so a failed save leaves no empty titled thread behind."""
+    if thread_id:
+        return _own_thread(user_id, thread_id)
+    thread = ChatThread(id=str(uuid.uuid4()), user_id=user_id, title=_title(question) or "New chat")
+    db.session.add(thread)
+    return thread
+
+
+def _save_exchange(user_id: str, thread_id: str, question: str, answer: str) -> None:
     for role, content in (("user", question), ("assistant", answer)):
-        db.session.add(
-            ChatMessage(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
-                role=role,
-                content=content,
-            )
-        )
+        db.session.add(ChatMessage(id=str(uuid.uuid4()), user_id=user_id, thread_id=thread_id, role=role,
+                                   content=content))
+    thread = db.session.get(ChatThread, thread_id)
+    if thread is not None:
+        thread.updated_at = datetime.utcnow()
+    db.session.commit()
+
+
+def _thread_history(user_id: str, thread_id: str | None) -> list[dict]:
+    """The thread's messages so far, oldest first, for the agent's memory (it trims to the last few turns)."""
+    if not thread_id:
+        return []
+    rows = ChatMessage.query.filter_by(user_id=user_id, thread_id=thread_id).order_by(
+        ChatMessage.created_at.asc(), ChatMessage.role.desc()).all()
+    return [{"role": r.role, "content": r.content} for r in rows]
+
+
+def _has_legacy(user_id: str) -> bool:
+    return ChatMessage.query.filter_by(user_id=user_id, thread_id=None).first() is not None
+
+
+def _fold_legacy(user_id: str) -> None:
+    """Messages saved before threads existed become one "Earlier chats" thread, once. Two first lists at the same
+    time (two tabs) both see legacy rows, but only one UPDATE moves them; the other keeps no thread."""
+    if not _has_legacy(user_id):
+        return
+    newest = db.session.query(func.max(ChatMessage.created_at)).filter(
+        ChatMessage.user_id == user_id, ChatMessage.thread_id.is_(None)).scalar() or datetime.utcnow()
+    thread_id = str(uuid.uuid4())
+    moved = ChatMessage.query.filter_by(user_id=user_id, thread_id=None).update({"thread_id": thread_id})
+    if not moved:
+        db.session.rollback()
+        return
+    db.session.add(ChatThread(id=thread_id, user_id=user_id, title="Earlier chats", created_at=newest, updated_at=newest))
     db.session.commit()
 
 
@@ -108,70 +169,78 @@ def chat():
         return jsonify({"error": "Query is required"}), 400
 
     user_id = str(g.user_id)
+    body = request.form if file else (request.get_json(silent=True) or {})
+    thread_id = body.get("thread_id") or None
+    if thread_id:
+        _own_thread(user_id, thread_id)  # 404 before anything is spent or saved
 
-    from api.agent import DEMO_QUESTIONS_PER_DAY, count_demo_question
+    from api.agent import count_platform_question
 
-    if not count_demo_question(g.jwt_claims, request.headers.get("Authorization", ""), request.remote_addr or ""):
-        return api_error(f"The demo allows {DEMO_QUESTIONS_PER_DAY} questions a day. Sign up to keep going.",
-                         status=429, code="demo_limit")
+    if not count_platform_question(g.jwt_claims, request.headers.get("Authorization", ""), request.remote_addr or ""):
+        return api_error(KEY_MESSAGES["needs_key"], status=402, code="needs_key")
 
     try:
         logger.info("Processing chat query for user=%s", user_id)
         attachment = _attach(file, user_id) if file else None
-        result = _ask(query, user_id, **({"attachment": attachment} if attachment else {}))
+        result = _ask(query, user_id, attachment, _thread_history(user_id, thread_id))
     except LLMError as e:
         return llm_api_error(e, _LLM_MESSAGES, context=f"Chat failed for user={user_id}")
     except Exception as e:
         return api_error("Chat request failed", code="chat_failed", log=e)
 
     try:
-        _save_exchange(user_id, f"{query} [attached: {file.filename}]" if file else query, result["response"])
+        thread = _thread_for(user_id, thread_id, query)
+        result["thread_id"] = thread.id
+        _save_exchange(user_id, thread.id, f"{query} [attached: {file.filename}]" if file else query,
+                       result["response"])
     except Exception as e:
-        # Losing history shouldn't cost the user their answer.
+        # Losing history shouldn't cost the user their answer. A new thread was rolled back with it: don't hand out its id.
         db.session.rollback()
+        if not thread_id:
+            result.pop("thread_id", None)
         logger.exception("Failed to save chat history for user=%s: %s", user_id, e)
 
     return jsonify({"success": True, "data": result}), 200
 
 
-@chat_bp.route("/chat/history", methods=["GET"])
+def _iso(d):
+    return d.isoformat() + "Z" if d else None  # stored as naive UTC
+
+
+@chat_bp.route("/chat/threads", methods=["GET"])
 @require_auth
-def chat_history():
-    """Return recent chat messages for the authenticated user."""
-    limit = min(int(request.args.get("limit", 50)), 200)
+def list_threads():
+    """The caller's conversations, newest first (max 50), with message counts."""
     user_id = str(g.user_id)
-
-    rows = (
-        ChatMessage.query.filter_by(user_id=user_id)
-        .order_by(ChatMessage.created_at.asc())
-        .limit(limit)
-        .all()
-    )
-
-    return jsonify(
-        {
-            "success": True,
-            "messages": [
-                {
-                    "id": row.id,
-                    "role": row.role,
-                    "content": row.content,
-                    "created_at": row.created_at.isoformat() if row.created_at else None,
-                }
-                for row in rows
-            ],
-        }
-    ), 200
+    _fold_legacy(user_id)
+    counts = dict(db.session.query(ChatMessage.thread_id, func.count()).filter(ChatMessage.user_id == user_id)
+                  .group_by(ChatMessage.thread_id).all())
+    threads = ChatThread.query.filter_by(user_id=user_id).order_by(ChatThread.updated_at.desc()).limit(50).all()
+    return jsonify({"success": True, "threads": [
+        {"id": t.id, "title": t.title, "message_count": counts.get(t.id, 0), "updated_at": _iso(t.updated_at)}
+        for t in threads]}), 200
 
 
-@chat_bp.route("/chat/history", methods=["DELETE"])
+@chat_bp.route("/chat/threads/<thread_id>", methods=["GET"])
 @require_auth
-def clear_chat_history():
-    """Clear chat history for the authenticated user."""
+def get_thread(thread_id):
     user_id = str(g.user_id)
-    ChatMessage.query.filter_by(user_id=user_id).delete()
+    thread = _own_thread(user_id, thread_id)
+    rows = ChatMessage.query.filter_by(user_id=user_id, thread_id=thread.id).order_by(
+        ChatMessage.created_at.asc(), ChatMessage.role.desc()).all()  # a question sorts before its same-instant answer
+    return jsonify({"success": True, "thread": {"id": thread.id, "title": thread.title}, "messages": [
+        {"id": r.id, "role": r.role, "content": r.content, "created_at": _iso(r.created_at)} for r in rows]}), 200
+
+
+@chat_bp.route("/chat/threads/<thread_id>", methods=["DELETE"])
+@require_auth
+def delete_thread(thread_id):
+    user_id = str(g.user_id)
+    thread = _own_thread(user_id, thread_id)
+    ChatMessage.query.filter_by(user_id=user_id, thread_id=thread.id).delete()
+    db.session.delete(thread)
     db.session.commit()
-    return jsonify({"success": True, "message": "Chat history cleared"}), 200
+    return jsonify({"success": True}), 200
 
 
 DEFAULT_SUGGESTIONS = [

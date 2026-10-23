@@ -70,7 +70,7 @@ alembic upgrade head
 ```
 
 ```bash
-python app.py
+python -m uvicorn asgi:app --port 5000
 ```
 
 API at http://localhost:5000

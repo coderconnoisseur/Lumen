@@ -10,13 +10,16 @@ export function PromptBar({
 	onSend,
 	busy,
 	hero = false,
+	initial = "",
 }: {
 	onSend: (text: string, file?: File) => void;
 	busy: boolean;
 	/** the large, centred version shown before the first question */
 	hero?: boolean;
+	/** text to start with (Ask's ?draft=); remount with a new key to change it */
+	initial?: string;
 }) {
-	const [draft, setDraft] = useState("");
+	const [draft, setDraft] = useState(initial);
 	const [file, setFile] = useState<File | null>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
@@ -114,8 +117,9 @@ export function PromptBar({
 					onClick={send}
 					className="flex size-9 items-center justify-center rounded-full transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
 					style={{
-						background: canSend ? "#ffffff" : "rgb(255 255 255 / 0.12)",
-						color: canSend ? "#000000" : "var(--ink-3)",
+						// ink on page: white-on-black in the dark palette, dark-on-paper in Sky
+						background: canSend ? "var(--ink)" : "var(--hover)",
+						color: canSend ? "var(--page)" : "var(--ink-3)",
 					}}
 				>
 					<ArrowUp className="size-[18px]" strokeWidth={2.2} />

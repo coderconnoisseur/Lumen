@@ -21,7 +21,7 @@ const jetBrainsMono = JetBrains_Mono({
 // Display serif (light, editorial headlines) and the uppercase label mono of the new look.
 const newsreader = Newsreader({
 	subsets: ["latin"],
-	weight: ["300", "400"],
+	weight: ["300", "400", "500"],
 	style: ["normal", "italic"],
 	variable: "--font-newsreader",
 });

@@ -7,13 +7,14 @@ status change and the transaction are written together, and every step goes to t
 from __future__ import annotations
 
 import json
+import math
 import uuid
 from datetime import date, datetime
 from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import create_engine, select
+from pydantic import BaseModel, field_validator
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -42,6 +43,16 @@ class Submit(BaseModel):
 class Decision(BaseModel):
     edits: dict = {}
     note: str | None = None
+
+    @field_validator("edits")
+    @classmethod
+    def _total_is_an_amount(cls, edits: dict) -> dict:
+        # an edited total becomes the transaction's amount: it has to be a real, positive number
+        if "total_amount" in edits:
+            v = edits["total_amount"]
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                raise ValueError("total_amount must be a positive number")
+        return edits
 
 
 def _history(session: Session, user_id: str) -> list[dict]:
@@ -177,7 +188,19 @@ def read_with_feedback(engine: Engine, user_id: str, image_base64: str, media_ty
     """Read an invoice; if the user has corrected this vendor's invoices before, read it again with those
     corrections as hints (one extra call, only for vendors with a correction history). The hints used are kept on
     the invoice (`feedback_hints`) so the reviewer can see them."""
+    from sqlalchemy import func
+
+    from config import Config
     from extract import read
+    from llm import keys
+    from models import ReviewItem
+    from utils.llm import LLMError
+
+    if not keys.has_key("vision"):
+        with Session(engine) as session:
+            used = session.scalar(select(func.count()).select_from(ReviewItem).where(ReviewItem.user_id == user_id))
+        if used >= Config.PLATFORM_INVOICE_READS:
+            raise LLMError(LLMError.NEEDS_KEY, "free invoice reads used up")
 
     inv = read.read_invoice(image_base64, media_type)
     hints = corrections_for(engine, user_id, inv.get("vendor_name"))
@@ -192,10 +215,15 @@ def submit(body: Submit, claims: dict = Depends(current_user), engine: Engine = 
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
-def list_items(status: str = "flagged", claims: dict = Depends(current_user), engine: Engine = Depends(get_engine)):
+def list_items(status: str = "flagged", count: bool = False, claims: dict = Depends(current_user),
+               engine: Engine = Depends(get_engine)):
     from models import ReviewItem
 
     with Session(engine) as session:
+        if count:  # the sidebar badge only needs the number (UI revamp Phase 3)
+            n = session.scalar(select(func.count()).select_from(ReviewItem).where(
+                ReviewItem.user_id == claims["sub"], ReviewItem.status == status))
+            return {"success": True, "count": n or 0}
         rows = session.scalars(select(ReviewItem).where(ReviewItem.user_id == claims["sub"], ReviewItem.status == status)
                                .order_by(ReviewItem.created_at.desc())).all()
         return {"success": True, "items": [_item_dict(r) for r in rows]}

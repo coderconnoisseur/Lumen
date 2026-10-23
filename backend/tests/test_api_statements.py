@@ -195,3 +195,31 @@ def test_bad_currency_is_400(client):
     c, _ = client
     m = json.dumps({"date": 0, "description": 1, "amount": 2})
     assert post(c, "import", mapping=m, currency="RUPEES").status_code == 400
+
+
+def history(c, who=USER):
+    r = c.get("/api/statements/imports", headers=bearer(who))
+    assert r.status_code == 200, r.text
+    return r.json()["imports"]
+
+
+def test_each_import_is_kept_in_history(client):
+    """UI revamp Phase 5e: one history row per import, with the period and the counts it returned."""
+    c, _ = client
+    m = json.dumps(post(c, "preview").json()["mapping"])
+    post(c, "import", mapping=m, label="  HDFC Savings ··4417 ")
+    post(c, "import", mapping=m)
+    second, first = history(c)
+    assert first["label"] == "HDFC Savings ··4417" and first["file_name"] == "s.csv"
+    assert (first["period_from"], first["period_to"]) == ("2026-10-03", "2026-10-06")
+    assert (first["lines"], first["imported"], first["duplicates"], first["matched"], first["credits"], first["unreadable"]) \
+        == (3, 2, 0, 0, 1, 0)
+    assert second["label"] is None and (second["imported"], second["duplicates"]) == (0, 2)
+    assert first["created_at"] and history(c, OTHER) == []
+
+
+def test_history_needs_auth_and_label_is_capped(client):
+    c, _ = client
+    assert c.get("/api/statements/imports").status_code == 401
+    m = json.dumps(post(c, "preview").json()["mapping"])
+    assert post(c, "import", mapping=m, label="x" * 61).status_code == 400

@@ -26,6 +26,13 @@ MAX_TOOL_CALLS = 6
 MAX_TOOL_RESULT_CHARS = 3000
 # Models sometimes pad the id or use full-width brackets: "[ id#s04 ]", "【id#s04】".
 _CITATION = re.compile(r"[\[【]\s*([^\[\]【】\s]+#s\d{2}(?:-\d+)?|web:\d+)\s*[\]】]")
+# gpt-oss's native markers: "【id#s02】" for a real passage, but also "【exchange_rate】" (a tool name, not a source).
+_NATIVE_MARK = re.compile(r"[ \t]*【\s*([^【】]*?)\s*】")
+
+
+def lumen_citations(text: str, retrieved) -> str:
+    """Rewrite native 【id】 markers as Lumen's [id] when id is a passage or web result this run returned; drop the rest."""
+    return _NATIVE_MARK.sub(lambda m: f"[{m.group(1)}]" if m.group(1) in retrieved else "", text)
 
 
 class AgentState(TypedDict):
@@ -38,12 +45,18 @@ class AgentState(TypedDict):
 
 
 # At a line start, or after a sentence on the same line ("…information. Next: …"); not "do this next: tomorrow".
-_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next:[*_]*\s*(.*?)[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
+# "Next:", "Next :", full-width "Next：" and "Next -" all occur in model output.
+_NEXT = re.compile(r"(?:^|(?<=[.!?])[ \t]+)[ \t]*[*_]*next[ \t]*[:：\-–—][*_]*\s*(.*?)[ \t*_]*$",
+                   re.IGNORECASE | re.MULTILINE)
 # Lumen asking the user ("Would you like…?"): as a chip it would send Lumen's own question back to it, so it stays in
 # the answer as its closing question instead (owner report, 2026-10-16).
 _ASKS_USER = re.compile(r"(would you|do you (want|need|wish)|shall i|want me|would it help|is there anything|"
                         r"anything else|let me know|how about i|you could|you can|tell me (which|if|whether)|if you('d| would) like|"
                         r"feel free)\b", re.IGNORECASE)
+# A step the user does themselves ("Connect your Gmail…") isn't a request to Lumen either: as a chip it was sent to the
+# chat (owner report, 2026-10-22). Uploads are the exception: the UI turns an "Upload…" chip into the upload button.
+_USER_STEP = re.compile(r"(connect|go to|log ?in|sign ?in|visit|click|tap|open (the|your)|check your|forward)\b",
+                        re.IGNORECASE)
 
 
 def split_follow_up(text: str) -> tuple[str, str | None]:
@@ -56,7 +69,7 @@ def split_follow_up(text: str) -> tuple[str, str | None]:
     answer, follow_up = (text[:m.start()] + text[m.end():]).strip(), m.group(1).strip(" \t*_\"'“”‘’")
     if not follow_up:  # a bare "Next:"
         return answer, None
-    if _ASKS_USER.match(follow_up):
+    if _ASKS_USER.match(follow_up) or _USER_STEP.match(follow_up):
         return f"{answer}\n\n{follow_up}", None
     return answer, follow_up
 
@@ -93,8 +106,8 @@ def build_graph(ctx: ToolContext, *, complete: Callable[..., Any], max_tool_call
         out_of_calls = state["tool_calls"] >= max_tool_calls
         if out_of_calls:
             messages.append({"role": "user", "content": FORCE_ANSWER})
-        result = complete(messages, tools=None if out_of_calls else schemas, temperature=0, max_tokens=900,
-                          timeout=40, retries=1)
+        result = complete(messages, role="agent", tools=None if out_of_calls else schemas, temperature=0,
+                          max_tokens=900, timeout=40, retries=1)
         calls = [] if out_of_calls else (result.tool_calls or [])
         for call in calls:
             call.setdefault("id", f"call_{uuid.uuid4().hex[:12]}")
@@ -141,10 +154,22 @@ def build_graph(ctx: ToolContext, *, complete: Callable[..., Any], max_tool_call
     return graph.compile()
 
 
+HISTORY_TURNS = 6  # earlier messages of the thread the agent sees (UI revamp Phase 4, owner decision 2026-10-21)
+HISTORY_CHARS = 1500  # per message: enough for a follow-up to make sense, cheap enough to send every time
+
+
+def _history_messages(history: list[dict] | None) -> list[dict]:
+    """The thread's last turns as chat messages: user/assistant only (never a stored 'system'), each trimmed."""
+    turns = [m for m in (history or []) if m.get("role") in ("user", "assistant") and m.get("content")]
+    return [{"role": m["role"], "content": str(m["content"])[:HISTORY_CHARS]} for m in turns[-HISTORY_TURNS:]]
+
+
 def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] | None = None,
-              max_tool_calls: int = MAX_TOOL_CALLS, attachment: dict | None = None) -> dict:
+              max_tool_calls: int = MAX_TOOL_CALLS, attachment: dict | None = None,
+              history: list[dict] | None = None) -> dict:
     """Answer one question. Returns the answer, citations, the tool steps (for "show your work"), the SQL that ran,
-    any proposals filed, and why the loop stopped."""
+    any proposals filed, and why the loop stopped. `history` is the thread so far (oldest first); None or [] sends
+    exactly the single-question prompt the evals measure."""
     if complete is None:
         from llm.client import complete
     graph = build_graph(ctx, complete=complete, max_tool_calls=max_tool_calls)
@@ -155,6 +180,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
                     f"{json.dumps(attachment, default=str)[:MAX_TOOL_RESULT_CHARS]}")
     state: AgentState = {
         "messages": [{"role": "system", "content": system_prompt(ctx.today, ctx.profile)},
+                     *_history_messages(history),
                      {"role": "user", "content": question}],
         "steps": [], "tool_calls": 0, "answer": None, "stopped": None, "llm_calls": 0,
     }
@@ -164,7 +190,7 @@ def run_agent(question: str, ctx: ToolContext, *, complete: Callable[..., Any] |
     retrieved |= {w["id"]: {"chunk_id": w["id"], "title": w["title"], "url": w["url"], "site": w["site"],
                             "text": w["snippet"]}
                   for s in final["steps"] if s["tool"] == "web_search" for w in s["result"].get("results", [])}
-    answer, follow_up = split_follow_up(final["answer"] or "")
+    answer, follow_up = split_follow_up(lumen_citations(final["answer"] or "", retrieved))
     citations = list(dict.fromkeys(c for c in _CITATION.findall(answer) if c in retrieved))
     return {
         "answer": answer,

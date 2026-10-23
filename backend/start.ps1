@@ -14,5 +14,6 @@ if (-not (Test-Path .env)) {
 }
 
 # Start Flask application
-Write-Host "Starting Flask server on http://localhost:5000" -ForegroundColor Cyan
-python app.py
+Write-Host "Starting the API (uvicorn) on http://localhost:5000" -ForegroundColor Cyan
+# uvicorn runs the whole API; `python app.py` would start only the old Flask half (no /api/demo, agent or documents)
+python -m uvicorn asgi:app --port 5000

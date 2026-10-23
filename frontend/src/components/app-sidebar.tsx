@@ -1,140 +1,151 @@
 "use client";
 
 import * as React from "react";
-import {
-	BookOpen,
-	Bot,
-	FileText,
-	PieChart,
-	LayoutDashboard,
-	Upload,
-} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { CalendarClock, ChartLine, House, PieChart, Receipt, Sparkles, type LucideIcon } from "lucide-react";
 
-import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
-import { NavUser } from "@/components/nav-user";
 import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
+	SidebarGroup,
 	SidebarGroupLabel,
 	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuBadge,
+	SidebarMenuButton,
+	SidebarMenuItem,
 	SidebarRail,
+	SidebarTrigger,
+	useSidebar,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/components/auth/auth-provider";
-import { useProfile } from "@/components/profile/profile-provider";
+import { reviewApi } from "@/lib/api/client";
+import { eventBus, EVENTS } from "@/lib/events";
 
-const data = {
-	navMain: [
-		{
-			title: "Spending Views",
-			url: "#",
-			icon: BookOpen,
-			items: [
-				{
-					title: "Weekly",
-					url: "/analytics?tab=weekly",
-				},
-				{
-					title: "Monthly",
-					url: "/analytics?tab=monthly",
-				},
-				{
-					title: "Yearly",
-					url: "/analytics?tab=yearly",
-				},
-			],
-		},
-	],
-	projects: [
-		{
-			name: "Overview",
-			url: "/dashboard",
-			icon: LayoutDashboard,
-		},
-		{
-			name: "Analytics",
-			url: "/analytics",
-			icon: BookOpen,
-		},
-		{
-			name: "AI Insights",
-			url: "/ai-analytics",
-			icon: PieChart,
-		},
-		{
-			name: "Ask Lumen",
-			url: "/chatbot",
-			icon: Bot,
-		},
-		{
-			name: "Documents",
-			url: "/documents",
-			icon: FileText,
-		},
-		{
-			name: "Import statement",
-			url: "/import",
-			icon: Upload,
-		},
-		{
-			name: "Review (test)",
-			url: "/review",
-			icon: FileText,
-		},
-	],
-};
+type Item = { label: string; url: string; icon: LucideIcon };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-	const { user: authUser } = useAuth();
-	const { profile, avatarSrc } = useProfile();
-	const name =
-		profile?.display_name ??
-		authUser?.user_metadata?.full_name ??
-		authUser?.user_metadata?.name ??
-		authUser?.email ??
-		"User";
-	const user = {
-		name,
-		email: authUser?.email ?? "",
-		avatar: avatarSrc ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-	};
+// Spec section 3. Every group is labelled (owner, 2026-10-22); labels say what you do, not what the backend is.
+// Forecast (Plan) joins once its page exists.
+const HOME: Item = { label: "Home", url: "/home", icon: House };
+const TRACK: Item[] = [
+	{ label: "Spending", url: "/spending", icon: ChartLine },
+	{ label: "Bills & subscriptions", url: "/bills", icon: CalendarClock },
+];
+const BUDGET: Item = { label: "Budget", url: "/budget", icon: PieChart };
+const RECEIPTS: Item = { label: "Receipts & statements", url: "/receipts", icon: Receipt };
+const ASK: Item = { label: "Ask Lumen", url: "/ask", icon: Sparkles };
+
+function NavItem({ item, children }: { item: Item; children?: React.ReactNode }) {
+	const pathname = usePathname();
+	const { isMobile, setOpenMobile } = useSidebar();
+	const active = pathname === item.url || pathname.startsWith(`${item.url}/`);
+	return (
+		<SidebarMenuItem>
+			<SidebarMenuButton asChild tooltip={item.label} isActive={active}>
+				{/* on phones the sidebar is a sheet over the page: close it once you've picked somewhere */}
+				<Link href={item.url} onClick={() => isMobile && setOpenMobile(false)}>
+					<item.icon />
+					<span>{item.label}</span>
+				</Link>
+			</SidebarMenuButton>
+			{children}
+		</SidebarMenuItem>
+	);
+}
+
+// `onAsk` opens the Ask palette, which app-shell.tsx owns: below md this sidebar is a Sheet that isn't mounted while
+// closed, so a palette (and its Ctrl+K) living in here would do nothing there.
+export function AppSidebar({ onAsk, ...props }: React.ComponentProps<typeof Sidebar> & { onAsk: () => void }) {
+	const pathname = usePathname();
+	const [toReview, setToReview] = React.useState(0);
+	const [mac, setMac] = React.useState(false);
+
+	// refreshed on navigation and after each review decision (which happens without leaving /receipts)
+	React.useEffect(() => {
+		const refresh = () => reviewApi.count().then(setToReview, () => setToReview(0));
+		void refresh();
+		return eventBus.on(EVENTS.REVIEW_DECIDED, refresh);
+	}, [pathname]);
+
+	React.useEffect(() => setMac(/Mac|iPhone|iPad/.test(navigator.platform)), []);
 
 	return (
-		<Sidebar
-			collapsible="icon"
-			{...props}
-			className="border-r border-sidebar-border/80"
-		>
-			<SidebarHeader className="border-b border-sidebar-border/80 px-3 py-3">
-				<div className="flex items-center gap-3">
-					<Image
-						src="/lumen_logo.svg"
-						alt="Lumen logo"
-						width={32}
-						height={32}
-						className="h-8 w-8"
-					/>
-					<div className="group-data-[collapsible=icon]:hidden">
-						<p className="text-sm font-semibold tracking-wide text-sidebar-foreground">
+		<Sidebar collapsible="icon" {...props} className="border-r border-sidebar-border/80">
+			{/* the collapse control lives here, not in a top bar (owner, 2026-10-22). On the icon rail the logo turns into
+			    the expand button on hover, so the rail stays 56px wide. */}
+			<SidebarHeader className="group/head px-3 py-4">
+				<div className="flex items-center gap-2.5 px-1">
+					<Link
+						href="/home"
+						aria-label="Lumen home"
+						className="flex items-center gap-2.5 group-data-[collapsible=icon]:group-hover/head:hidden"
+					>
+						<Image src="/lumen_logo.svg" alt="" width={24} height={24} className="size-6 shrink-0" />
+						<span className="text-[17px] font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
 							Lumen
-						</p>
-						<p className="text-xs text-sidebar-foreground/60">
-							Financial command center
-						</p>
-					</div>
+						</span>
+					</Link>
+					<SidebarTrigger
+						aria-label="Toggle sidebar (Ctrl+B)"
+						className="ml-auto hidden text-muted-foreground hover:text-foreground md:inline-flex group-data-[collapsible=icon]:-ml-0.5 group-data-[collapsible=icon]:hidden group-data-[collapsible=icon]:group-hover/head:inline-flex"
+					/>
 				</div>
 			</SidebarHeader>
-			<SidebarContent className="px-1 py-3">
-				<SidebarGroupLabel>Workspace</SidebarGroupLabel>
-				<NavProjects projects={data.projects} />
-				<SidebarGroupLabel className="mt-2">Compare</SidebarGroupLabel>
-				<NavMain items={data.navMain} />
+			<SidebarContent className="px-1">
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Overview</SidebarGroupLabel>
+					<SidebarMenu>
+						<NavItem item={HOME} />
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Track</SidebarGroupLabel>
+					<SidebarMenu>
+						{TRACK.map((item) => (
+							<NavItem key={item.url} item={item} />
+						))}
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Plan</SidebarGroupLabel>
+					<SidebarMenu>
+						<NavItem item={BUDGET} />
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Records</SidebarGroupLabel>
+					<SidebarMenu>
+						<NavItem item={RECEIPTS}>
+							{toReview > 0 && <SidebarMenuBadge>{toReview}</SidebarMenuBadge>}
+						</NavItem>
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup>
+					<SidebarGroupLabel className="label-ui">Assistant</SidebarGroupLabel>
+					<SidebarMenu>
+						<NavItem item={ASK} />
+					</SidebarMenu>
+				</SidebarGroup>
+				<SidebarGroup className="mt-auto">
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								tooltip={`Ask anything (${mac ? "⌘K" : "Ctrl K"})`}
+								onClick={onAsk}
+								className="border border-sidebar-border bg-card text-muted-foreground hover:text-foreground"
+							>
+								<Sparkles />
+								<span>Ask anything</span>
+							</SidebarMenuButton>
+							{/* fixed width: the label swaps to ⌘K on a Mac after mount without moving anything */}
+							<kbd className="label-ui pointer-events-none absolute top-1.5 right-1.5 w-12 rounded border border-sidebar-border py-0.5 text-center text-muted-foreground group-data-[collapsible=icon]:hidden">
+								{mac ? "⌘K" : "Ctrl K"}
+							</kbd>
+						</SidebarMenuItem>
+					</SidebarMenu>
+				</SidebarGroup>
 			</SidebarContent>
-			<SidebarFooter className="border-t border-sidebar-border/80 pt-3">
-				<NavUser user={user} />
-			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
 	);

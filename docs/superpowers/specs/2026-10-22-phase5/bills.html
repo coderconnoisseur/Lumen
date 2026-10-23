@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Bills mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell.css">
+<style>
+.hello{display:flex;align-items:center;gap:12px}
+.hello h1{font-size:26px;font-weight:500;letter-spacing:-.015em}
+.hello .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink2)}
+.icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.brief{font-family:Newsreader,serif;font-size:19px;color:var(--ink2);margin:8px 0 22px;max-width:780px;line-height:1.45}
+.brief em{color:var(--acc);font-style:italic}
+.chev{color:var(--faint);font-size:13px}
+/* month switcher */
+.msw{display:inline-flex;align-items:center;height:34px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.7);font:500 13px 'Funnel Sans';color:var(--ink2)}
+.msw span{padding:0 10px;color:var(--mute);font-size:15px}
+.msw b{font-weight:500;padding:0 4px;min-width:96px;text-align:center}
+/* summary */
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sum .card{padding:16px 20px}
+.sum .big{font-size:26px;font-weight:500;letter-spacing:-.015em;margin-top:8px}
+.sum .sub{font-size:12.5px;color:var(--mute);margin-top:3px}
+/* overdue row */
+.late{display:flex;align-items:center;gap:14px;margin-top:14px;padding:12px 16px 12px 14px}
+.late .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--badSoft);color:var(--bad);flex:none}
+.late .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.late h4{font-weight:500;font-size:14px}
+.late p{font-size:12.5px;color:var(--mute);margin-top:1px}
+.late .sep{width:1px;align-self:stretch;background:var(--line2);margin:0 4px}
+.late .acts{margin-left:auto;display:flex;gap:8px;align-items:center}
+.sbtn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;font:500 12.5px 'Funnel Sans';border:1px solid var(--line);background:var(--card);color:var(--ink2);white-space:nowrap}
+.sbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7}
+.sbtn.q{border-color:transparent;color:var(--mute);background:none}
+.sbtn.ai svg{stroke:var(--acc)}
+/* calendar + agenda */
+.g2{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;margin-top:14px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mute);margin-left:auto}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal > span{height:96px;border-radius:8px;border:1px solid var(--line2);font-size:11px;color:var(--faint);padding:5px 7px;line-height:1.25;display:flex;flex-direction:column}
+.cal .h{height:auto;border:0;text-align:center;padding:0 0 3px;font-size:11px}
+.cal .e{border:0}
+.cal .past{color:var(--mute)}
+.cal .fut{border-style:dashed}
+.cal .t{outline:1.5px solid var(--acc);outline-offset:-1px;color:var(--acc);font-weight:600}
+.bl{margin-top:auto;border-radius:5px;padding:3px 5px;font-size:11px;line-height:1.2;color:var(--ink2)}
+.bl b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl small{font-size:10.5px}
+.bl.paid{background:var(--goodSoft)}.bl.paid small{color:var(--good)}
+.bl.due{background:var(--accSoft)}.bl.due small{color:var(--acc)}
+.bl.over{background:var(--badSoft)}.bl.over small{color:var(--bad)}
+.bl.lp{background:var(--warnSoft)}.bl.lp small{color:var(--warn)}
+.calfoot{display:flex;gap:22px;margin-top:14px;font-size:12.5px;color:var(--mute)}
+.calfoot b{color:var(--text);font-weight:500}
+.wk{font-size:12px;font-weight:500;color:var(--faint);margin:14px 0 2px;display:flex}
+.wk:first-of-type{margin-top:2px}
+.wk span{margin-left:auto;font-variant-numeric:tabular-nums}
+.dt{width:38px;text-align:center;flex:none;border:1px solid var(--line);border-radius:9px;padding:4px 0;line-height:1.1}
+.dt b{display:block;font-size:14px;font-weight:500}
+.dt small{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.g2 .row{padding:7px 0}
+.row small.s{display:block;font-size:12px;color:var(--mute)}
+.est{font-size:11px;color:var(--faint);font-weight:400;margin-right:4px}
+/* subscriptions */
+.subs{margin-top:14px}
+.sh{display:grid;grid-template-columns:30px 1.6fr .8fr .8fr .7fr 400px;gap:14px;align-items:center;font-size:12px;color:var(--faint);padding:0 0 6px;border-bottom:1px solid var(--line2)}
+.sr{display:grid;grid-template-columns:30px 1.6fr .8fr .8fr .7fr 400px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.sr:last-child{border:0;padding-bottom:2px}
+.sr .nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sr small{display:block;color:var(--mute);font-size:12px;margin-top:1px}
+.sr .num{font-weight:500}
+.sr .acts{display:flex;gap:4px;justify-content:flex-end}
+.sr.stop{color:var(--mute)}
+.dots{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--faint);font-size:15px;letter-spacing:1px}
+.note ol{padding-left:16px;margin-top:4px}
+.note li{margin-top:3px}
+</style></head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="../../../../frontend/public/lumen_logo.svg" alt="">Lumen
+      <span class="col show" title="Collapse sidebar (Ctrl+B)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></span></div>
+    <div class="grp">Overview</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <div class="grp">Track</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Spending</a>
+    <a class="it on"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Bills &amp; subscriptions</a>
+    <div class="grp">Plan</div>
+    <a class="it"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg>Budget</a>
+    <div class="grp">Records</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h5"/></svg>Receipts &amp; statements<span class="n">4</span></a>
+    <div class="grp">Assistant</div>
+    <a class="it"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask Lumen</a>
+    <div class="foot">
+      <div class="askbox"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>Ask anything<kbd>Ctrl K</kbd></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="band" style="height:300px;opacity:.7"></div>
+    <div class="wrap">
+      <div class="hello">
+        <h1>Bills &amp; subscriptions</h1>
+        <div class="r">
+          <span class="msw"><span>‹</span><b>October 2026</b><span>›</span></span>
+          <span class="btn"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload</span>
+          <span class="icon" title="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6M12 17h.01"/></svg></span>
+          <span class="av" style="width:34px;height:34px">NB</span>
+        </div>
+      </div>
+      <p class="brief">Rent of ₹25,000 is due Friday, and your BESCOM bill is <em>three days late</em>. Two subscriptions look unused, about ₹1,618 a month.</p>
+
+      <div class="sum">
+        <section class="card"><span class="label">Due in the next 30 days</span>
+          <div class="big num">₹51,664</div><div class="sub">8 bills · biggest is rent on 24 Oct</div></section>
+        <section class="card"><span class="label">Recurring every month</span>
+          <div class="big num">₹32,383</div><div class="sub">9 regular charges · yearly ones spread per month</div></section>
+        <section class="card"><span class="label">Subscriptions you may not use</span>
+          <div class="big num">₹1,618 <span class="mute" style="font-size:13px;font-weight:400">a month</span></div><div class="sub">2 subscriptions · Spotify, Cult.fit</div></section>
+      </div>
+
+      <section class="card late">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <div><h4>BESCOM electricity, ₹1,860, was due Sun 19 Oct</h4><p>No payment seen yet. It usually lands within 2 days of the bill.</p></div>
+        <span class="sep"></span>
+        <p style="font-size:12.5px;color:var(--mute);max-width:220px">Airtel postpaid was paid 3 days late on 14 Oct.</p>
+        <div class="acts">
+          <span class="sbtn"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>Mark as paid</span>
+          <span class="sbtn"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20h4"/></svg>Remind me tomorrow</span>
+          <span class="sbtn q">Not a bill</span>
+        </div>
+      </section>
+
+      <div class="g2">
+        <section class="card">
+          <div class="ch"><span class="label">October, bill by bill</span>
+            <div class="legend"><span><i style="background:var(--goodSoft);border:1px solid #bfdcc9"></i>Paid</span><span><i style="background:var(--accSoft);border:1px solid #c3d6f7"></i>Due</span><span><i style="background:var(--warnSoft);border:1px solid #ecd6a8"></i>Paid late</span><span><i style="background:var(--badSoft);border:1px solid #efc6b4"></i>Overdue</span></div></div>
+          <div class="cal" id="cal"></div>
+          <div class="calfoot"><span>Paid so far <b class="num">₹21,106</b></span><span>Still due this month <b class="num">₹25,999</b></span><span>Overdue <b class="num" style="color:var(--bad)">₹1,860</b></span></div>
+        </section>
+
+        <section class="card">
+          <div class="ch"><span class="label">Upcoming</span><a>Next 30 days</a></div>
+          <div class="wk">This week<span>₹25,000</span></div>
+          <div class="row"><span class="dt"><small>Fri</small><b>24</b></span><span>Rent<small class="s">Monthly · Rent &amp; housing</small></span><span class="amt">₹25,000</span></div>
+          <div class="wk">Next week<span>₹1,767</span></div>
+          <div class="row"><span class="dt"><small>Mon</small><b>27</b></span><span>Jio Fiber<small class="s">Monthly · Broadband</small></span><span class="amt">₹999</span></div>
+          <div class="row"><span class="dt"><small>Sat</small><b>1</b></span><span>Netflix<small class="s">Monthly · Streaming</small></span><span class="amt">₹649</span></div>
+          <div class="row"><span class="dt"><small>Sun</small><b>2</b></span><span>Spotify <span class="pill warn" style="margin-left:4px">unused</span><small class="s">Monthly · Streaming</small></span><span class="amt">₹119</span></div>
+          <div class="wk">Later<span>₹24,897</span></div>
+          <div class="row"><span class="dt"><small>Wed</small><b>5</b></span><span>Cult.fit <span class="pill warn" style="margin-left:4px">unused</span><small class="s">Monthly · Fitness</small></span><span class="amt">₹1,499</span></div>
+          <div class="row"><span class="dt"><small>Tue</small><b>11</b></span><span>Airtel postpaid<small class="s">Monthly · Phone</small></span><span class="amt">₹599</span></div>
+          <div class="row"><span class="dt"><small>Fri</small><b>14</b></span><span>Amazon Prime<small class="s">Yearly · Subscriptions</small></span><span class="amt">₹1,499</span></div>
+          <div class="row"><span class="dt"><small>Sun</small><b>16</b></span><span>HDFC credit card<small class="s">Statement due · varies</small></span><span class="amt"><span class="est">about</span>₹21,300</span></div>
+        </section>
+      </div>
+
+      <section class="card subs">
+        <div class="ch"><span class="label">Subscriptions</span>
+          <span class="chips" style="margin-left:14px"><span class="on">Subscriptions 6</span><span>Bills 5</span><span>All 11</span></span>
+          <a>Sorted by: needs a look first</a></div>
+        <div class="sh"><span></span><span>Name</span><span>Last charged</span><span>Next</span><span style="text-align:right">Amount</span><span></span></div>
+
+        <div class="sr">
+          <span class="logo" style="background:#e3f1e8;color:#2e8b57">Sp</span>
+          <span><span class="nm">Spotify <span class="pill warn">unused 7 weeks</span></span><small>Monthly · since Mar 2024</small></span>
+          <span class="num" style="font-weight:400">2 Oct</span><span class="num" style="font-weight:400">2 Nov</span>
+          <span class="num" style="text-align:right">₹119<small>a month</small></span>
+          <span class="acts"><span class="sbtn">Mark as cancelled</span><span class="sbtn">Set reminder</span><span class="sbtn ai"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>How to cancel</span></span>
+        </div>
+        <div class="sr">
+          <span class="logo" style="background:#fae6dd;color:#c4572f">Cf</span>
+          <span><span class="nm">Cult.fit <span class="pill warn">unused 5 weeks</span></span><small>Monthly · since Jan 2026</small></span>
+          <span class="num" style="font-weight:400">5 Oct</span><span class="num" style="font-weight:400">5 Nov</span>
+          <span class="num" style="text-align:right">₹1,499<small>a month</small></span>
+          <span class="acts"><span class="sbtn">Mark as cancelled</span><span class="sbtn">Set reminder</span><span class="sbtn ai"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg>How to cancel</span></span>
+        </div>
+        <div class="sr">
+          <span class="logo" style="background:#fde8e1;color:#b8322a">N</span>
+          <span><span class="nm">Netflix <span class="pill acc">₹499 → ₹649</span></span><small>Monthly · price went up in Aug</small></span>
+          <span class="num" style="font-weight:400">1 Oct</span><span class="num" style="font-weight:400">1 Nov</span>
+          <span class="num" style="text-align:right">₹649<small>a month</small></span>
+          <span class="acts"><span class="dots">···</span></span>
+        </div>
+        <div class="sr">
+          <span class="logo" style="background:#e4edfc;color:#2f6fe0">Pr</span>
+          <span><span class="nm">Amazon Prime</span><small>Yearly · ₹125 a month spread</small></span>
+          <span class="num" style="font-weight:400">14 Nov 2025</span><span class="num" style="font-weight:400">14 Nov</span>
+          <span class="num" style="text-align:right">₹1,499<small>a year</small></span>
+          <span class="acts"><span class="dots">···</span></span>
+        </div>
+        <div class="sr">
+          <span class="logo" style="background:#faf0dc;color:#b7791f">Jf</span>
+          <span><span class="nm">Jio Fiber</span><small>Monthly · broadband</small></span>
+          <span class="num" style="font-weight:400">27 Sep</span><span class="num" style="font-weight:400">27 Oct</span>
+          <span class="num" style="text-align:right">₹999<small>a month</small></span>
+          <span class="acts"><span class="dots">···</span></span>
+        </div>
+        <div class="sr stop">
+          <span class="logo" style="background:#ecebe6;color:#7a7871">YT</span>
+          <span><span class="nm">YouTube Premium <span class="pill" style="background:var(--chip);color:var(--mute)">looks stopped</span></span><small>Monthly · no charge since 9 Aug</small></span>
+          <span class="num" style="font-weight:400">9 Aug</span><span class="num" style="font-weight:400">—</span>
+          <span class="num" style="text-align:right">₹149<small>a month</small></span>
+          <span class="acts"><span class="sbtn q">Hide</span><span class="sbtn">Confirm cancelled</span></span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="note"><b>Bills: decisions + open questions</b>
+<ol>
+<li>Calendar shows bills, not spend (Home already has spend). Paid/due/late/overdue as soft fills, one bill per cell + "+1" if more.</li>
+<li>Row actions only on flagged subscriptions; calm ones get a ··· menu. OK?</li>
+<li>"How to cancel" opens Ask Lumen with a ready question; Mark cancelled / Set reminder act in place.</li>
+<li><b>Needs backend:</b> REST route for <code>find_recurring</code> (agent-only today); paid/late/overdue matching per cycle; "unused" (no usage data, only "looks stopped"); saved cancelled/reminder/not-a-bill state; card-bill due dates (amount varies, not detected).</li>
+<li>Quarterly cadence (LIC) isn't detected (weekly/monthly/yearly only). Add?</li>
+</ol></div>
+
+<script>
+// Oct 2026 starts on a Wednesday; Mon-first grid like Home. Mock bills only.
+const bills={1:["paid","Netflix","₹649"],2:["paid","Spotify","₹119"],5:["paid","Cult.fit","₹1,499"],11:["lp","Airtel","paid 14th"],15:["paid","HDFC card","₹18,240"],19:["over","BESCOM","₹1,860"],24:["due","Rent","₹25,000"],27:["due","Jio Fiber","₹999"]};
+let c="MTWTFSS".split("").map(d=>`<span class="h">${d}</span>`).join("")+`<span class="e"></span><span class="e"></span>`;
+for(let d=1;d<=31;d++){const b=bills[d];const cls=d==22?'t':d<22?'past':'fut';
+ const lab=b?`<span class="bl ${b[0]}"><b>${b[1]}</b><small class="num">${b[2]}</small></span>`:'';
+ c+=`<span class="${cls}">${d==22?'22 · Today':d}${lab}</span>`}
+c+=`<span class="e"></span>`;
+document.getElementById("cal").innerHTML=c;
+</script>
+</body></html>

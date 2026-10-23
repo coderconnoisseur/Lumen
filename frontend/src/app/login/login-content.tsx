@@ -35,8 +35,8 @@ const TITLES: Record<Mode, ReactNode> = {
 // Only allow same-origin relative paths. "//host" and "/\host" are treated by
 // browsers as protocol-relative URLs and would redirect off-site.
 function safeNextPath(next: string | null): string {
-	if (!next || !next.startsWith("/")) return "/dashboard";
-	if (next.startsWith("//") || next.startsWith("/\\")) return "/dashboard";
+	if (!next || !next.startsWith("/")) return "/home";
+	if (next.startsWith("//") || next.startsWith("/\\")) return "/home";
 	return next;
 }
 

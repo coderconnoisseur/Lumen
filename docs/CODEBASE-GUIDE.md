@@ -253,19 +253,141 @@ embeds the demo documents once per server and uploads the files in the backgroun
   the landing or sign-in pages, which don't need the API; they still ping it so it's warm by the time the app opens).
 
 ## 7b2. App frame and navigation (frontend)
-- The signed-in pages live in the route group `app/(app)/` (URLs unchanged: `/dashboard`, `/analytics`, ...).
-  `app/(app)/layout.tsx` holds the auth guard, sidebar and top bar; they mount once and stay while you move between
+- The signed-in pages live in the route group `app/(app)/`: `/home`, `/spending`, `/bills`, `/budget`, `/receipts`
+  (and `/receipts/import`), `/ask`, `/settings`. The old URLs (`/dashboard`, `/analytics`, `/ai-analytics`,
+  `/chatbot`, `/documents`, `/import`, `/review`, `/upload`) redirect to them in `next.config.js` (temporary 307s, query
+  strings carried).
+- **Sidebar** (`components/app-sidebar.tsx`): Home · Track (Spending, Bills & subscriptions) · Plan (Budget) · Receipts & statements
+  (badge = flagged review items) · Ask Lumen (Ctrl/⌘+K). It collapses to a 56px icon rail with Ctrl/⌘+B, remembered
+  in the `sidebar_state` cookie. The layout reads that cookie on the sidebar's first render, which is always
+  client-side because the auth guard shows a loader on the server, so there's no jump and no server read. Shortcuts
+  skip key presses in text fields (`isTypingTarget` in `lib/utils.ts`). **Account** (Settings, API keys, Log out) is the
+  top-right `components/avatar-menu.tsx`, floating over the page (there is no top bar on desktop; phones keep a slim
+  row with the sheet button). The collapse button lives in the sidebar header; on the 56px rail the logo turns into it
+  on hover. Every sidebar group is labelled (Overview, Track, Records, Assistant).
+  `app/(app)/layout.tsx` holds the auth guard and sidebar; they mount once and stay while you move between
   pages, so only the content area swaps. `app/(app)/template.tsx` fades each page's content in (`.app-page-in` in
   `globals.css`). `components/dashboard-shell.tsx` is just a page's content wrapper and optional header card.
 - There is no root `loading.tsx`: the pages are static and prefetched, and a full-screen spinner made every click
   look like a reload.
+- **Sky theme (UI revamp, `docs/superpowers/specs/2026-10-20-ui-revamp-design.md`).** `app/(app)/layout.tsx` wraps
+  the shell in `<div data-app-theme="sky" className="contents">`. In `globals.css`, `:root:has([data-app-theme="sky"])`
+  swaps every shadcn colour token to the light Sky palette, so portaled menus and dialogs match too. The
+  `dark:` variant is also switched off while the shell is mounted. Public pages keep the forced dark theme.
+  Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
+  `.label-ui` (card titles, tags, ticks: Funnel Sans, sentence case; the owner ruled out all-caps mono labels).
+- **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
+  margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
+  `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in
+  production). Firefox is opt-in with `E2E_FIREFOX=1`. The e2e dev server builds into `.next-e2e` (`NEXT_DIST_DIR`),
+  so running tests never breaks a `npm run dev` in the same checkout. `html, body` use `overflow-x: clip`, never `hidden`:
+  `hidden` makes `<body>` a scroll container whose scrollbar disappears when a menu opens.
+- **Page skeleton (UI revamp Phase 5).** Every redesigned page is built from `components/page/`: `PageHeader`
+  (26px title, quiet actions, serif brief, optional control row; `md:pr-12` leaves room for the floating account
+  menu), `PageCard` (title row with optional `›` link, `extra` and `action`; a skeleton at the card's final height,
+  so nothing moves when data arrives) and `VendorChip` (initials on a stable per-vendor hue, `vendorChip` in
+  `lib/home-math.ts`). Buttons on these pages use the `quiet` and `ink` variants, never the default blue. Charts use
+  `lib/chart.ts`: `smoothPath` (monotone cubic, so a running total never dips between days) and `pickTicks`
+  (axis labels that never overlap at any width). Approved mockups: `docs/superpowers/specs/2026-10-22-phase5/`.
+- **Spending** (`app/(app)/spending/`, Phase 5b): "where did my money go, and is anything off?" A period control
+  (This month / Last month / 3M / YTD / Custom with two native date inputs) and a "Compare with" switch drive
+  everything. Hero: total, change vs the previous period, the shared `CumulativeChart` (or month bars for 3M/YTD)
+  and the last six months as bars. By category (click a row = `?category=`, "Sort them now" = Uncategorised),
+  Lumen noticed (Home's `LumenFound` with a title), Transactions (search, source filter, the category pill edits
+  in place via `PUT /transactions/<id>`, CSV export of exactly the rows shown) and Top merchants. All maths is
+  pure in `lib/spending-math.ts` (tests: `e2e/spending-math.spec.ts`); data from `GET /transactions` (which now
+  includes `source`) and `/api/home/summary` (spikes link to `/spending?category=<name>`). The old Analytics and
+  AI Insights pages, their components and the API calls only they used are gone.
+- **Bills & subscriptions** (`app/(app)/bills/`, Phase 5c): "what's due, what recurs, what can I cut?" Everything
+  comes from `GET /api/bills/recurring` (`api/bills.py`): `ai/recurring.find_recurring` over the user's transactions
+  plus their saved choices in `recurring_states` (keyed by the detection's normalised vendor). `not_a_bill` moves a
+  vendor to `hidden`; `cancelled` keeps it listed as cancelled, or `charged_again` if a charge lands after the
+  cancel day; posting `active` forgets the choice (`POST /api/bills/recurring/state`). The page: three tiles (due in
+  30 days, recurring per month with weekly/yearly spread, subscriptions that look stopped), a six-row month calendar
+  with each bill on its projected days (‹ month › switcher), Upcoming grouped This week / Next week / Later, and the
+  table with tabs, price-rise / looks-stopped / charged-again pills, Mark as cancelled, Not a bill, and How to cancel
+  (`/ask?draft=How do I cancel X?`). Maths in `lib/bills-math.ts` (tests: `e2e/bills-math.spec.ts`).
+- **Budget** (`app/(app)/budget/`, Phase 5d): "am I on track, and what should my plan be?" A ‹ month › switcher
+  (past months read-only, as they were), Edit budget (the overall total, in place) and Let Lumen draft. Hero: spent of
+  total, a bar with the even-pace tick, left / days left / safe per day (left ÷ days left), and the running total
+  against a straight line to the budget (`CumulativeChart` with that line as its dashed series). Last 6 months: dashed
+  budget outline vs actual (green under, red over), this month with a run-rate projection, and the track record. By
+  category: budget / spent / left / used, the amount editable in place (Enter saves, Esc cancels, same row height),
+  Add category, and the unassigned footer. The draft panel shows pending `set_budget` lines (Skip / Approve named for
+  the category, "Approve remaining N"). History sits above By category so the data-height cards come last.
+  Maths in `lib/budget-math.ts` (tests: `e2e/budget-math.spec.ts`).
+- **Receipts & statements** (`app/(app)/receipts/`, Phase 5e): "what have I given Lumen, and what needs my OK?" It
+  replaced the Documents / Import / Review tabs. Everything loads together and appears in one step. Needs your review
+  (only when the queue isn't empty): a card per flagged item with the doubtful field highlighted from its validation
+  flag (`total_mismatch`/`no_currency` → Total, `duplicate` → Bill no., `bad_date` → Date, `unknown_vendor` → Vendor),
+  the reason in plain words, Approve / Edit (sends only changed fields) / Reject; a duplicate offers Keep both. The
+  library merges receipts (non-statement transactions, latest 100), review items, RAG documents (deletable) and
+  statement imports, with chips, search and Show more. Right column: Statement imports (counts bar) and From your
+  inbox (`/api/v1/email-config/status`: Check now, Pause/Resume, or Connect with Google). The upload dialog
+  (`components/uploadDialog.tsx`) chooses Receipts & invoices (`/extract`) or Documents (PDF, `/api/documents`).
+- **Home** (`app/(app)/home/`, Home v2 from Phase 5a, modelled on Origin's app home): greeting, quiet Upload and
+  Export, and a serif brief over a sky band. Then a full-width hero: Spent in <Month> (total, change vs the previous
+  period by the same day, "heading for" from the forecast, smooth now-vs-before lines, bill markers on the axis,
+  1W/1M/3M/YTD, `+` opens upload). Below it, the main column has "<Month>, day by day" (amount per day, today
+  outlined, upcoming bill names on future days, always as tall as a six-week month) beside Recent transactions, then
+  Lumen found as a list whose links act ("Ask Lumen" opens `/ask?draft=` with the question typed but not sent). The
+  side column has Budget in <Month> (spent of total, % bar, top four categories by spend), Coming up (next four
+  bills), the draft-budget promo and Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, recurring
+  charges, forecast, review queue). Bills come from `GET /api/bills/recurring`: `toBills` keeps active ones that
+  don't look stopped and are due in the next 31 days. A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
+  never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
+  **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
+  Lumen found and Activity:
+  - Lumen found shows double charges (the only items with a "you may get back" ₹), receipts to review, category spikes
+    vs the same day last month, and subscription price rises from `ai.recurring`.
+  - Activity shows statement imports grouped into one line, receipts read, and your approve/reject decisions.
+
+  Text carries `{0}` placeholders plus `amounts`, which the client fills in the user's currency (`fill` in
+  `lib/home-math.ts`). The brief adds "The one thing worth a look" from the top item.
+
+  Budgets: the overall budget is `User.monthly_budget` (onboarding); per-category limits are the `budgets` table,
+  one row per (user, category, `effective_from` month) since Phase 5d. A month's limit is the latest row from that
+  month or before (`limits_in_force`), so edits never rewrite past months; a 0 limit removes a category from that
+  month on. `models/database._migrate_budget_versions` dates older rows by `updated_at` and swaps the unique
+  constraint (SQLite rebuilds the table).
+  - `GET /api/budget?month=YYYY-MM` (default this month), `PUT /api/budget` (writes from the current month),
+    `GET /api/budget/history?months=6` (budget vs spent per month; `budget` null for a past month with no limits).
+  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean over the months that had spend,
+    rounded up; `basis.months` lists those) and files `set_budget` proposals with `payload.month` = this month.
+    Approving one (`/api/agent/proposals/{id}/approve`) writes the row from that month. A new draft retires pending ones.
+  - Ask Lumen's `draft_budget` tool files the same proposals.
+  - The Budget page's draft panel approves lines; Home's promo links to `/budget?draft=1`.
+
+  The sidebar badge uses `GET /api/review?count=1`. `(app)/layout.tsx` is a
+  tiny server file exporting the light `theme-color`; the client shell is `components/app-shell.tsx`.
+- **Signed-in e2e:** `e2e/fixtures.ts` `signIn(page)` fakes a Supabase session (localStorage) plus the
+  `lumen_session` cookie, and stubs every backend call, so `e2e/shell.spec.ts` drives the real shell without servers.
+- **Motion:** use `motion/react` only (framer-motion was removed). Shared timings live in `lib/motion.ts`
+  (`DURATION`, `EASE_OUT`, `fadeUp`). Reduced motion is honoured globally by `MotionConfig reducedMotion="user"`
+  in the app layout and a CSS rule in `globals.css`.
 
 ## 7c. Ask Lumen screen (frontend, UI phase)
-- `/chatbot` (`app/chatbot/chatbotContent.tsx`) is the one chat with the agent (the old `/agent` test page is gone).
-  It sends `POST /chat`, which returns the markdown answer plus its evidence: `sources` (passage `text` and the
-  original's `file_key`), `steps` (tool, summary, `latency_ms`), `proposals`. The SQL the agent ran stays
-  server-side (not shown to users). History (`GET /chat/history`)
-  keeps only the text, so older answers show citation numbers without passages.
+- `/ask` (`app/(app)/ask/chatbotContent.tsx`; `/chatbot` redirects) holds **conversations** with the agent (UI revamp
+  Phase 4).
+  - **Threads.** Threads live in `chat_threads`; `chat_messages.thread_id` was added through `_ADDED_COLUMNS`. The
+    routes in `routes/chat.py` are `GET /chat/threads`, `GET`/`DELETE /chat/threads/<id>`, and `POST /chat` with an
+    optional `thread_id` (none starts a thread titled from the question). Another user's id is a 404.
+  - **Legacy history.** Messages saved before threads fold into one "Earlier chats" thread the first time you list
+    threads. `GET/DELETE /chat/history` are gone.
+  - **Memory.** The agent gets the thread's last 6 messages (user/assistant only, 1,500 chars each) between the system
+    prompt and the question (`run_agent(history=...)`). With no history the prompt is unchanged, which keeps the evals
+    comparable.
+  - **The page.** Opening Ask starts a fresh chat with suggestions (from Home's "Lumen found" via
+    `suggestedQuestions`, then `/chat/suggestions`). Past chats sit in `thread-rail.tsx` (a column on desktop, a Sheet
+    on small screens). `/ask?q=…` starts a new chat with that question once, then cleans the URL. `/ask?draft=…`
+    starts a new chat with the question typed into the composer but not sent (Lumen found, Bills "How to cancel").
+  - **Answers.** `POST /chat` returns the markdown answer plus its evidence: `sources` (passage `text` and the original's
+    `file_key`), `steps` (tool, summary, `latency_ms`) and `proposals`. The SQL the agent ran stays server-side. Saved
+    messages keep only the text, so older answers show citation numbers without passages.
+  - **Next: line.** The agent's last "Next: …" line becomes the follow-up chip (`split_follow_up` also accepts
+    "Next :", the full-width colon and dashes), and `answer.tsx` never renders a bare trailing "Next:".
+- **Ask anything** (`components/ask-palette.tsx`): the sidebar button, or ⌘/Ctrl+K anywhere outside a text field
+  (`e.code === "KeyK"`, so Caps Lock and Shift work), opens a one-line dialog; Enter goes to `/ask?q=…`.
 - `components/ask/`: `prompt-bar.tsx` (composer; the mic button is a placeholder until voice has a backend),
   `work-trace.tsx` ("Thinking" timer, then the collapsible list of steps in plain words, no queries or raw errors),
   `invoice-card.tsx` (paperclip in the prompt bar sends the file as multipart `file` with the question; the answer
@@ -274,10 +396,11 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `answer.tsx` (markdown via `react-markdown` + `remark-gfm`; `[<doc id>#sNN]` citations, also padded or in
   full-width brackets, become numbered chips that open the passage card with **Open original**; a note when the
   answer cites nothing and touched no data), `proposal-card.tsx` (approve/reject a proposed change), `button.tsx`.
-- Look: components adapted from Beautiful UI (beautifului.dev, MIT), styled after the owner's reference (near-black
-  canvas, flat colour steps, light serif display = Newsreader, Inter UI, Roboto Mono uppercase labels, white as the
-  only primary action). Tokens in `app/beautiful-ui.css`, scoped to a `.bui` wrapper so the rest of the app's shadcn
-  theme is untouched. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
+- Look: components adapted from Beautiful UI (beautifului.dev, MIT). Its tokens live in `app/beautiful-ui.css`,
+  scoped to a `.bui` wrapper. Inside the signed-in app, `:root:has([data-app-theme="sky"]) .bui` remaps every token to
+  Sky (light paper, blue accent, AA text), so Ask is light with no component changes. Inside `.bui`, use its own
+  tokens (`bg-hover`, `bg-surface`, `border-line`, `text-ink-2`), not shadcn's `accent`, which resolves to bui's blue
+  `--accent` there. Empty chat = greeting + large composer + suggestion pills; then the composer docks below.
 
 ## 7d. Landing page (frontend, UI phase)
 - `/` (`app/page.tsx`) follows the owner's reference site (useorigin.com) in structure, type and motion, with
@@ -375,14 +498,36 @@ embeds the demo documents once per server and uploads the files in the backgroun
   that vendor has corrections, reads again with them as JSON hints in the prompt; the hints are kept on the invoice
   as `feedback_hints`. Not yet measured: the synthetic invoices are read perfectly, so there's nothing to correct.
 
+## Model keys (BYOK, SPEC-BYOK)
+- Users add their own OpenAI / Anthropic / Gemini / Groq / OpenRouter key (and a Tavily key for web search) on
+  `/settings`. `api/keys.py` validates it against the provider (`check_key`), encrypts it with
+  `KEYS_ENCRYPTION_KEY` (`utils/crypto.py`; no `SECRET_KEY` fallback: unset = 503 `keys_unavailable`) into `user_keys`, and only ever returns the last 4. Test and Remove
+  are on the same router; the key never appears in a response, log line or error (`keys.mask`).
+- Flow: `require_auth` calls `llm.keys.for_user(user, engine)` (a contextvar) -> `keys.user_chain(role)` builds the
+  models that user's keys allow, from the BYOK catalogue in `llm/registry.yaml` (loaded by `llm/registry.py`; the
+  `agent` role exists only there) -> `llm.client.complete` tries that chain. A role none of the user's keys covers
+  (e.g. vision for a Groq-only user) uses the platform chain. `key_rejected` (400) is only for a failing user key;
+  then there is no silent fallback to the platform's models.
+- No key at all: the platform's chain, capped by the free allowance (`PLATFORM_QUESTIONS_PER_DAY` questions a day,
+  `PLATFORM_INVOICE_READS` invoice reads in total). `/chat`, `/api/agent/ask` and `/api/documents/ask` share the
+  question allowance. Past it: `needs_key` (402). The chat and the inbox status card link to Settings; the documents
+  question box appends a Settings hint (not a link).
+- Email poller (no request, so no contextvar): it enters `for_user` for each config's owner. A rejected key stops
+  that user's poll; a used-up allowance skips only the invoice email that needed it (retried next poll). Either is
+  written to `last_error`, which the inbox card shows.
+- `LUMEN_OPENAI_BASE_URL` / `LUMEN_ANTHROPIC_BASE_URL` move those providers to a test server (used by the tests).
+
 ## Statement import (SPEC-STATEMENTS)
 - `backend/statements/read.py`: decodes the CSV, finds the header row, guesses the column mapping (date,
   description, debit, credit, amount, Dr/Cr marker), parses lines with signs. `vendor.py` cleans bank descriptions
   into a vendor name and a category.
 - `api/statements.py`: `POST /api/statements/preview` (columns, guessed mapping, 5 sample lines, counts; a file with
   no header is a 400 with `code: "no_header"` and the first raw rows) and `POST /api/statements/import` (file +
-  mapping JSON + currency + header_line). Only debits become transactions (`source="statement"`).
+  mapping JSON + currency + header_line + optional account `label`). Only debits become transactions
+  (`source="statement"`). Each import also writes a `statement_imports` row (file, label, period, counts as returned;
+  the CSV isn't kept), listed by `GET /api/statements/imports` (UI revamp Phase 5e).
 - Dedupe: each line has an `import_key` (sha1 of user, date, amount, description), so re-importing is safe. Invoice
   matching: a debit with the same amount within 3 days and a shared word in the vendor name is "already recorded",
   not added. Credits are counted and skipped; unreadable lines are returned by line number.
-- `/import` (frontend, minimal): choose a CSV, adjust the mapping and currency, preview, import, see the result line.
+- `/receipts/import` (frontend): choose a CSV, adjust the mapping, currency and account name, preview, import, see the
+  result line.

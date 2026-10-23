@@ -133,6 +133,67 @@ def test_llm_outage_leaves_email_unprocessed_and_continues(env, monkeypatch):
     assert r["success"] and r["transactions_added"] == 1
     from models import ProcessedEmail
     assert [p.message_id for p in ProcessedEmail.query.all()] == ["<ok>"]
+    assert env.config(U1).last_error is None  # an outage is not a key problem
+
+
+def _add_groq_key(env):
+    from llm import keys
+    from models import UserKey
+    from utils.crypto import encrypt_secret
+    env.db.session.add(UserKey(user_id=U1, provider="groq", key_enc=encrypt_secret("gsk_test", key_env=keys.KEY_ENV)))
+    env.db.session.commit()
+
+
+def test_poller_stops_on_user_key_error_and_resumes_after_fix(env, monkeypatch):
+    from llm import keys
+    from models import ProcessedEmail, UserKey
+    _add_groq_key(env)
+    calls = []
+
+    def parse(*a, **k):
+        calls.append(1)
+        e = LLMError("auth", "bad")
+        e.user_key = "groq"
+        keys.mark_failed("groq", "bad")
+        raise e
+    monkeypatch.setattr(env.poller, "parse_money_email", parse)
+    env.services_[U1] = Fake([mail("<1>"), mail("<2>")])
+    env.services_[U2] = Fake([])
+    before = env.config(U1).last_poll_time
+    env.poller.poll_all_users()
+    assert len(calls) == 1 and ProcessedEmail.query.count() == 0
+    assert "Groq key was rejected" in env.config(U1).last_error
+    assert env.config(U1).last_poll_time == before
+
+    calls.clear()
+    monkeypatch.setattr(env.poller, "parse_money_email", lambda *a, **k: calls.append(1) or parsed())
+    results = env.poller.poll_all_users()
+    assert calls == [] and [r["user_id"] for r in results] == [U2]  # U1 skipped, U2 still polled
+
+    keys.mark_ok(env.db.engine, U1, "groq")
+    env.db.session.expire_all()
+    env.poller.poll_all_users()
+    assert len(calls) == 2 and ProcessedEmail.query.count() == 2
+    assert env.db.session.query(UserKey).filter_by(user_id=U1).one().last_error is None
+
+
+def test_needs_key_skips_only_that_email(env, monkeypatch):
+    from models import ProcessedEmail
+    from utils.errors import KEY_MESSAGES
+    calls = []
+
+    def parse(*a, **k):
+        calls.append(1)
+        if len(calls) == 1:
+            raise LLMError(LLMError.NEEDS_KEY, "allowance used")
+        return parsed()
+    monkeypatch.setattr(env.poller, "parse_money_email", parse)
+    env.services_[U1] = Fake([mail("<1>"), mail("<2>")])
+    r = env.poller.process_user_emails(env.config(U1))
+    assert len(calls) == 2 and r["transactions_added"] == 1
+    assert [p.message_id for p in ProcessedEmail.query.all()] == ["<2>"]
+    assert env.config(U1).last_error == KEY_MESSAGES["needs_key"]
+    assert env.config(U1).last_poll_time is None
 
 
 def test_default_currency_is_users_then_config(env, monkeypatch):

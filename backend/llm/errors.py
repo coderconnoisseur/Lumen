@@ -12,16 +12,18 @@ class LLMError(RuntimeError):
     UNAVAILABLE = "unavailable"  # timeout, network error, provider 5xx
     BAD_RESPONSE = "bad_response"  # 2xx but nothing usable in it
     DEADLINE = "deadline"  # the request's time budget ran out before the call
+    NEEDS_KEY = "needs_key"  # free allowance used up and the user has no key of their own (SPEC-BYOK)
 
     # These fail every later call in the same request too, so callers must not
     # paper over them with a fallback.
-    FATAL = frozenset({AUTH, CREDITS, RATE_LIMITED, CONFIG, UNAVAILABLE, DEADLINE})
+    FATAL = frozenset({AUTH, CREDITS, RATE_LIMITED, CONFIG, UNAVAILABLE, DEADLINE, NEEDS_KEY})
 
     def __init__(self, kind: str, detail: str, status: int | None = None):
         super().__init__(detail)
         self.kind = kind
         self.detail = detail
         self.status = status
+        self.user_key: str | None = None  # the provider, when the final failure was the user's own key
 
     @property
     def is_fatal(self) -> bool:
