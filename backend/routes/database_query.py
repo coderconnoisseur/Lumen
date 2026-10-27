@@ -3,11 +3,21 @@ from models import Transaction, TransactionItem
 from models.database import db
 from sqlalchemy import and_, or_
 from datetime import datetime
+import logging
 import uuid
 
 from utils.auth import require_auth
 
 database_query_bp = Blueprint('database_query', __name__)
+logger = logging.getLogger(__name__)
+
+
+def _failed(what: str):
+    """Log the real error, undo the half-done transaction (or the pooled connection stays broken for the next
+    request), and tell the browser only what failed: database errors can name tables and columns."""
+    logger.exception('%s failed', what)
+    db.session.rollback()
+    return jsonify({'success': False, 'error': f'{what} failed. Try again.'}), 500
 
 
 # The legacy URL shape included a `<user_id>` path segment. We keep accepting it
@@ -130,11 +140,8 @@ def get_transactions(user_id=None):
             }
         }), 200
     
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+    except Exception:
+        return _failed('Loading transactions')
 
 
 @database_query_bp.route('/transactions', methods=['POST'])
@@ -198,12 +205,8 @@ def create_transaction():
             }
         }), 201
     
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+    except Exception:
+        return _failed('Saving the transaction')
 
 
 @database_query_bp.route('/transactions/<transaction_id>', methods=['DELETE'])
@@ -315,9 +318,5 @@ def update_transaction(transaction_id):
             }
         }), 200
     
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+    except Exception:
+        return _failed('Saving the transaction')
