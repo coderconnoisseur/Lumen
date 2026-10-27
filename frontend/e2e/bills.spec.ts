@@ -74,27 +74,27 @@ test("mark as cancelled moves the row into Cancelled, and undo brings it back", 
 	await openBills(page);
 	const netflix = table(page).getByTestId("recurring-row").filter({ hasText: "Netflix" });
 	await expect(netflix).toContainText("₹499 → ₹649");
-	await netflix.getByRole("button", { name: "Mark as cancelled" }).click();
+	await netflix.getByRole("button", { name: "Mark Netflix as cancelled" }).click();
 	await expect(page.getByTestId("cancelled-group")).toContainText("Netflix");
 	expect(posts).toEqual([{ vendor: "Netflix", state: "cancelled" }]);
-	await page.getByTestId("cancelled-group").getByRole("button", { name: "Undo" }).click();
+	await page.getByTestId("cancelled-group").getByRole("button", { name: "Undo cancelling Netflix" }).click();
 	await expect(page.getByTestId("cancelled-group")).toHaveCount(0);
 	expect(posts.at(-1)).toEqual({ vendor: "Netflix", state: "active" });
 });
 
 test("not a bill hides it; hidden lists it with undo", async ({ page }) => {
 	await openBills(page);
-	await table(page).getByTestId("recurring-row").filter({ hasText: "Rent" }).getByRole("button", { name: "Not a bill" }).click();
+	await table(page).getByTestId("recurring-row").filter({ hasText: "Rent" }).getByRole("button", { name: "Mark Rent as not a bill" }).click();
 	await expect(table(page).getByTestId("recurring-row").filter({ hasText: "Rent" })).toHaveCount(0);
 	await page.getByRole("button", { name: "Hidden (1)" }).click();
 	await expect(page.getByTestId("hidden-list")).toContainText("Rent");
-	await page.getByTestId("hidden-list").getByRole("button", { name: "Undo" }).click();
+	await page.getByTestId("hidden-list").getByRole("button", { name: "Undo hiding Rent" }).click();
 	await expect(table(page).getByTestId("recurring-row").filter({ hasText: "Rent" })).toHaveCount(1);
 });
 
 test("how to cancel opens Ask with the question typed", async ({ page }) => {
 	await openBills(page);
-	const link = table(page).getByTestId("recurring-row").filter({ hasText: "Netflix" }).getByRole("link", { name: "How to cancel" });
+	const link = table(page).getByTestId("recurring-row").filter({ hasText: "Netflix" }).getByRole("link", { name: "How to cancel Netflix" });
 	await expect(link).toHaveAttribute("href", "/ask?draft=How%20do%20I%20cancel%20Netflix%3F");
 });
 

@@ -208,3 +208,12 @@ def test_two_visitors_share_one_embedding_of_the_demo_documents(tmp_path, monkey
         hits = store.dense_search(uid, embedder.embed_query("NetLink 90 days written notice terminate"), k=3)
         assert hits and "NetLink" in hits[0].title
         assert {h.doc_id for h in hits} <= {d["id"] for d in store.list_documents(uid)}
+
+
+def test_the_demos_double_charge_shows_in_lumen_found(seeded):
+    """The demo seeds a QuickBite double charge so Lumen found has something to show; the signal must find it."""
+    from ai.home_signals import find_signals
+
+    *_, rows = seeded
+    found = find_signals(rows, TODAY, 0, [])
+    assert any(f["kind"] == "duplicate" and f["subject"] == "QuickBite" for f in found), found

@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Bills page's calculations (UI revamp Phase 5c).
 import { test, expect } from "@playwright/test";
-import { billsOnCalendar, dueDays, monthlyEquivalent, tiles, toBills, upcoming } from "../src/lib/bills-math";
+import { billsOnCalendar, dueDays, monthlyEquivalent, nextBillSentence, tiles, toBills, upcoming } from "../src/lib/bills-math";
 import type { RecurringItem } from "../src/lib/api/client";
 
 const item = (vendor: string, cadence: RecurringItem["cadence"], next: string, amount: number, extra: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -76,4 +76,16 @@ test("the calendar shows a bill only from its first charge on, and a cancelled o
 	expect(billsOnCalendar([gym], 2026, 10).size).toBe(0); // November: cancelled
 	const stopped = { ...netflix, vendor: "Old", possibly_stopped: true };
 	expect(billsOnCalendar([stopped], 2026, 9).size).toBe(0); // October: after its last charge
+});
+
+test("nextBillSentence: today, tomorrow, a weekday this week, a date beyond, and late ones", () => {
+	const fri = new Date(2026, 9, 23); // Fri 23 Oct 2026
+	const money = (n: number) => `₹${n}`;
+	const at = (next: string) => nextBillSentence(upcoming([item("Power", "monthly", next, 573)], fri), fri, money);
+	expect(at("2026-10-23")).toBe("Power (₹573) is due today.");
+	expect(at("2026-10-24")).toBe("Power (₹573) is due tomorrow.");
+	expect(at("2026-10-28")).toBe("Power (₹573) is due Wednesday.");
+	expect(at("2026-11-01")).toBe("Power (₹573) is due on Sun 1 Nov.");
+	expect(at("2026-10-18")).toBe("Power (₹573) was expected on 18 Oct and hasn't shown up yet.");
+	expect(nextBillSentence([], fri, money)).toBeNull();
 });

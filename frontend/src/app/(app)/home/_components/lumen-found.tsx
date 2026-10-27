@@ -39,7 +39,12 @@ export function LumenFound({ summary, loading, title = "Lumen found" }: { summar
 			data-testid="lumen-found"
 		>
 			{found.length === 0 ? (
-				<p className="font-serif text-[17px] text-muted-foreground">Nothing needs you right now.</p>
+				<>
+					<p className="font-serif text-[17px] text-muted-foreground">Nothing needs you right now.</p>
+					<p className="mt-2 max-w-[44ch] text-[12.5px] leading-snug text-muted-foreground">
+						Lumen keeps checking for double charges, price rises, spending spikes and receipts it wasn&apos;t sure about.
+					</p>
+				</>
 			) : (
 				found.map((f, i) => {
 					const { icon: Icon, tint, action } = KIND[f.kind] ?? KIND.review;
