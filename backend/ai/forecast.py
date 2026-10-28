@@ -70,3 +70,71 @@ def bills_in_month(bills: list[dict], year: int, month: int, today: date, txns: 
         out += [{"vendor": b["vendor"], "category": b.get("category"), "amount": float(b["typical_amount"]), "day": d}
                 for d in days]
     return sorted(out, key=lambda b: (b["day"], b["vendor"]))
+
+
+# ---- everyday spending ----
+
+def _ym(d: date) -> str:
+    return f"{d.year}-{d.month:02d}"
+
+
+def monthly_everyday(txns: list[dict], bills: list[dict], today: date, months: int = 6) -> list[tuple[str, float]]:
+    """Net everyday spend (everything that isn't a bill; refunds net out) per complete month before today's, oldest
+    first, for months that had any transactions, at most the last `months`."""
+    this = _ym(today)
+    seen: set[str] = set()
+    totals: dict[str, float] = {}
+    for t in txns:
+        d = _day(t.get("date"))
+        if d is None or _ym(d) >= this or t.get("total_amount") is None:
+            continue
+        m = _ym(d)
+        seen.add(m)
+        if not is_bill(t, bills):
+            totals[m] = totals.get(m, 0.0) + float(t["total_amount"])
+    return [(m, round(totals.get(m, 0.0), 2)) for m in sorted(seen)][-months:]
+
+
+def _clamp(level: float, low: float, high: float) -> tuple[float, float, float]:
+    level = max(level, 0.0)
+    return round(level, 2), round(max(min(low, level), 0.0), 2), round(max(high, level, 0.0), 2)
+
+
+def robust_level(history: list[float], ahead: int) -> tuple[float, float, float] | None:
+    """Method A's everyday month: the median of past months (one big one-off doesn't drag it), with the 20th-80th
+    percentile spread as the range, widened by 5% of the level per month ahead."""
+    if len(history) < 2:
+        return None
+    import numpy as np
+
+    level = float(np.median(history))
+    low, high = (float(v) for v in np.percentile(history, [20, 80]))
+    widen = 0.05 * abs(level) * ahead
+    return _clamp(level, low - widen, high + widen)
+
+
+HOLT_ALPHA, HOLT_BETA = 0.5, 0.2
+
+
+def holt_level(history: list[float], ahead: int) -> tuple[float, float, float] | None:
+    """Method B's everyday month: Holt's linear trend (level + trend, exponentially smoothed) `ahead` months past the
+    last one, with ±1.28 × the one-step residual spread × sqrt(ahead) as the range (an 80% band if errors were normal).
+    numpy only."""
+    if len(history) < 2:
+        return None
+    import numpy as np
+
+    level, trend = float(history[0]), float(history[1] - history[0])
+    errors = []
+    for value in history[1:]:
+        errors.append(value - (level + trend))
+        prev = level
+        level = HOLT_ALPHA * value + (1 - HOLT_ALPHA) * (level + trend)
+        trend = HOLT_BETA * (level - prev) + (1 - HOLT_BETA) * trend
+    forecast = level + ahead * trend
+    spread = max(float(np.std(errors)), 0.05 * abs(forecast)) * 1.28 * ahead ** 0.5
+    return _clamp(forecast, forecast - spread, forecast + spread)
+
+
+METHODS = {"bills_everyday": robust_level, "holt": holt_level}
+LABELS = {"bills_everyday": "Bills + everyday", "holt": "Statistical (Holt)"}

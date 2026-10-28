@@ -58,3 +58,40 @@ def test_a_weekly_bill_counts_once_per_week_and_a_yearly_one_in_its_month():
     assert [b["vendor"] for b in dec].count("Maid") == 4 and "Prime" not in [b["vendor"] for b in dec]
     jan = fc.bills_in_month(fc.bill_items([maid, prime]), 2027, 1, TODAY, [])
     assert [b for b in jan if b["vendor"] == "Prime"] == [{"vendor": "Prime", "category": "Bills", "amount": 1500, "day": 14}]
+
+
+# ---- Task 2: everyday spending ----
+
+def test_robust_ignores_a_one_off():
+    level, low, high = fc.robust_level([20000, 21000, 100000, 19000], 1)
+    assert level < 30000 and low <= level <= high
+
+
+def test_levels_never_negative():
+    for method in fc.METHODS.values():
+        level, low, high = method([-500, 200], 1)
+        assert level >= 0 and low >= 0 and high >= 0
+
+
+def test_holt_follows_a_trend():
+    level, low, high = fc.holt_level([10000, 12000, 14000, 16000], 1)
+    assert 16000 <= level <= 20000 and low <= level <= high
+
+
+def test_ranges_widen_further_out():
+    for method in fc.METHODS.values():
+        h = [20000, 23000, 19000, 22000, 21000]
+        _, lo1, hi1 = method(h, 1)
+        _, lo3, hi3 = method(h, 3)
+        assert hi3 - lo3 > hi1 - lo1
+
+
+def test_too_little_history_returns_none():
+    assert fc.robust_level([5000], 1) is None and fc.holt_level([5000], 1) is None and fc.robust_level([], 1) is None
+
+
+def test_monthly_everyday_excludes_bills_and_this_month():
+    bills = fc.bill_items([item("Rent", "monthly", "2026-11-05", 25000, category="Housing")])
+    txns = [t("2026-08-05", 25000, "Rent"), t("2026-08-10", 3000), t("2026-09-05", 25000, "Rent"), t("2026-09-11", 4000),
+            t("2026-09-12", -500), t("2026-10-03", 9000)]  # October is this month: not history
+    assert fc.monthly_everyday(txns, bills, TODAY) == [("2026-08", 3000.0), ("2026-09", 3500.0)]
