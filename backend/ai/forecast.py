@@ -162,8 +162,45 @@ def _shares(txns: list[dict], bills: list[dict], today: date, hist_months: set[s
     return {c: v / total for c, v in by_cat.items() if v > 0} if total else {}
 
 
+def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], recurring: list[dict], hist: list[tuple[str, float]],
+        txns: list[dict], today: date, currency: str | None) -> str:
+    """One plain sentence on what shapes month `i` (0 = this month), built only from its own numbers (spec §3.5): the
+    first rule that applies, plus "Ranges widen further out." for the last month."""
+    from utils.money import fmt
+
+    def on(d: date) -> str:
+        return f"{d.day} {d:%b}"
+
+    text = None
+    usual = sorted(v for _, v in hist)[len(hist) // 2] if hist else 0.0
+    if i == 0 and usual > 0:
+        mine = [t for t in txns if (d := _day(t.get("date"))) and (d.year, d.month) == (y, m) and d <= today
+                and t.get("total_amount") and not is_bill(t, bills)]
+        big = max(mine, key=lambda t: float(t["total_amount"]), default=None)
+        if big is not None and float(big["total_amount"]) > usual / 2:
+            text = (f"Higher than usual: the {fmt(float(big['total_amount']), currency)} {big['vendor_name']} order "
+                    f"on {on(_day(big['date']))}.")
+    if text is None:
+        cadence = {b["vendor"]: b["cadence"] for b in bills}
+        yearly = next((b for b in due if cadence.get(b["vendor"]) == "yearly"), None)
+        if yearly:
+            text = f"Includes the yearly {fmt(yearly['amount'], currency)} {yearly['vendor']} renewal on {on(date(y, m, yearly['day']))}."
+    if text is None:
+        py, pm = _next(y, m, -1)
+        gone = next((r for r in recurring if r.get("state") == "cancelled"
+                     and str(r.get("last_charge_date", ""))[:7] == f"{py}-{pm:02d}"), None)
+        if gone and i > 0:
+            text = f"Lower: {gone['vendor']} is cancelled."
+    if text is None:
+        n = len({b["vendor"] for b in due})
+        span = "–".join(dict.fromkeys(f"{date(int(k[:4]), int(k[5:]), 1):%b}" for k in (hist[0][0], hist[-1][0])))
+        text = f"Your usual month: {n} bill{'' if n == 1 else 's'} and everyday spending like {span}."
+    return text + (" Ranges widen further out." if i == HORIZON - 1 else "")
+
+
 def forecast_months(txns: list[dict], recurring: list[dict], today: date, method: str, *,
-                    budgets: dict[str, dict] | None = None, income: float | None = None) -> dict | None:
+                    budgets: dict[str, dict] | None = None, income: float | None = None,
+                    currency: str | None = None) -> dict | None:
     """This month and the next three with one everyday method: bills on their due days + the method's everyday level.
     None when the method has too little history. Every total is the sum of its parts (spec §3)."""
     bills = bill_items(recurring)
@@ -218,7 +255,9 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
             "month": key, "forecast": forecast, "low": round(lo, 2), "high": round(hi, 2),
             "bills": bills_total, "everyday": round(everyday, 2),
             "budget": total_budget, "over_budget": (forecast > total_budget) if total_budget else None,
-            "income": income, "left": round(income - forecast, 2) if income else None, "why": "",
+            "income": income, "left": round(income - forecast, 2) if income else None,
+            "why": why(i, y, m, due=due, bills=bills, recurring=recurring, hist=hist, txns=txns, today=today,
+                       currency=currency),
             "categories": sorted(({"category": c, "spent": round(spent_cat.get(c, 0.0), 2) if i == 0 else None,
                                    "forecast": round(v, 2), "budget": limits.get(c)} for c, v in cats.items()),
                                  key=lambda x: -x["forecast"]),
@@ -320,11 +359,11 @@ def monthly_equivalent(b: dict) -> float:
 
 
 def forecast(txns: list[dict], recurring: list[dict], today: date, *, budgets: dict[str, dict] | None = None,
-             income: float | None = None) -> dict | None:
+             income: float | None = None, currency: str | None = None) -> dict | None:
     """The forecast the app shows: the better method for this user, its months, its measured accuracy, and the bills
     a what-if can switch off. None when there's too little history to forecast at all."""
     picked = choose(txns, today)
-    f = forecast_months(txns, recurring, today, picked["method"], budgets=budgets, income=income)
+    f = forecast_months(txns, recurring, today, picked["method"], budgets=budgets, income=income, currency=currency)
     if f is None:
         return None
     return {**f, "method": picked["method"], "accuracy": picked["accuracy"],

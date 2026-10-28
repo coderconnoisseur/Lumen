@@ -236,3 +236,32 @@ def test_forecast_carries_accuracy_and_what_if_items():
     assert f["method"] in fc.METHODS and f["accuracy"]["months_tested"] == 6
     eq = {i["vendor"]: i["monthly_equivalent"] for i in f["items"]}
     assert eq == {"Rent": 25000, "Maid": 5200, "Prime": 100}
+
+
+# ---- Task 5: the why line ----
+
+def test_why_names_a_big_one_off_this_month():
+    txns = history_txns() + [t("2026-10-17", 18514, "TechHub Electronics", "Shopping")]
+    f = fc.forecast_months(txns, [RENT], TODAY, "bills_everyday")
+    assert f["months"][0]["why"] == "Higher than usual: the ₹18,514 TechHub Electronics order on 17 Oct."
+
+
+def test_why_names_a_yearly_renewal_and_widening_ranges():
+    prime = item("Prime", "yearly", "2027-01-14", 1500, kind="subscription", category="Entertainment")
+    f = fc.forecast_months(history_txns(), [RENT, prime], TODAY, "bills_everyday")
+    assert f["months"][3]["why"] == "Includes the yearly ₹1,500 Prime renewal on 14 Jan. Ranges widen further out."
+
+
+def test_why_says_a_cancelled_subscription_drops_out():
+    flix = item("StreamFlix", "monthly", "2026-11-10", 766, kind="subscription", state="cancelled",
+                last_charge_date="2026-10-10")
+    f = fc.forecast_months(history_txns(), [RENT, flix], TODAY, "bills_everyday")
+    assert f["months"][1]["why"] == "Lower: StreamFlix is cancelled."
+    assert "StreamFlix" not in f["months"][2]["why"]
+
+
+def test_why_default_is_the_usual_month():
+    f = fc.forecast_months(history_txns(), [RENT], TODAY, "bills_everyday")
+    assert f["months"][2]["why"] == "Your usual month: 1 bill and everyday spending like Jul–Sep."
+    f2 = fc.forecast_months(history_txns(), [RENT, POWER], TODAY, "bills_everyday", currency="USD")
+    assert f2["months"][1]["why"] == "Your usual month: 2 bills and everyday spending like Jul–Sep."
