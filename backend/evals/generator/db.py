@@ -17,7 +17,9 @@ def load_world(engine: Engine, world: dict) -> None:
     """Create the tables if needed and replace the world's users and their rows."""
     tables = {name: db.metadata.tables[name] for name in _TABLES}
     # transactions.receipt_id references receipts; Postgres needs the table even though it stays empty.
-    db.metadata.create_all(engine, tables=[db.metadata.tables["receipts"], *tables.values()])
+    # budgets and recurring_states stay empty but exist, as in the app: the forecast tool reads them (Forecast F2)
+    db.metadata.create_all(engine, tables=[db.metadata.tables[t] for t in ("receipts", "budgets", "recurring_states")]
+                           + list(tables.values()))
     user_ids = [u["id"] for u in world["users"]]
     txn = tables["transactions"]
     item = tables["transaction_items"]
