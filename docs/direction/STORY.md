@@ -504,3 +504,19 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   what the pages said, not whether they loaded. After the fixes: backend 1011 passed, e2e 225 + reruns green, each
   fix with a test that failed first (including one that the seeded demo's double charge is found).
 
+## 38. A forecast that is measured, not guessed (Forecast F1)
+- **S:** Home said "heading for ₹80,697" from daily exponential smoothing with a fixed ±5% trend nudge. It ignored
+  bills (rent is a third of a month), gave no range, and nobody had measured it.
+- **T:** A forecast for this month and the next three that is explainable line by line and measured on the user's
+  own history, so the app can say how right it usually is.
+- **A:** `ai/forecast.py` (TDD, 29 tests): detected bills on their due days plus everyday spending predicted two ways
+  (a median of past months, and Holt's linear trend), each backtested over the last 6 complete months using only what
+  was known before each month (and from the 15th), keeping the better method per user. A why line per month is built
+  only from its own numbers. An offline eval suite runs it on the eval world's two users and three demo accounts and
+  scores the old smoothing forecast the same way.
+- **R:** Median error over 30 backtested months: **old forecast 45.1% → new 18.8%** whole-month (9.5% from mid-month),
+  with 73% of months landing inside the range (the old one had no range). Bills + everyday beat Holt (49.6%) for every
+  user. The demo accounts alone are 13-14%; the eval world's users spend in a two-month purchase-order cycle (±30-40%
+  swings), so the planned 10% gate was loosened once to 20% and a "must be under half the old forecast's error" gate
+  added, rather than fitting the generator.
+
