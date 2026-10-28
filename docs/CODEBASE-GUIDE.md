@@ -298,6 +298,16 @@ embeds the demo documents once per server and uploads the files in the backgroun
   pure in `lib/spending-math.ts` (tests: `e2e/spending-math.spec.ts`); data from `GET /transactions` (which now
   includes `source`) and `/api/home/summary` (spikes link to `/spending?category=<name>`). The old Analytics and
   AI Insights pages, their components and the API calls only they used are gone.
+- **Forecast service** (`backend/ai/forecast.py`, spec `docs/superpowers/specs/2026-10-28-forecast-design.md`): pure
+  functions, no DB, no LLM. Bills (recurring charges of kind bill/subscription still being paid) fall on their due
+  days (`bills_in_month`; late ones count today, ones already charged this month don't count again); everyday spending
+  is predicted by two methods, `robust_level` (median of past months, 20th-80th percentile range) and `holt_level`
+  (Holt's linear trend). `backtest` predicts each of the last 6 complete months from what was known before it (or
+  from the 15th, `cut_day`), `score` gives the median absolute % error and in-range rate, `choose` keeps the better
+  method per user (ties and too little history: bills + everyday), and `forecast` returns this month + the next three
+  with bills/everyday/categories/budget/money left, a daily path, a `why` line per month built only from its own
+  numbers, the measured accuracy and the bills a what-if can switch off. Eval: `evals/suites/forecast.py`, gates in
+  `evals/gates.yaml` (`forecast`), run by `pytest -m eval tests/test_eval_forecast.py`.
 - **Bills & subscriptions** (`app/(app)/bills/`, Phase 5c): "what's due, what recurs, what can I cut?" Everything
   comes from `GET /api/bills/recurring` (`api/bills.py`): `ai/recurring.find_recurring` over the user's transactions
   plus their saved choices in `recurring_states` (keyed by the detection's normalised vendor). `not_a_bill` moves a

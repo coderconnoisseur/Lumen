@@ -504,3 +504,21 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   what the pages said, not whether they loaded. After the fixes: backend 1011 passed, e2e 225 + reruns green, each
   fix with a test that failed first (including one that the seeded demo's double charge is found).
 
+## 38. A forecast that is measured, not guessed (Forecast F1)
+- **S:** Home said "heading for ₹80,697" from daily exponential smoothing with a fixed ±5% trend nudge. It ignored
+  bills (rent is a third of a month), gave no range, and nobody had measured it.
+- **T:** A forecast for this month and the next three that is explainable line by line and measured on the user's
+  own history, so the app can say how right it usually is.
+- **A:** `ai/forecast.py` (TDD, 33 tests): detected bills on their due days plus everyday spending predicted two ways
+  (a median of past months, and Holt's linear trend), each backtested over the last 6 complete months using only what
+  was known before each month (and from the 15th), keeping the better method per user. A why line per month is built
+  only from its own numbers. An offline eval suite scores it on the eval world's two users and one demo account, and
+  scores the old smoothing forecast the same way. A fresh review caught that cancelling a subscription didn't lower
+  the forecast (its past charges slid into everyday history), late yearly bills counted every month, weekly bills
+  paid today counted twice, a too-narrow mid-month range, and an eval that counted three copies of the demo account;
+  all fixed test-first.
+- **R:** Median error over 18 backtested months: **old forecast 44.8% → new 21.8%** whole-month (12.6% from the 15th),
+  with the actual inside the range 67% of months (78% from the 15th; the old one had no range). Per user: demo account
+  12.8%, the eval world's users 32.0% and 33.6% (they spend in a two-month purchase-order cycle, swinging ±30-40%).
+  Bills + everyday beat Holt (61.2%) for every user. The spec's 10% target is **not met**; the CI gates are regression
+  guards just above these numbers (25% / 15% / 60% in range / at most 55% of the old forecast's error).
