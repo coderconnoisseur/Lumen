@@ -138,3 +138,105 @@ def holt_level(history: list[float], ahead: int) -> tuple[float, float, float] |
 
 METHODS = {"bills_everyday": robust_level, "holt": holt_level}
 LABELS = {"bills_everyday": "Bills + everyday", "holt": "Statistical (Holt)"}
+
+
+# ---- the forecast for one method ----
+
+HORIZON = 4  # this month + the next three
+
+
+def _next(year: int, month: int, n: int) -> tuple[int, int]:
+    y, m = divmod(year * 12 + month - 1 + n, 12)
+    return y, m + 1
+
+
+def _shares(txns: list[dict], bills: list[dict], today: date, hist_months: set[str]) -> dict[str, float]:
+    """Each category's share of everyday spending over the history months (what an everyday level splits into)."""
+    by_cat: dict[str, float] = {}
+    for t in txns:
+        d = _day(t.get("date"))
+        if d and _ym(d) in hist_months and t.get("total_amount") is not None and not is_bill(t, bills):
+            cat = (t.get("category") or "").strip() or "Uncategorised"
+            by_cat[cat] = by_cat.get(cat, 0.0) + float(t["total_amount"])
+    total = sum(v for v in by_cat.values() if v > 0)
+    return {c: v / total for c, v in by_cat.items() if v > 0} if total else {}
+
+
+def forecast_months(txns: list[dict], recurring: list[dict], today: date, method: str, *,
+                    budgets: dict[str, dict] | None = None, income: float | None = None) -> dict | None:
+    """This month and the next three with one everyday method: bills on their due days + the method's everyday level.
+    None when the method has too little history. Every total is the sum of its parts (spec §3)."""
+    bills = bill_items(recurring)
+    hist = monthly_everyday(txns, bills, today)
+    levels = [METHODS[method]([v for _, v in hist], ahead) for ahead in range(1, HORIZON + 1)]
+    if levels[0] is None:
+        return None
+    shares = _shares(txns, bills, today, {m for m, _ in hist})
+    days_in = calendar.monthrange(today.year, today.month)[1]
+    days_left = days_in - today.day
+    this = _ym(today)
+
+    # this month so far, per day and per category
+    daily_spent = [0.0] * today.day
+    spent_cat: dict[str, float] = {}
+    for t in txns:
+        d = _day(t.get("date"))
+        if d and _ym(d) == this and d <= today and t.get("total_amount") is not None:
+            daily_spent[d.day - 1] += float(t["total_amount"])
+            cat = (t.get("category") or "").strip() or "Uncategorised"
+            spent_cat[cat] = spent_cat.get(cat, 0.0) + float(t["total_amount"])
+    spent = round(sum(daily_spent), 2)
+
+    months, current = [], None
+    for i in range(HORIZON):
+        y, m = _next(today.year, today.month, i)
+        key = f"{y}-{m:02d}"
+        level, low, high = levels[i]
+        due = bills_in_month(bills, y, m, today, txns)
+        bills_total = round(sum(b["amount"] for b in due), 2)
+        if i == 0:
+            frac = days_left / days_in
+            everyday = round(level * frac, 2)
+            base = spent + bills_total
+            forecast, lo, hi = base + everyday, base + low * frac, base + high * frac
+            current = {"spent_so_far": spent, "bills_still_due": {"count": len(due), "amount": bills_total},
+                       "everyday_rest": everyday, "days_left": days_left}
+        else:
+            everyday = level
+            forecast, lo, hi = bills_total + level, bills_total + low, bills_total + high
+        cats: dict[str, float] = dict(spent_cat) if i == 0 else {}
+        for b in due:
+            c = (b.get("category") or "").strip() or "Uncategorised"
+            cats[c] = cats.get(c, 0.0) + b["amount"]
+        for c, s in shares.items():
+            cats[c] = cats.get(c, 0.0) + everyday * s
+        plan = (budgets or {}).get(key) or {}
+        total_budget = plan.get("total")
+        limits = plan.get("categories") or {}
+        forecast = round(forecast, 2)
+        months.append({
+            "month": key, "forecast": forecast, "low": round(lo, 2), "high": round(hi, 2),
+            "bills": bills_total, "everyday": round(everyday, 2),
+            "budget": total_budget, "over_budget": (forecast > total_budget) if total_budget else None,
+            "income": income, "left": round(income - forecast, 2) if income else None, "why": "",
+            "categories": sorted(({"category": c, "spent": round(spent_cat.get(c, 0.0), 2) if i == 0 else None,
+                                   "forecast": round(v, 2), "budget": limits.get(c)} for c, v in cats.items()),
+                                 key=lambda x: -x["forecast"]),
+        })
+
+    actual, run = [], 0.0
+    for v in daily_spent:
+        run += v
+        actual.append(round(run, 2))
+    rate = months[0]["everyday"] / days_left if days_left else 0.0
+    due_by_day: dict[int, float] = {}
+    for b in bills_in_month(bills, today.year, today.month, today, txns):
+        due_by_day[b["day"]] = due_by_day.get(b["day"], 0.0) + b["amount"]
+    path, run = [round(spent, 2)], spent + due_by_day.get(today.day, 0.0)
+    for day in range(today.day + 1, days_in + 1):
+        run += rate + due_by_day.get(day, 0.0)
+        path.append(round(run, 2))
+    if days_left == 0:
+        path = [round(spent + due_by_day.get(today.day, 0.0), 2)]
+    return {"months": months, "current": current,
+            "daily": {"actual": actual, "path": path, "low": months[0]["low"], "high": months[0]["high"]}}
