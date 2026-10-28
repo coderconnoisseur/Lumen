@@ -10,7 +10,8 @@ export type HomeFixture = {
 	reminders?: { id: string; vendor: string; amount: number; date: string; type: string; category?: string }[];
 	/** GET /api/bills/recurring items as the API sends them; default: built from `reminders` (monthly, active) */
 	recurring?: Record<string, unknown>[];
-	forecast?: { dates: string[]; values: number[] } | "fail";
+	/** GET /api/forecast's `forecast` (see `forecastFixture`), "fail" for a 500, null for too little history */
+	forecast?: Record<string, unknown> | "fail" | null;
 	delayMs?: number;
 	forecastDelayMs?: number;
 	/** GET /api/home/summary; default: just the review item when reviewCount > 0 */
@@ -153,11 +154,10 @@ export async function signIn(
 			const data = all.slice((page - 1) * size, page * size);
 			return route.fulfill({ json: { success: true, data, pagination: { page, has_next: page * size < all.length, total_items: all.length } } });
 		}
-		if (path === "/api/analytics/forecast") {
+		if (path === "/api/forecast") {
 			if (home.forecastDelayMs) await new Promise((r) => setTimeout(r, home.forecastDelayMs));
 			if (home.forecast === "fail") return route.fulfill({ status: 500, json: { error: "boom" } });
-			const f = home.forecast;
-			return route.fulfill({ json: { success: true, forecast: f ? { success: true, forecast: f } : { success: false } } });
+			return route.fulfill({ json: { success: true, forecast: home.forecast ?? null } });
 		}
 		if (path === "/api/review") {
 			if (url.searchParams.get("count") === "1") return route.fulfill({ json: { success: true, count: queue.length } });
@@ -245,3 +245,29 @@ export async function signIn(
 	// supabase signOut and any other auth call
 	await page.route("http://127.0.0.1:54321/**", (route) => route.fulfill({ status: 204, body: "" }));
 }
+
+/** A GET /api/forecast payload for the current month (Forecast F2): `spent` so far, then `perDay` every day left. */
+export function forecastFixture({ spent, perDay, month, budget = null, income = null }: { spent: number; perDay: number; month?: string; budget?: number | null; income?: number | null }) {
+	const now = new Date();
+	const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+	const left = days - now.getDate();
+	const path = Array.from({ length: left + 1 }, (_, i) => spent + perDay * i);
+	const total = path[path.length - 1];
+	const ym = (n: number) => {
+		const d = new Date(now.getFullYear(), now.getMonth() + n, 1);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+	};
+	const m = (n: number, forecast: number) => ({
+		month: n === 0 && month ? month : ym(n), forecast, low: forecast * 0.9, high: forecast * 1.1, bills: 0, everyday: forecast,
+		budget, income, left: income ? income - forecast : null, over_budget: budget ? forecast > budget : null, why: "Your usual month.", categories: [],
+	});
+	return {
+		months: [m(0, total), m(1, perDay * 30), m(2, perDay * 30), m(3, perDay * 30)],
+		current: { spent_so_far: spent, bills_still_due: { count: 0, amount: 0 }, everyday_rest: total - spent, days_left: left },
+		daily: { actual: [spent], path, low: total * 0.9, high: total * 1.1 },
+		method: "bills_everyday",
+		accuracy: { method: "bills_everyday", label: "Bills + everyday", median_error_pct: 12.8, in_range_pct: 83.3, months_tested: 6, tried: [] },
+		items: [],
+	};
+}
+

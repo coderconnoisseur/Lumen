@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, type HomeFixture } from "./fixtures";
+import { forecastFixture, signIn, type HomeFixture } from "./fixtures";
 
 const now = new Date();
 const ym = (n: number) => {
@@ -240,3 +240,16 @@ test("spending faster than an even pace reads as over pace, not as good news", a
 	await expect(page.getByTestId("brief")).not.toContainText("ahead");
 	await expect(page.getByTestId("budget-hero")).toContainText("Over pace");
 });
+
+test("this month's bar in the history shows the forecast, not a straight-line guess", async ({ page }) => {
+	await openBudget(page, { ...sample, forecast: forecastFixture({ spent: 62182, perDay: 1000, budget: 100000 }) });
+	const total = forecastFixture({ spent: 62182, perDay: 1000 }).months[0].forecast;
+	await expect(page.getByTestId("history-forecast")).toHaveAttribute("title", `Forecast: ₹${Math.round(total).toLocaleString("en-US")}`);
+});
+
+test("with no forecast, this month's bar shows only what's spent", async ({ page }) => {
+	await openBudget(page, { ...sample, forecast: null });
+	await expect(page.getByTestId("history-month")).toHaveCount(4);
+	await expect(page.getByTestId("history-forecast")).toHaveCount(0);
+});
+
