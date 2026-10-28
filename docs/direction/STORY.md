@@ -509,14 +509,16 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   bills (rent is a third of a month), gave no range, and nobody had measured it.
 - **T:** A forecast for this month and the next three that is explainable line by line and measured on the user's
   own history, so the app can say how right it usually is.
-- **A:** `ai/forecast.py` (TDD, 29 tests): detected bills on their due days plus everyday spending predicted two ways
+- **A:** `ai/forecast.py` (TDD, 33 tests): detected bills on their due days plus everyday spending predicted two ways
   (a median of past months, and Holt's linear trend), each backtested over the last 6 complete months using only what
   was known before each month (and from the 15th), keeping the better method per user. A why line per month is built
-  only from its own numbers. An offline eval suite runs it on the eval world's two users and three demo accounts and
-  scores the old smoothing forecast the same way.
-- **R:** Median error over 30 backtested months: **old forecast 45.1% → new 18.8%** whole-month (9.5% from mid-month),
-  with 73% of months landing inside the range (the old one had no range). Bills + everyday beat Holt (49.6%) for every
-  user. The demo accounts alone are 13-14%; the eval world's users spend in a two-month purchase-order cycle (±30-40%
-  swings), so the planned 10% gate was loosened once to 20% and a "must be under half the old forecast's error" gate
-  added, rather than fitting the generator.
-
+  only from its own numbers. An offline eval suite scores it on the eval world's two users and one demo account, and
+  scores the old smoothing forecast the same way. A fresh review caught that cancelling a subscription didn't lower
+  the forecast (its past charges slid into everyday history), late yearly bills counted every month, weekly bills
+  paid today counted twice, a too-narrow mid-month range, and an eval that counted three copies of the demo account;
+  all fixed test-first.
+- **R:** Median error over 18 backtested months: **old forecast 44.8% → new 21.8%** whole-month (12.6% from the 15th),
+  with the actual inside the range 67% of months (78% from the 15th; the old one had no range). Per user: demo account
+  12.8%, the eval world's users 32.0% and 33.6% (they spend in a two-month purchase-order cycle, swinging ±30-40%).
+  Bills + everyday beat Holt (61.2%) for every user. The spec's 10% target is **not met**; the CI gates are regression
+  guards just above these numbers (25% / 15% / 60% in range / at most 55% of the old forecast's error).

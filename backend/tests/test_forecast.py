@@ -265,3 +265,41 @@ def test_why_default_is_the_usual_month():
     assert f["months"][2]["why"] == "Your usual month: 1 bill and everyday spending like Jul–Sep."
     f2 = fc.forecast_months(history_txns(), [RENT, POWER], TODAY, "bills_everyday", currency="USD")
     assert f2["months"][1]["why"] == "Your usual month: 2 bills and everyday spending like Jul–Sep."
+
+
+# ---- review fixes ----
+
+def test_cancelling_a_subscription_lowers_the_months_after():
+    """Review #1: its past charges must not slide into everyday history and come straight back."""
+    txns = history_txns() + [t(f"2026-{m}-10", 766, "StreamFlix", "Entertainment") for m in ("07", "08", "09", "10")]
+    flix = item("StreamFlix", "monthly", "2026-11-10", 766, kind="subscription", category="Entertainment",
+                state="cancelled", last_charge_date="2026-10-10")
+    active = {**flix, "state": "active"}
+    kept = fc.forecast_months(txns, [RENT, active], TODAY, "bills_everyday")["months"][1]
+    gone = fc.forecast_months(txns, [RENT, flix], TODAY, "bills_everyday")["months"][1]
+    assert gone["forecast"] == kept["forecast"] - 766 and gone["everyday"] == kept["everyday"]
+    assert gone["why"] == "Lower: StreamFlix is cancelled."
+
+
+def test_a_long_missed_yearly_bill_isnt_due_every_month():
+    """Review #2: late counts only within one period of its due date."""
+    insurance = item("Insurance", "yearly", "2026-03-14", 12000)
+    assert fc.bills_in_month(fc.bill_items([insurance]), 2026, 10, TODAY, []) == []
+    power = item("City Power", "monthly", "2026-09-30", 2000)  # due last month, not seen: still late
+    assert [b["day"] for b in fc.bills_in_month(fc.bill_items([power]), 2026, 10, TODAY, [])] == [22]
+    old = item("Old", "monthly", "2026-08-15", 2000)  # two periods late: not due
+    assert fc.bills_in_month(fc.bill_items([old]), 2026, 10, TODAY, []) == []
+
+
+def test_a_weekly_bill_paid_today_isnt_due_again_today():
+    """Review #3."""
+    maid = item("Maid", "weekly", "2026-10-29", 1200)
+    due = fc.bills_in_month(fc.bill_items([maid]), 2026, 10, TODAY, [t("2026-10-22", 1200, "Maid")])
+    assert [b["day"] for b in due] == [29]
+
+
+def test_higher_than_usual_only_when_the_month_is_higher():
+    """Review #7: a big purchase in a quiet month doesn't make the month 'higher than usual'."""
+    txns = history_txns()[:-1] + [t("2026-10-05", 6500, "Croma", "Shopping")]  # usual everyday ~12,000
+    f = fc.forecast_months(txns, [RENT], date(2026, 10, 29), "bills_everyday")
+    assert not f["months"][0]["why"].startswith("Higher than usual")

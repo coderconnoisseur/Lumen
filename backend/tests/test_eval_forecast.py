@@ -11,7 +11,7 @@ def test_eval_forecast_passes_its_gates():
     m = out["metrics"]
     print("\nforecast eval:", m)
     assert out["hard_gate_failures"] == [], out["hard_gate_failures"]
-    assert m["users"] == 5 and m["chosen"]["months_tested"] >= 20
+    assert m["users"] == 3 and m["chosen"]["months_tested"] >= 15
     assert m["baseline"]["median_error_pct"] is not None  # the old smoothing forecast, scored the same way
 
 

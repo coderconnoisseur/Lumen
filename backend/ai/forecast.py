@@ -23,11 +23,18 @@ def _day(value) -> date | None:
 
 # ---- bills ----
 
+def history_bills(recurring: list[dict]) -> list[dict]:
+    """Every bill or subscription vendor, whatever its state now: their past charges are bills, not everyday spending,
+    even after a cancel (otherwise a cancelled subscription slides into everyday history and comes straight back).
+    "Not a bill" vendors are the user saying it's ordinary spending."""
+    return [r for r in recurring if r.get("kind") in BILL_KINDS and r.get("state") != "not_a_bill"]
+
+
 def bill_items(recurring: list[dict]) -> list[dict]:
     """The charges that count as bills: bills and subscriptions still being paid (not cancelled, not looking stopped).
     "charged_again" (a cancel that didn't stick) is still a bill."""
-    return [r for r in recurring
-            if r.get("kind") in BILL_KINDS and r.get("state", "active") != "cancelled" and not r.get("possibly_stopped")]
+    return [r for r in history_bills(recurring)
+            if r.get("state", "active") != "cancelled" and not r.get("possibly_stopped")]
 
 
 def is_bill(txn: dict, bills: list[dict]) -> bool:
@@ -49,6 +56,16 @@ def due_days(item: dict, year: int, month: int) -> list[int]:
     return list(range(1 + offset, last + 1, 7))
 
 
+def _late(b: dict, nxt: date, today: date) -> bool:
+    """A passed due date counts as late (still coming) only within one period of it."""
+    if b["cadence"] == "weekly":
+        return (today - nxt).days <= 7
+    if b["cadence"] == "yearly":
+        return (nxt.year, nxt.month) == (today.year, today.month)
+    prev = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+    return (nxt.year, nxt.month) in {(today.year, today.month), prev}
+
+
 def bills_in_month(bills: list[dict], year: int, month: int, today: date, txns: list[dict]) -> list[dict]:
     """Bills still to be paid in a month, `{vendor, category, amount, day}`, by day. In the current month a bill already
     charged this month isn't due again, and one whose expected date has passed without a charge is due today (late,
@@ -63,8 +80,14 @@ def bills_in_month(bills: list[dict], year: int, month: int, today: date, txns: 
             continue
         days = due_days(b, year, month)
         if current:
-            late = nxt < today
-            days = [d for d in days if d >= today.day] or ([today.day] if late else [])
+            if b["cadence"] == "weekly":  # a week already paid this month isn't due again
+                last_paid = max((d.day for t in txns if t.get("vendor_name") and _norm(t["vendor_name"]) == _norm(b["vendor"])
+                                 and (d := _day(t.get("date"))) and (d.year, d.month) == (year, month)), default=0)
+                days = [d for d in days if d > last_paid]
+            if nxt < today and _late(b, nxt, today):
+                days = [today.day]  # the missed charge is due now; a long-missed one is just a stopped bill
+            else:
+                days = [d for d in days if d >= today.day]
         elif nxt > date(year, month, calendar.monthrange(year, month)[1]):
             days = []  # not due yet that far out (e.g. a monthly bill first due next year never happens earlier)
         out += [{"vendor": b["vendor"], "category": b.get("category"), "amount": float(b["typical_amount"]), "day": d}
@@ -162,7 +185,8 @@ def _shares(txns: list[dict], bills: list[dict], today: date, hist_months: set[s
     return {c: v / total for c, v in by_cat.items() if v > 0} if total else {}
 
 
-def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], recurring: list[dict], hist: list[tuple[str, float]],
+def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], past_bills: list[dict], recurring: list[dict],
+        hist: list[tuple[str, float]], everyday: float,
         txns: list[dict], today: date, currency: str | None) -> str:
     """One plain sentence on what shapes month `i` (0 = this month), built only from its own numbers (spec §3.5): the
     first rule that applies, plus "Ranges widen further out." for the last month."""
@@ -175,9 +199,10 @@ def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], recurring
     usual = sorted(v for _, v in hist)[len(hist) // 2] if hist else 0.0
     if i == 0 and usual > 0:
         mine = [t for t in txns if (d := _day(t.get("date"))) and (d.year, d.month) == (y, m) and d <= today
-                and t.get("total_amount") and not is_bill(t, bills)]
+                and t.get("total_amount") and not is_bill(t, past_bills)]
         big = max(mine, key=lambda t: float(t["total_amount"]), default=None)
-        if big is not None and float(big["total_amount"]) > usual / 2:
+        month_everyday = sum(float(t["total_amount"]) for t in mine) + everyday  # spent so far + the rest
+        if big is not None and float(big["total_amount"]) > usual / 2 and month_everyday > usual:
             text = (f"Higher than usual: the {fmt(float(big['total_amount']), currency)} {big['vendor_name']} order "
                     f"on {on(_day(big['date']))}.")
     if text is None:
@@ -204,11 +229,12 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
     """This month and the next three with one everyday method: bills on their due days + the method's everyday level.
     None when the method has too little history. Every total is the sum of its parts (spec §3)."""
     bills = bill_items(recurring)
-    hist = monthly_everyday(txns, bills, today)
+    past_bills = history_bills(recurring)
+    hist = monthly_everyday(txns, past_bills, today)
     levels = [METHODS[method]([v for _, v in hist], ahead) for ahead in range(1, HORIZON + 1)]
     if levels[0] is None:
         return None
-    shares = _shares(txns, bills, today, {m for m, _ in hist})
+    shares = _shares(txns, past_bills, today, {m for m, _ in hist})
     days_in = calendar.monthrange(today.year, today.month)[1]
     days_left = days_in - today.day
     this = _ym(today)
@@ -235,7 +261,10 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
             frac = days_left / days_in
             everyday = round(level * frac, 2)
             base = spent + bills_total
-            forecast, lo, hi = base + everyday, base + low * frac, base + high * frac
+            # the rest of a month varies more than its share of a whole month would: the spread shrinks with the
+            # square root of the days left, not linearly (review: a linear band caught the actual only 1 time in 3)
+            forecast = base + everyday
+            lo, hi = forecast - (level - low) * frac ** 0.5, forecast + (high - level) * frac ** 0.5
             current = {"spent_so_far": spent, "bills_still_due": {"count": len(due), "amount": bills_total},
                        "everyday_rest": everyday, "days_left": days_left}
         else:
@@ -256,7 +285,8 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
             "bills": bills_total, "everyday": round(everyday, 2),
             "budget": total_budget, "over_budget": (forecast > total_budget) if total_budget else None,
             "income": income, "left": round(income - forecast, 2) if income else None,
-            "why": why(i, y, m, due=due, bills=bills, recurring=recurring, hist=hist, txns=txns, today=today,
+            "why": why(i, y, m, due=due, bills=bills, past_bills=past_bills, recurring=recurring, hist=hist, txns=txns,
+                       today=today, everyday=everyday,
                        currency=currency),
             "categories": sorted(({"category": c, "spent": round(spent_cat.get(c, 0.0), 2) if i == 0 else None,
                                    "forecast": round(v, 2), "budget": limits.get(c)} for c, v in cats.items()),
@@ -318,7 +348,7 @@ def backtest(txns: list[dict], today: date, method: str, *, cut_day: int | None 
             predicted, low, high = first["forecast"], first["low"], first["high"]
         else:
             bills = bill_items(recurring)
-            got = METHODS[method]([v for _, v in monthly_everyday(known, bills, start)], 1)
+            got = METHODS[method]([v for _, v in monthly_everyday(known, history_bills(recurring), start)], 1)
             if got is None:
                 continue
             due = sum(b["amount"] for b in bills_in_month(bills, y, m, start, known))

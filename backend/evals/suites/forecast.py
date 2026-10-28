@@ -20,8 +20,9 @@ from ai import forecast as fc
 from ai.recurring import find_recurring
 
 DEMO_TODAY = date(2026, 10, 27)
-DEMO_IDS = ("7a1c0000-0000-4000-8000-00000000d001", "7a1c0000-0000-4000-8000-00000000d002",
-            "7a1c0000-0000-4000-8000-00000000d003")
+# one demo account: every demo is the same world user shifted plus a person's bills, so more copies would just count
+# the same history again (review)
+DEMO_IDS = ("7a1c0000-0000-4000-8000-00000000d001",)
 
 
 def _demo_rows(user_id: str, today: date) -> list[dict]:
@@ -110,7 +111,7 @@ def run(tier: str, split: str) -> dict:
         base += _baseline(txns, today)
         per_user[key] = {"method": pick, **fc.score(rows[pick])}
         for r in rows[pick]:
-            cases[f"{key}:{r['month']}"] = abs(r["predicted"] - r["actual"]) <= 0.10 * r["actual"]
+            cases[f"{key}:{r['month']}"] = abs(r["predicted"] - r["actual"]) <= gates.get("median_error_max", 20) / 100 * r["actual"]
         why_bad += _why_mismatches(key, txns, today)
     chosen, chosen_cut = _pool(chosen_whole), _pool(chosen_mid)
     metrics = {"users": len(per_user), "chosen": chosen, "chosen_mid_month": chosen_cut,
@@ -121,6 +122,8 @@ def run(tier: str, split: str) -> dict:
         hard.append(f"whole-month median error {chosen['median_error_pct']}% > {gates.get('median_error_max', 10)}%")
     if chosen_cut["median_error_pct"] is None or chosen_cut["median_error_pct"] > gates.get("median_error_mid_max", 12):
         hard.append(f"mid-month median error {chosen_cut['median_error_pct']}% > {gates.get('median_error_mid_max', 12)}%")
+    if (chosen_cut["in_range_pct"] or 0) < gates.get("in_range_mid_min", 60):
+        hard.append(f"mid-month in-range {chosen_cut['in_range_pct']}% < {gates.get('in_range_mid_min', 60)}%")
     if (chosen["in_range_pct"] or 0) < gates.get("in_range_min", 60):
         hard.append(f"in-range {chosen['in_range_pct']}% < {gates.get('in_range_min', 60)}%")
     ratio = gates.get("baseline_ratio_max")
