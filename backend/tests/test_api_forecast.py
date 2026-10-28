@@ -117,3 +117,30 @@ def test_budget_and_income_are_carried_through(setup):
 def test_the_old_forecast_route_is_gone(authed_client):
     """Forecast F2: one forecast everywhere. The old smoothing route (/api/analytics/forecast) is retired."""
     assert authed_client.get("/api/analytics/forecast", headers={"Authorization": "Bearer t"}).status_code == 404
+
+
+def test_a_category_budget_matches_whatever_its_capitalisation(setup):
+    """Review F2 #1: Budget matches 'food' and 'Food' as one category; the forecast must too."""
+    c, engine = setup
+    seed_year(engine, A)
+    from models import Budget
+
+    with Session(engine) as s, s.begin():
+        s.add(Budget(user_id=A, category="groceries", monthly_limit=10000, effective_from=date.today().strftime("%Y-%m")))
+    now = get(c)["months"][0]
+    assert next(x for x in now["categories"] if x["category"] == "Groceries")["budget"] == 10000
+
+
+def test_the_method_choice_is_reused_within_the_month(setup, monkeypatch):
+    """Review F2 #2: the backtests only depend on months before this one, so they run once per user per month."""
+    c, engine = setup
+    seed_year(engine, A)
+    import ai.forecast as fc
+    from api import forecast as api_forecast
+
+    monkeypatch.setattr(api_forecast, "_CHOICES", {})  # another test may have cached this user's choice
+    calls = []
+    real = fc.choose
+    monkeypatch.setattr(fc, "choose", lambda *a, **k: calls.append(1) or real(*a, **k))
+    first, second = get(c), get(c)
+    assert first == second and len(calls) == 1

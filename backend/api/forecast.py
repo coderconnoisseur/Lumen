@@ -16,22 +16,25 @@ from api.profile import get_engine
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
 
 
-def _budgets(session: Session, user, user_id: str, months: list[str]) -> dict[str, dict]:
+def _budgets(session: Session, user, user_id: str, months: list[str], txns: list[dict]) -> dict[str, dict]:
+    from ai.budget import _display_names
     from api.budget import _rows, limits_in_force, this_month
 
+    # a limit on "food" is the "Food" the transactions use: Budget matches case-insensitively, so the forecast does too
+    names = _display_names(txns)
     rows, now = _rows(session, user_id), this_month()
     out = {}
     for m in months:
         limits = limits_in_force(rows, m)
         overall = user.monthly_budget if user and (limits or m >= now) else None
         total = overall or (round(sum(v for _, v in limits.values()), 2) if limits else None)
-        out[m] = {"total": total, "categories": {name: limit for name, limit in limits.values()}}
+        out[m] = {"total": total, "categories": {names.get(key, name): limit for key, (name, limit) in limits.items()}}
     return out
 
 
 def forecast_for_user(engine: Engine, user_id: str, today: date) -> dict | None:
     """The forecast for one user as of `today` (their own calendar day), or None with too little history."""
-    from ai.forecast import HORIZON, _next, forecast
+    import ai.forecast as fc
     from api.bills import _recurring
     from models import User
 
@@ -39,12 +42,30 @@ def forecast_for_user(engine: Engine, user_id: str, today: date) -> dict | None:
         txns = [dict(r) for r in conn.execute(text(
             "SELECT vendor_name, date, total_amount, category FROM transactions WHERE user_id = :u"), {"u": user_id}).mappings()]
     recurring = _recurring(engine, user_id, today)["items"]  # saved states applied; "not a bill" vendors left out
-    months = ["%d-%02d" % _next(today.year, today.month, i) for i in range(HORIZON)]
+    months = ["%d-%02d" % fc._next(today.year, today.month, i) for i in range(fc.HORIZON)]
     with Session(engine) as session:
         user = session.get(User, user_id)
-        budgets = _budgets(session, user, user_id, months)
+        budgets = _budgets(session, user, user_id, months, txns)
         income, currency = (user.monthly_income, user.currency) if user else (None, None)
-    return forecast(txns, recurring, today, budgets=budgets, income=income, currency=currency)
+    return fc.forecast(txns, recurring, today, budgets=budgets, income=income, currency=currency,
+                       picked=_choice(fc, user_id, txns, today))
+
+
+# ponytail: in-process, per worker; a shared cache (Redis) if the API ever runs several instances
+_CHOICES: dict[tuple, dict] = {}
+
+
+def _choice(fc, user_id: str, txns: list[dict], today: date) -> dict:
+    """The method choice (both methods' 6-month backtests, the expensive part) only depends on transactions before this
+    month, so it's computed once per user per month and again only if that history changes (a backdated upload)."""
+    start = today.replace(day=1).isoformat()
+    past = [float(t["total_amount"] or 0) for t in txns if str(t.get("date", ""))[:10] < start]
+    key = (user_id, start, len(past), round(sum(past), 2))
+    if key not in _CHOICES:
+        if len(_CHOICES) > 2000:
+            _CHOICES.clear()
+        _CHOICES[key] = fc.choose(txns, today)
+    return _CHOICES[key]
 
 
 @router.get("", dependencies=[Depends(rate_limit())])
