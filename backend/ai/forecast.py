@@ -240,3 +240,93 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
         path = [round(spent + due_by_day.get(today.day, 0.0), 2)]
     return {"months": months, "current": current,
             "daily": {"actual": actual, "path": path, "low": months[0]["low"], "high": months[0]["high"]}}
+
+
+# ---- backtest, choice, the forecast ----
+
+BACKTEST_MONTHS = 6
+MIN_TESTED = 3  # fewer backtestable months than this: no accuracy claim
+
+
+def _month_total(txns: list[dict], key: str) -> float:
+    return round(sum(float(t["total_amount"]) for t in txns
+                     if t.get("total_amount") is not None and str(t.get("date", ""))[:7] == key), 2)
+
+
+def backtest(txns: list[dict], today: date, method: str, *, cut_day: int | None = None,
+             months: int = BACKTEST_MONTHS) -> list[dict]:
+    """For each of the last `months` complete months M that had spend, predict M's total from what was known then
+    (transactions before M, or up to M's `cut_day` for the mid-month cut; the recurring detection re-run on that
+    history) and compare with what M really came to. `{month, actual, predicted, low, high}`, oldest first."""
+    from datetime import timedelta
+
+    from ai.recurring import find_recurring
+
+    this = _ym(today)
+    with_spend = sorted({str(t.get("date", ""))[:7] for t in txns if t.get("date") and str(t["date"])[:7] < this})
+    out = []
+    for key in with_spend[-months:]:
+        y, m = int(key[:4]), int(key[5:])
+        start = date(y, m, 1)
+        as_of = date(y, m, min(cut_day, calendar.monthrange(y, m)[1])) if cut_day else start
+        known = [t for t in txns if (d := _day(t.get("date"))) and (d < start or (cut_day and d <= as_of))]
+        recurring = find_recurring(known, as_of if cut_day else start - timedelta(days=1))
+        if cut_day:
+            f = forecast_months(known, recurring, as_of, method)
+            if f is None:
+                continue
+            first = f["months"][0]
+            predicted, low, high = first["forecast"], first["low"], first["high"]
+        else:
+            bills = bill_items(recurring)
+            got = METHODS[method]([v for _, v in monthly_everyday(known, bills, start)], 1)
+            if got is None:
+                continue
+            due = sum(b["amount"] for b in bills_in_month(bills, y, m, start, known))
+            predicted, low, high = (round(due + v, 2) for v in got)
+        out.append({"month": key, "actual": _month_total(txns, key), "predicted": predicted, "low": low, "high": high})
+    return out
+
+
+def score(rows: list[dict]) -> dict:
+    """Median absolute % error of the predicted totals, and how often the actual landed inside the range."""
+    import numpy as np
+
+    rows = [r for r in rows if r["actual"] > 0]
+    if not rows:
+        return {"median_error_pct": None, "in_range_pct": None, "months_tested": 0}
+    errors = [abs(r["predicted"] - r["actual"]) / r["actual"] * 100 for r in rows]
+    inside = sum(r["low"] <= r["actual"] <= r["high"] for r in rows)
+    return {"median_error_pct": round(float(np.median(errors)), 1), "in_range_pct": round(inside / len(rows) * 100, 1),
+            "months_tested": len(rows)}
+
+
+def choose(txns: list[dict], today: date) -> dict:
+    """Backtest both methods on the user's own months and keep the one with the lower median error (ties: bills +
+    everyday, the more explainable). Too little history: bills + everyday, and no accuracy claim."""
+    scores = {name: score(backtest(txns, today, name)) for name in METHODS}
+    tested = max(s["months_tested"] for s in scores.values())
+    if tested < MIN_TESTED:
+        return {"method": "bills_everyday", "accuracy": {"months_tested": tested}}
+    best = min(METHODS, key=lambda n: (scores[n]["median_error_pct"], n != "bills_everyday"))
+    return {"method": best, "accuracy": {
+        "method": best, "label": LABELS[best], **scores[best],
+        "tried": [{"method": n, "label": LABELS[n], "median_error_pct": scores[n]["median_error_pct"]} for n in METHODS]}}
+
+
+def monthly_equivalent(b: dict) -> float:
+    a = float(b["typical_amount"])
+    return round(a * 52 / 12, 2) if b["cadence"] == "weekly" else round(a / 12, 2) if b["cadence"] == "yearly" else a
+
+
+def forecast(txns: list[dict], recurring: list[dict], today: date, *, budgets: dict[str, dict] | None = None,
+             income: float | None = None) -> dict | None:
+    """The forecast the app shows: the better method for this user, its months, its measured accuracy, and the bills
+    a what-if can switch off. None when there's too little history to forecast at all."""
+    picked = choose(txns, today)
+    f = forecast_months(txns, recurring, today, picked["method"], budgets=budgets, income=income)
+    if f is None:
+        return None
+    return {**f, "method": picked["method"], "accuracy": picked["accuracy"],
+            "items": [{"vendor": b["vendor"], "kind": b["kind"], "monthly_equivalent": monthly_equivalent(b)}
+                      for b in bill_items(recurring)]}

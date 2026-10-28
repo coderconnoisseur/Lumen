@@ -166,3 +166,73 @@ def test_daily_path_runs_from_today_to_month_end():
     d = f["daily"]
     assert len(d["actual"]) == 22 and d["actual"][-1] == 29000
     assert len(d["path"]) == 10 and d["path"][0] == 29000 and abs(d["path"][-1] - f["months"][0]["forecast"]) < 1
+
+
+# ---- Task 4: backtest, choice, accuracy ----
+
+def year_txns(groceries=12000):
+    """A year of rent (a detectable bill) and steady groceries, Oct 2025 - Oct 2026."""
+    out = []
+    for n in range(13):
+        y, m = divmod(2025 * 12 + 9 + n, 12)
+        ym = f"{y}-{m + 1:02d}"
+        if ym > "2026-10":
+            break
+        out += [t(f"{ym}-05", 25000, "Rent", "Housing"), t(f"{ym}-12", groceries / 2), t(f"{ym}-24", groceries / 2)]
+    return [x for x in out if x["date"] <= "2026-10-22"]
+
+
+def test_backtest_uses_only_the_past():
+    base = fc.backtest(year_txns(), TODAY, "bills_everyday")
+    spiked = year_txns() + [t("2026-09-15", 90000, "Laptop store", "Electronics")]
+    after = fc.backtest(spiked, TODAY, "bills_everyday")
+    sep_before = next(r for r in base if r["month"] == "2026-09")
+    sep_after = next(r for r in after if r["month"] == "2026-09")
+    assert sep_after["predicted"] == sep_before["predicted"]  # September's own spike can't inform September
+    assert sep_after["actual"] == sep_before["actual"] + 90000
+    assert [r["month"] for r in base] == ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
+
+
+def test_score_median_and_range():
+    rows = [{"month": "a", "actual": 100, "predicted": 110, "low": 90, "high": 120},
+            {"month": "b", "actual": 100, "predicted": 80, "low": 85, "high": 95},
+            {"month": "c", "actual": 200, "predicted": 210, "low": 190, "high": 230}]
+    assert fc.score(rows) == {"median_error_pct": 10.0, "in_range_pct": 66.7, "months_tested": 3}
+
+
+def test_steady_spending_is_forecast_closely():
+    s = fc.score(fc.backtest(year_txns(), TODAY, "bills_everyday"))
+    assert s["months_tested"] == 6 and s["median_error_pct"] < 2
+
+
+def test_choice_prefers_lower_error_and_ties_go_to_bills_everyday(monkeypatch):
+    def fake(errs):
+        return lambda txns, today, method, **kw: [
+            {"month": str(i), "actual": 100, "predicted": 100 + errs[method], "low": 0, "high": 999} for i in range(4)]
+    monkeypatch.setattr(fc, "backtest", fake({"bills_everyday": 8, "holt": 5}))
+    c = fc.choose([], TODAY)
+    assert c["method"] == "holt" and c["accuracy"]["median_error_pct"] == 5.0
+    assert [x["method"] for x in c["accuracy"]["tried"]] == ["bills_everyday", "holt"]
+    monkeypatch.setattr(fc, "backtest", fake({"bills_everyday": 5, "holt": 5}))
+    assert fc.choose([], TODAY)["method"] == "bills_everyday"
+
+
+def test_too_little_history_says_so():
+    c = fc.choose(year_txns()[-9:], TODAY)  # three months of data: at most one month can be backtested
+    assert c["method"] == "bills_everyday" and c["accuracy"]["months_tested"] < 3 and "median_error_pct" not in c["accuracy"]
+
+
+def test_mid_month_cut_counts_spent_to_the_cut():
+    rows = fc.backtest(year_txns(), TODAY, "bills_everyday", cut_day=15)
+    sep = next(r for r in rows if r["month"] == "2026-09")
+    assert sep["low"] >= 25000 + 6000  # rent and the 12th's groceries are already spent by the 15th
+
+
+def test_forecast_carries_accuracy_and_what_if_items():
+    weekly = item("Maid", "weekly", "2026-10-24", 1200)
+    yearly = item("Prime", "yearly", "2027-01-14", 1200, kind="subscription")
+    rent = item("Rent", "monthly", "2026-11-05", 25000, category="Housing")
+    f = fc.forecast(year_txns(), [rent, weekly, yearly], TODAY)
+    assert f["method"] in fc.METHODS and f["accuracy"]["months_tested"] == 6
+    eq = {i["vendor"]: i["monthly_equivalent"] for i in f["items"]}
+    assert eq == {"Rent": 25000, "Maid": 5200, "Prime": 100}
