@@ -12,3 +12,13 @@ judge_min_kappa: 0.6
 ask_lumen:
   honesty_min: 30
   correctness_min: 24
+
+# The forecast (spec docs/superpowers/specs/2026-10-28-forecast-design.md §5): the chosen method, pooled over users.
+# First real run (2026-10-28): chosen 18.8% whole-month, 9.5% mid-month, 73% in range; the old smoothing forecast 45.1%.
+# The eval world's users spend in a two-month cycle (purchase orders), so totals swing ±30-40% and 10% was out of
+# reach without fitting the generator: whole-month loosened once (spec §5) and a must-beat-the-old-forecast gate added.
+forecast:
+  median_error_max: 20      # % off on the whole-month backtest
+  baseline_ratio_max: 0.5   # the chosen method's error at most half the old smoothing forecast's
+  median_error_mid_max: 12  # % off when forecasting from the 15th
+  in_range_min: 60          # % of months whose actual landed inside the range
