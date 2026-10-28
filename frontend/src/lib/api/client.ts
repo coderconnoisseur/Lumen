@@ -594,15 +594,6 @@ export const forecastApi = {
 		cached(`/api/forecast ${today}`, async () => (await apiClient.get("/api/forecast", { params: { today } })).data.forecast ?? null),
 };
 
-export const aiAnalyticsApi = {
-	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
-	getForecast: (daysAhead: number = 30, insights = true) =>
-		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
-			(await apiClient.get("/api/analytics/forecast", {
-				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
-			})).data),
-};
-
 export const isAuthenticated = (): boolean => {
 	return tokenManager.getToken() !== null;
 };

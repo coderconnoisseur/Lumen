@@ -112,3 +112,8 @@ def test_budget_and_income_are_carried_through(setup):
     now = get(c)["months"][0]
     assert now["budget"] == 40000 and now["income"] == 60000 and now["left"] == pytest.approx(60000 - now["forecast"], abs=1)
     assert next(x for x in now["categories"] if x["category"] == "Groceries")["budget"] == 10000
+
+
+def test_the_old_forecast_route_is_gone(authed_client):
+    """Forecast F2: one forecast everywhere. The old smoothing route (/api/analytics/forecast) is retired."""
+    assert authed_client.get("/api/analytics/forecast", headers={"Authorization": "Bearer t"}).status_code == 404
