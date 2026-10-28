@@ -214,7 +214,7 @@ def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], past_bill
         py, pm = _next(y, m, -1)
         gone = next((r for r in recurring if r.get("state") == "cancelled"
                      and str(r.get("last_charge_date", ""))[:7] == f"{py}-{pm:02d}"), None)
-        if gone and i > 0:
+        if gone:
             text = f"Lower: {gone['vendor']} is cancelled."
     if text is None:
         n = len({b["vendor"] for b in due})
