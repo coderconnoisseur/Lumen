@@ -28,6 +28,3 @@ export function usedTone(spent: number, limit: number): "good" | "warn" | "bad" 
 
 // The straight line from nothing to the whole budget on the last day, one value per day.
 export const evenLine = (total: number, days: number) => Array.from({ length: days }, (_, i) => (total * (i + 1)) / days);
-
-// This month's total if the rest of it goes like it has so far.
-export const runRate = (spent: number, today: Date) => (spent / today.getDate()) * daysIn(today);

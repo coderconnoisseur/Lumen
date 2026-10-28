@@ -562,13 +562,36 @@ export const transactionApi = {
 };
 
 // Analytics the redesigned pages still read: the forecast line on Home.
-export const aiAnalyticsApi = {
-	// insights=false skips the LLM-written insight text (Home only draws the numbers); cached like the other reads
-	getForecast: (daysAhead: number = 30, insights = true) =>
-		cached(`/api/analytics/forecast ${daysAhead} ${insights}`, async () =>
-			(await apiClient.get("/api/analytics/forecast", {
-				params: insights ? { days_ahead: daysAhead } : { days_ahead: daysAhead, insights: 0 },
-			})).data),
+/** One month of GET /api/forecast (backend ai/forecast.py): every total is the sum of its parts. */
+export interface ForecastMonth {
+	month: string;
+	forecast: number;
+	low: number;
+	high: number;
+	bills: number;
+	everyday: number;
+	budget: number | null;
+	income: number | null;
+	left: number | null;
+	over_budget: boolean | null;
+	why: string;
+	categories: { category: string; spent: number | null; forecast: number; budget: number | null }[];
+}
+export interface ForecastData {
+	/** this month first, then the next three */
+	months: ForecastMonth[];
+	current: { spent_so_far: number; bills_still_due: { count: number; amount: number }; everyday_rest: number; days_left: number };
+	/** this month: running total to today, and the forecast path from today to month end */
+	daily: { actual: number[]; path: number[]; low: number; high: number };
+	method: string;
+	accuracy: { months_tested: number; method?: string; label?: string; median_error_pct?: number; in_range_pct?: number; tried?: { method: string; label: string; median_error_pct: number }[] };
+	items: { vendor: string; kind: string; monthly_equivalent: number }[];
+}
+
+export const forecastApi = {
+	/** `today` is the browser's YYYY-MM-DD (the server's UTC date can be a day off); null = too little history */
+	get: (today: string): Promise<ForecastData | null> =>
+		cached(`/api/forecast ${today}`, async () => (await apiClient.get("/api/forecast", { params: { today } })).data.forecast ?? null),
 };
 
 export const isAuthenticated = (): boolean => {

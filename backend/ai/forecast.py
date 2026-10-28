@@ -212,9 +212,11 @@ def why(i: int, y: int, m: int, *, due: list[dict], bills: list[dict], past_bill
             text = f"Includes the yearly {fmt(yearly['amount'], currency)} {yearly['vendor']} renewal on {on(date(y, m, yearly['day']))}."
     if text is None:
         py, pm = _next(y, m, -1)
+        # cancelled, last paid the month before, and it would have been charged this month (not a yearly plan
+        # that wasn't due anyway)
         gone = next((r for r in recurring if r.get("state") == "cancelled"
-                     and str(r.get("last_charge_date", ""))[:7] == f"{py}-{pm:02d}"), None)
-        if gone and i > 0:
+                     and str(r.get("last_charge_date", ""))[:7] == f"{py}-{pm:02d}" and due_days(r, y, m)), None)
+        if gone:
             text = f"Lower: {gone['vendor']} is cancelled."
     if text is None:
         n = len({b["vendor"] for b in due})
@@ -389,10 +391,10 @@ def monthly_equivalent(b: dict) -> float:
 
 
 def forecast(txns: list[dict], recurring: list[dict], today: date, *, budgets: dict[str, dict] | None = None,
-             income: float | None = None, currency: str | None = None) -> dict | None:
+             income: float | None = None, currency: str | None = None, picked: dict | None = None) -> dict | None:
     """The forecast the app shows: the better method for this user, its months, its measured accuracy, and the bills
     a what-if can switch off. None when there's too little history to forecast at all."""
-    picked = choose(txns, today)
+    picked = picked or choose(txns, today)  # `picked`: a cached choice (it only depends on months before this one)
     f = forecast_months(txns, recurring, today, picked["method"], budgets=budgets, income=income, currency=currency)
     if f is None:
         return None

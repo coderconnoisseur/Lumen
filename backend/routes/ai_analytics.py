@@ -140,33 +140,6 @@ def get_anomalies():
         return api_error("Could not load anomalies", code="anomalies_failed", log=e)
 
 
-@ai_analytics_bp.route('/forecast', methods=['GET'])
-@require_auth
-def get_forecast():
-    """Get spending forecast for the authenticated user.
-
-    Query Params:
-    - days_ahead: Forecast period (default: 30)
-    - insights: 0 to skip the LLM-written insight text (Home only needs the numbers)
-    """
-    try:
-        init_analytics()  # Ensure orchestrator is initialized
-
-        user_id = g.user_id
-        days_ahead = request.args.get('days_ahead', 30, type=int)
-
-        use_llm = request.args.get('insights', '1') != '0'
-        forecast = orchestrator.get_forecast(user_id, days_ahead, use_llm=use_llm)
-        
-        return jsonify({
-            'success': forecast.get('success', True),
-            'forecast': forecast
-        }), 200
-    
-    except Exception as e:
-        return api_error("Could not load forecast", code="forecast_failed", log=e)
-
-
 @ai_analytics_bp.route('/risk-score', methods=['GET'])
 @require_auth
 def get_risk_score():

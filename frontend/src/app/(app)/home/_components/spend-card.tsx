@@ -74,21 +74,11 @@ export function SpendCard({
 	const total = cur[t] ?? 0;
 	const delta = sameDayDelta(cur, prev, t);
 
-	// forecast: today's running total plus each forecast day still inside this month (1M only)
-	const fc: number[] = [];
-	if (range === "1M" && forecast?.dates?.length) {
-		let run = total;
-		let matched = 0;
-		for (let i = t + 1; i < period.days; i++) {
-			const day = new Date(period.start.getFullYear(), period.start.getMonth(), period.start.getDate() + i);
-			const k = forecast.dates.findIndex((d) => parseDay(d).getTime() === day.getTime());
-			if (k >= 0) matched++;
-			run += k >= 0 ? (forecast.values[k] ?? 0) : 0;
-			fc.push(run);
-		}
-		// the backend forecasts from the last transaction's date; if none of its days land in this month, draw nothing
-		if (!matched) fc.length = 0;
-	}
+	// forecast (GET /api/forecast, the same one Budget, Ask and the Forecast page use): the path from today to month
+	// end, moved onto this card's running total; 1M only, and only when it is this month's forecast
+	const ym = `${period.start.getFullYear()}-${String(period.start.getMonth() + 1).padStart(2, "0")}`;
+	const path = range === "1M" && forecast?.months[0]?.month === ym ? forecast.daily.path : [];
+	const fc = path.slice(1, period.days - t).map((v) => v - path[0] + total);
 	const empty = total === 0 && !prev.some((v) => v > 0);
 	const pins = reminders.filter((r) => {
 		if (r.type !== "upcoming") return false;

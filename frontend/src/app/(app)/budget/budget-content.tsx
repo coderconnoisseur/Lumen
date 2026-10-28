@@ -136,7 +136,7 @@ export default function BudgetContent() {
 					loading={loading}
 				/>
 				<div className="mt-3.5">
-					<BudgetHistory months={data.history} today={today} loading={loading} />
+					<BudgetHistory months={data.history} today={today} forecast={data.forecast} loading={loading} />
 				</div>
 				<div className={lines && current ? "mt-3.5 grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_400px]" : "mt-3.5"}>
 					<BudgetCategories

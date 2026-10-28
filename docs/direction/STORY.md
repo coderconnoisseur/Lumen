@@ -522,3 +522,18 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   12.8%, the eval world's users 32.0% and 33.6% (they spend in a two-month purchase-order cycle, swinging ±30-40%).
   Bills + everyday beat Holt (61.2%) for every user. The spec's 10% target is **not met**; the CI gates are regression
   guards just above these numbers (25% / 15% / 60% in range / at most 55% of the old forecast's error).
+
+## 39. One forecast everywhere (Forecast F2)
+- **S:** The app had three different forecasts: Home's "heading for" (daily smoothing), Budget's "at this pace" bar
+  (spent so far ÷ days × days in month) and Ask Lumen's `forecast` tool (a least-squares line through monthly
+  totals). They could disagree, and none knew about bills.
+- **T:** Every place that predicts spending reads the one measured forecast from F1.
+- **A:** `GET /api/forecast` (TDD) runs the forecast over the user's own data with their saved bill states (a
+  cancelled subscription lowers the months after), budgets per month and income, taking the browser's date so the
+  1st of the month in India isn't read as last month. Home, Budget and Ask Lumen's tool were switched to it; the old
+  forecast route, its client call and the run-rate projection were removed. The eval world's database now has the
+  (empty) tables the forecast reads, as the app's does.
+- **R:** One number everywhere. Backend 1047 passed (6 new API tests + rewritten tool tests), evals green, e2e 230
+  passed (Home and Budget tests rewritten for the new forecast, including "asks for the browser's day" and "no
+  forecast, no line").
+

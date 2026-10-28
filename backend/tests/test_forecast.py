@@ -303,3 +303,11 @@ def test_higher_than_usual_only_when_the_month_is_higher():
     txns = history_txns()[:-1] + [t("2026-10-05", 6500, "Croma", "Shopping")]  # usual everyday ~12,000
     f = fc.forecast_months(txns, [RENT], date(2026, 10, 29), "bills_everyday")
     assert not f["months"][0]["why"].startswith("Higher than usual")
+
+
+def test_a_cancelled_yearly_plan_doesnt_claim_this_month_is_lower():
+    """Review F2: a yearly subscription last paid last month wouldn't have been charged this month anyway."""
+    yearly = item("CloudVault", "yearly", "2027-09-14", 1500, kind="subscription", state="cancelled",
+                  last_charge_date="2026-09-14")
+    f = fc.forecast_months(history_txns(), [RENT, yearly], TODAY, "bills_everyday")
+    assert all("CloudVault" not in m["why"] for m in f["months"])
