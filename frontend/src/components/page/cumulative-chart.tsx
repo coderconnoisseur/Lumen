@@ -24,7 +24,8 @@ function useWidth() {
 }
 
 // A period's running total as a smooth line (spec 2026-10-22 §3), with the previous period dashed behind it, an
-// optional forecast dotted on from today, and bills pinned on the axis. Used by Home's hero and Spending's.
+// optional forecast dotted on from today (with its likely range as a band at the period's end), and bills pinned on
+// the axis. Used by Home's, Spending's, Budget's and Forecast's heroes.
 // `ticks`: "day" labels the dates in between by day number (a week or a month), "dayMonth" by day and month (a few
 // months), "month" by each month's 1st (a year). Always 232px tall (chart and axis) whatever the data.
 export function CumulativeChart({
@@ -34,6 +35,7 @@ export function CumulativeChart({
 	forecast = [],
 	t,
 	pins = [],
+	band,
 	ticks: style,
 }: {
 	period: Period;
@@ -45,12 +47,14 @@ export function CumulativeChart({
 	/** today's index in the period (already clamped to it) */
 	t: number;
 	pins?: { id: string | number; vendor: string; date: string }[];
+	/** the forecast's likely range at the period's end, drawn as a band fanning out from today */
+	band?: { low: number; high: number };
 	ticks: "day" | "dayMonth" | "month";
 }) {
 	const [axis, width] = useWidth();
 	const fc = forecast;
 	const total = cur[t] ?? 0;
-	const max = Math.max(total, prev?.[prev.length - 1] ?? 0, fc[fc.length - 1] ?? 0, 1);
+	const max = Math.max(total, prev?.[prev.length - 1] ?? 0, fc[fc.length - 1] ?? 0, band?.high ?? 0, 1);
 	const x = (i: number) => (period.days > 1 ? (i / (period.days - 1)) * W : 0);
 	const y = (v: number) => H - (v / max) * (H - 16);
 	const pts = (vals: number[], from = 0) => vals.map((v, i) => [x(i + from), y(v)] as [number, number]);
@@ -99,6 +103,7 @@ export function CumulativeChart({
 					{prev && prev.length > 1 && (
 						<path data-series="previous" d={smoothPath(pts(prev.slice(0, period.days)))} fill="none" stroke="var(--muted-foreground)" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
 					)}
+					{band && <path data-series="band" d={`M${x(t)} ${y(total)} L${x(last)} ${y(band.low)} L${x(last)} ${y(band.high)}Z`} fill="var(--primary)" fillOpacity=".1" />}
 					<path d={`${smoothPath(actual)} L${x(t)} ${H} L0 ${H}Z`} fill="url(#spend-fill)" />
 					<path data-series="current" d={smoothPath(actual)} fill="none" stroke="var(--primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
 					{fc.length > 0 && (

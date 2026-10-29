@@ -3,6 +3,10 @@ import type { ForecastData, ForecastMonth } from "@/lib/api/client";
 
 type Category = ForecastMonth["categories"][number];
 
+/** "2026-10" → "October" (or any other `toLocaleString` month format). */
+export const monthOf = (key: string, opts: Intl.DateTimeFormatOptions = { month: "long" }) =>
+	new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleString("en-US", opts);
+
 /** "October lands near ₹82,400 · ₹12,400 over budget": the verdict is left out without a budget. */
 export function headline(m: ForecastMonth, monthName: string) {
 	const verdict = m.budget ? { over: m.forecast > m.budget, by: Math.abs(m.forecast - m.budget) } : null;

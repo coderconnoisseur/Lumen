@@ -273,7 +273,7 @@ export function forecastFixture({
 	return {
 		months: [m(0, total), m(1, perDay * 30), m(2, perDay * 30), m(3, perDay * 30)],
 		current: { spent_so_far: spent, bills_still_due: { count: 0, amount: 0 }, everyday_rest: total - spent, days_left: left },
-		daily: { actual: [spent], path, low: total * 0.9, high: total * 1.1, bills },
+		daily: { actual: Array.from({ length: now.getDate() }, (_, i) => Math.round((spent * (i + 1)) / now.getDate())), path, low: total * 0.9, high: total * 1.1, bills },
 		method: "bills_everyday",
 		accuracy: accuracy ?? {
 			method: "bills_everyday", label: "Bills + everyday", median_error_pct: 12.8, in_range_pct: 83.3, months_tested: 6,
