@@ -3,7 +3,7 @@
 import { CumulativeChart } from "@/components/page/cumulative-chart";
 import { PageCard } from "@/components/page/page-card";
 import type { ForecastData } from "@/lib/api/client";
-import { monthOf } from "@/lib/forecast-math";
+import { heroSeries, monthOf } from "@/lib/forecast-math";
 import { useMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,7 @@ export function ForecastHero({ data, today, loading }: { data: ForecastData | nu
 	const span = { start: new Date(y, mo, 1), end: new Date(y, mo, days), days };
 	const ym = `${y}-${String(mo + 1).padStart(2, "0")}`;
 	const c = data?.current;
+	const series = data && heroSeries(data.daily);
 	return (
 		<PageCard
 			title={`${name} lands at`}
@@ -49,14 +50,18 @@ export function ForecastHero({ data, today, loading }: { data: ForecastData | nu
 						<dl data-testid="split" className="mt-4 grid gap-1.5 text-[13.5px] tabular-nums">
 							<Row label="Spent so far" value={money(Math.round(c.spent_so_far))} />
 							<Row label={`Bills still due (${c.bills_still_due.count})`} value={money(Math.round(c.bills_still_due.amount))} />
-							<Row label={`Everyday spending, ${c.days_left} day${c.days_left === 1 ? "" : "s"}`} value={`≈ ${money(Math.round(c.everyday_rest))}`} />
+							{c.days_left > 0 && <Row label={`Everyday spending, ${c.days_left} day${c.days_left === 1 ? "" : "s"}`} value={`≈ ${money(Math.round(c.everyday_rest))}`} />}
 							<div className="mt-1 flex justify-between border-t border-border/70 pt-2 font-medium">
 								<dt>Forecast</dt>
 								<dd>{money(Math.round(m.forecast))}</dd>
 							</div>
 						</dl>
 					</div>
-					<div className="min-w-0">
+					<div
+						className="min-w-0"
+						role="img"
+						aria-label={`Spent ${money(Math.round(c.spent_so_far))} so far, heading for ${money(Math.round(m.forecast))}, likely ${money(Math.round(m.low))} to ${money(Math.round(m.high))}${m.budget != null ? `, budget ${money(m.budget)}` : ""}`}
+					>
 						<div className="label-ui flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
 							<span>Day by day</span>
 							<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-primary" />Spent</span>
@@ -66,9 +71,9 @@ export function ForecastHero({ data, today, loading }: { data: ForecastData | nu
 						</div>
 						<CumulativeChart
 							period={span}
-							cur={data.daily.actual}
+							cur={series!.cur}
 							prev={m.budget != null ? Array(days).fill(m.budget) : null}
-							forecast={data.daily.path.slice(1)}
+							forecast={series!.forecast}
 							band={{ low: data.daily.low, high: data.daily.high }}
 							t={today.getDate() - 1}
 							pins={data.daily.bills.map((b) => ({ id: `${b.vendor}-${b.day}`, vendor: b.vendor, date: `${ym}-${String(b.day).padStart(2, "0")}` }))}

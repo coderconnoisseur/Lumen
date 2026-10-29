@@ -74,9 +74,11 @@ function AddIncome({ onSaved }: { onSaved: () => void }) {
 				Add your income
 			</Button>
 		);
+	const amount = Number(v.replace(/,/g, ""));
 	const save = async () => {
+		if (!(amount > 0)) return setEditing(false);
 		try {
-			await profileApi.update({ monthly_income: Number(v) });
+			await profileApi.update({ monthly_income: amount });
 			setEditing(false);
 			void refresh();
 			onSaved();
@@ -92,10 +94,14 @@ function AddIncome({ onSaved }: { onSaved: () => void }) {
 			placeholder="Monthly income"
 			value={v}
 			onChange={(e) => setV(e.target.value)}
-			onBlur={() => setEditing(false)}
+			// phone keypads for numbers have no Return key: leaving the field saves it; Escape cancels
+			onBlur={() => void save()}
 			onKeyDown={(e) => {
-				if (e.key === "Escape") setEditing(false);
-				if (e.key === "Enter" && Number(v) > 0) void save();
+				if (e.key === "Escape") {
+					setV("");
+					setEditing(false);
+				}
+				if (e.key === "Enter") e.currentTarget.blur();
 			}}
 			className="h-7 w-36 rounded-md border border-border bg-card px-2 text-[13px] normal-case text-foreground tabular-nums"
 		/>

@@ -84,6 +84,20 @@ test("without an income the cards offer to add one, saved to the profile", async
 	expect((await put).postDataJSON()).toEqual({ monthly_income: 90000 });
 });
 
+test("income typed and left (tap elsewhere, as on a phone keypad with no Return) is still saved", async ({ page }) => {
+	await openForecast(page, { forecast: fc({ income: null }) });
+	await page.getByRole("button", { name: "Add your income" }).click();
+	await page.getByLabel("Monthly income").fill("90,000");
+	const put = page.waitForRequest((r) => r.url().endsWith("/api/profile") && r.method() === "PUT");
+	await page.getByRole("heading", { name: "Forecast", level: 1 }).click();
+	expect((await put).postDataJSON()).toEqual({ monthly_income: 90000 });
+});
+
+test("the day-by-day chart is described for screen readers", async ({ page }) => {
+	await openForecast(page);
+	await expect(page.getByRole("img", { name: /heading for/ })).toHaveAttribute("aria-label", `Spent ${money(60000)} so far, heading for ${money(total)}, likely ${money(total * 0.9)} to ${money(total * 1.1)}, budget ${money(70000)}`);
+});
+
 test("too little history: a plain message and a way to add more, no chart", async ({ page }) => {
 	await openForecast(page, { forecast: null });
 	await expect(page.getByTestId("forecast-empty")).toContainText("a month of spending");
@@ -195,9 +209,14 @@ test("forecast has no layout shift while loading on a phone", async ({ page }) =
 	expect(await cls(page)).toBeLessThan(0.01);
 });
 
+test("forecast has no layout shift while loading on a tablet", async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 1180 });
+	expect(await cls(page)).toBeLessThan(0.01);
+});
+
 test("forecast fits a phone without sideways scroll", async ({ page }) => {
 	await page.setViewportSize({ width: 375, height: 812 });
-	await openForecast(page, { forecast: full() });
+	await openForecast(page, { forecast: { ...full(), items: [...items, { vendor: "AMAZONPRIMEVIDEOINDIAPVTLTDSUBSCRIPTION", kind: "subscription", monthly_equivalent: 299 }] } });
 	await expect(page.getByTestId("forecast-month")).toHaveCount(4);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	const ends = await page

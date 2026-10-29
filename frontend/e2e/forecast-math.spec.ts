@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Forecast page's calculations (Forecast F3).
 import { test, expect } from "@playwright/test";
-import { accuracyLabel, barScale, categoryEnd, headline, whatIf } from "../src/lib/forecast-math";
+import { accuracyLabel, barScale, categoryEnd, headline, heroSeries, whatIf } from "../src/lib/forecast-math";
 import type { ForecastMonth } from "../src/lib/api/client";
 
 const m = (month: string, forecast: number, o: Partial<ForecastMonth> = {}): ForecastMonth => ({
@@ -36,4 +36,9 @@ test("what if: changes the next three months only; money left with income, the f
 test("bar scale: the highest range end or budget across the months, with headroom", () => {
 	expect(barScale([m("a", 80000, { budget: 70000 }), m("b", 60000, { budget: 100000 })])).toBeCloseTo(108000);
 	expect(barScale([m("a", 0, { low: 0, high: 0 })])).toBe(1);
+});
+
+test("hero series: the forecast runs on from today; on the last day today's bills end the line", () => {
+	expect(heroSeries({ actual: [100, 200], path: [200, 300, 400] })).toEqual({ cur: [100, 200], forecast: [300, 400] });
+	expect(heroSeries({ actual: [100, 200], path: [2200] })).toEqual({ cur: [100, 2200], forecast: [] });
 });

@@ -27,10 +27,10 @@ export function WhatIf({ data, loading }: { data: ForecastData | null; loading: 
 		});
 	return (
 		<PageCard title="What if" extra={<span className="normal-case">try it, nothing is saved</span>} loading={loading} skeletonHeight={120} data-testid="what-if">
-			<div className="grid gap-2 text-[13.5px]">
+			<div className="grid grid-cols-1 gap-2 text-[13.5px]">
 				{items.map((i) => (
 					<Toggle key={i.vendor} on={off.has(i.vendor)} onClick={() => flip(i.vendor)} label={`Cancel ${i.vendor}`}>
-						<span className="ml-auto text-muted-foreground tabular-nums">−{money(Math.round(i.monthly_equivalent))} / month</span>
+						<span className="ml-auto shrink-0 text-muted-foreground tabular-nums">−{money(Math.round(i.monthly_equivalent))} / month</span>
 					</Toggle>
 				))}
 				<Toggle on={adding} onClick={() => setAdding((v) => !v)} label="Add a monthly cost">
@@ -81,11 +81,11 @@ export function WhatIf({ data, loading }: { data: ForecastData | null; loading: 
 function Toggle({ on, onClick, label, children }: { on: boolean; onClick: () => void; label: string; children: ReactNode }) {
 	return (
 		<div className="flex items-center gap-2.5">
-			<button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="flex items-center gap-2.5 text-left">
+			<button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="flex min-w-0 items-center gap-2.5 text-left">
 				<span className={cn("relative h-[18px] w-8 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "bg-muted-foreground/30")}>
 					<span className={cn("absolute top-0.5 size-3.5 rounded-full bg-white transition-[left]", on ? "left-[15px]" : "left-0.5")} />
 				</span>
-				<span aria-hidden>{label}</span>
+				<span aria-hidden className="truncate">{label}</span>
 			</button>
 			{children}
 		</div>

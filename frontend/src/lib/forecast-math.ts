@@ -36,6 +36,13 @@ export function whatIf(months: ForecastMonth[], off: number, add: number) {
 	);
 }
 
+/** The hero chart's lines: spent to today, then the forecast for the days after. On the last day there are none left,
+ *  so the line ends at the forecast (today's spend plus any bill due today) instead of leaving that bill off. */
+export function heroSeries(daily: { actual: number[]; path: number[] }) {
+	if (daily.path.length > 1) return { cur: daily.actual, forecast: daily.path.slice(1) };
+	return { cur: [...daily.actual.slice(0, -1), daily.path[0] ?? daily.actual[daily.actual.length - 1] ?? 0], forecast: [] };
+}
+
 /** One scale for the four months' range bars, so they compare: the highest range end or budget, plus headroom. */
 export function barScale(months: ForecastMonth[]): number {
 	return Math.max(1, ...months.map((m) => Math.max(m.high, m.budget ?? 0) * 1.08));
