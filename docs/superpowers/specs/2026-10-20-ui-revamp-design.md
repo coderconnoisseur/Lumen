@@ -258,3 +258,8 @@ Small items found while building, parked here so they aren't lost. Tick them off
 - [x] **Phase 6.** If the budget-versions migration is skipped on Postgres (only a warning), edits to an existing category in a new month hit the old unique constraint and 500. Make that failure loud. *(5 review; migration smoke-tested on Postgres 16 locally)* Done: logged as an error naming the consequence.
 - [ ] **Later.** Spending: the category edit (pencil) is hidden below `sm`, so phones can't recategorise; and "Lumen noticed" wraps beside its pill at 375px. *(5b)*
 - [ ] **Owner, manual.** In Firefox, check that the profile/avatar menu doesn't shift the Ask Lumen column, and click through the old pages on light in a demo session. *(Phase 0 PR #89)*
+- [ ] **Later.** Forecast: `_budgets` decides the overall-budget rule by the server's month, so users west of UTC get last month's rule for a few hours on the 1st. *(F2 review)*
+- [ ] **Later.** Forecast: no "heading for" on Home on the last day of the month; Ask's forecast tool uses the server's date. *(F2 review)*
+- [ ] **Later.** Forecast engine: Holt on a falling or refund-heavy history can give a zero-width range; months with no transactions are skipped (gaps read as consecutive); a missed weekly charge is dropped while later weeks remain. *(F1 review)*
+- [ ] **Later.** Forecast eval's why-line check accepts any amount from the month and doesn't check that "Lower"/"Higher" point the right way. *(F1 review)*
+- [ ] **Later.** Forecast page: bill pins on neighbouring days overlap on phones. *(F3)*
