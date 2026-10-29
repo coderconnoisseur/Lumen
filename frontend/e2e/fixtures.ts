@@ -247,7 +247,16 @@ export async function signIn(
 }
 
 /** A GET /api/forecast payload for the current month (Forecast F2): `spent` so far, then `perDay` every day left. */
-export function forecastFixture({ spent, perDay, month, budget = null, income = null }: { spent: number; perDay: number; month?: string; budget?: number | null; income?: number | null }) {
+export function forecastFixture({
+	spent, perDay, month, budget = null, income = null, bills = [], categories = [], items = [], accuracy, why = "Your usual month.",
+}: {
+	spent: number; perDay: number; month?: string; budget?: number | null; income?: number | null;
+	bills?: { day: number; vendor: string; amount: number }[];
+	categories?: { category: string; spent: number | null; forecast: number; budget: number | null }[];
+	items?: { vendor: string; kind: string; monthly_equivalent: number }[];
+	accuracy?: Record<string, unknown>;
+	why?: string;
+}) {
 	const now = new Date();
 	const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 	const left = days - now.getDate();
@@ -259,15 +268,18 @@ export function forecastFixture({ spent, perDay, month, budget = null, income = 
 	};
 	const m = (n: number, forecast: number) => ({
 		month: n === 0 && month ? month : ym(n), forecast, low: forecast * 0.9, high: forecast * 1.1, bills: 0, everyday: forecast,
-		budget, income, left: income ? income - forecast : null, over_budget: budget ? forecast > budget : null, why: "Your usual month.", categories: [],
+		budget, income, left: income ? income - forecast : null, over_budget: budget ? forecast > budget : null, why, categories: n === 0 ? categories : [],
 	});
 	return {
 		months: [m(0, total), m(1, perDay * 30), m(2, perDay * 30), m(3, perDay * 30)],
 		current: { spent_so_far: spent, bills_still_due: { count: 0, amount: 0 }, everyday_rest: total - spent, days_left: left },
-		daily: { actual: [spent], path, low: total * 0.9, high: total * 1.1 },
+		daily: { actual: [spent], path, low: total * 0.9, high: total * 1.1, bills },
 		method: "bills_everyday",
-		accuracy: { method: "bills_everyday", label: "Bills + everyday", median_error_pct: 12.8, in_range_pct: 83.3, months_tested: 6, tried: [] },
-		items: [],
+		accuracy: accuracy ?? {
+			method: "bills_everyday", label: "Bills + everyday", median_error_pct: 12.8, in_range_pct: 83.3, months_tested: 6,
+			tried: [{ method: "bills_everyday", label: "Bills + everyday", median_error_pct: 12.8 }, { method: "holt", label: "Statistical (Holt)", median_error_pct: 19.4 }],
+		},
+		items,
 	};
 }
 
