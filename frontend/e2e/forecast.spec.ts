@@ -163,3 +163,54 @@ test("how this works: both methods' backtest error, the kept one marked", async 
 	await expect(page.getByTestId("how-it-works")).toContainText("too little history");
 	await expect(page.getByTestId("how-it-works").getByTestId("method")).toHaveCount(0);
 });
+
+const full = () =>
+	fc({
+		categories: cats,
+		items,
+		bills: [{ day: 28, vendor: "City Power", amount: 2000 }],
+		why: "Higher than usual: the ₹18,514 TechHub order on 17 Oct, and the yearly CloudVault renewal.",
+	});
+async function cls(page: Page) {
+	await page.addInitScript(() => {
+		(window as unknown as { cls: number }).cls = 0;
+		new PerformanceObserver((list) => {
+			for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[])
+				if (!e.hadRecentInput) (window as unknown as { cls: number }).cls += e.value;
+		}).observe({ type: "layout-shift", buffered: true });
+	});
+	await openForecast(page, { forecast: full(), forecastDelayMs: 1500 });
+	await expect(page.getByTestId("forecast-month")).toHaveCount(4);
+	await page.waitForTimeout(500);
+	return page.evaluate(() => (window as unknown as { cls: number }).cls);
+}
+
+test("forecast has no layout shift while loading", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	expect(await cls(page)).toBeLessThan(0.01);
+});
+
+test("forecast has no layout shift while loading on a phone", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	expect(await cls(page)).toBeLessThan(0.01);
+});
+
+test("forecast fits a phone without sideways scroll", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await openForecast(page, { forecast: full() });
+	await expect(page.getByTestId("forecast-month")).toHaveCount(4);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+	const ends = await page
+		.locator('header *, [data-testid="forecast-month"], [data-testid="forecast-category"] > *, [data-testid="what-if"] button, [data-testid="what-if"] input, [data-testid="method"]')
+		.evaluateAll((els) => els.map((e) => [e.getAttribute("aria-label") ?? e.textContent, e.getBoundingClientRect().right] as const));
+	for (const [what, right] of ends) expect(right, String(what)).toBeLessThanOrEqual(375);
+});
+
+test("every button, switch and field on the forecast has a name", async ({ page }) => {
+	await openForecast(page, { forecast: fc({ ...{ categories: cats, items }, income: null }) });
+	await expect(page.getByTestId("forecast-month")).toHaveCount(4);
+	const unnamed = await page.locator("main button, main input, main [role=switch]").evaluateAll((els) =>
+		els.filter((e) => !(e.getAttribute("aria-label") || e.textContent?.trim())).map((e) => e.outerHTML.slice(0, 80)),
+	);
+	expect(unnamed).toEqual([]);
+});

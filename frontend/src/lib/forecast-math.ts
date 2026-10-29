@@ -20,8 +20,9 @@ export function accuracyLabel(a: ForecastData["accuracy"]): string {
 }
 
 /** Where a category lands at month end against its budget. */
-export function categoryEnd(c: Category): { tone: "over" | "left" | "none"; by: number } {
+export function categoryEnd(c: Category): { tone: "over" | "left" | "on" | "none"; by: number } {
 	if (c.budget == null) return { tone: "none", by: 0 };
+	if (Math.round(c.forecast) === Math.round(c.budget)) return { tone: "on", by: 0 }; // a fixed bill exactly on its limit
 	return c.forecast > c.budget ? { tone: "over", by: c.forecast - c.budget } : { tone: "left", by: c.budget - c.forecast };
 }
 

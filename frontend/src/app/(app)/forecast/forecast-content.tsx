@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageCard } from "@/components/page/page-card";
 import { PageHeader } from "@/components/page/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { forecastApi, type ForecastData } from "@/lib/api/client";
 import { accuracyLabel, headline, monthOf } from "@/lib/forecast-math";
 import { useMoney } from "@/lib/format";
@@ -42,9 +43,9 @@ export default function ForecastContent() {
 			{h.verdict && (
 				<>
 					{" · "}
-					<em data-testid="verdict" data-tone={h.verdict.over ? "bad" : "good"} className={h.verdict.over ? "text-bad" : "text-good"}>
+					<span data-testid="verdict" data-tone={h.verdict.over ? "bad" : "good"} className={h.verdict.over ? "text-bad" : "text-good"}>
 						{money(Math.round(h.verdict.by))} {h.verdict.over ? "over" : "under"} budget
-					</em>
+					</span>
 				</>
 			)}
 		</>
@@ -58,10 +59,14 @@ export default function ForecastContent() {
 					title="Forecast"
 					brief={<Brief text={brief} />}
 					actions={
-						data && (
-							<span data-testid="accuracy" className="label-ui rounded-full border border-border/70 bg-card/70 px-3 py-1 normal-case text-muted-foreground">
-								{accuracyLabel(data.accuracy)}
-							</span>
+						loading ? (
+							<Skeleton className="h-7 w-64 rounded-full bg-white/50" />
+						) : (
+							data && (
+								<span data-testid="accuracy" className="label-ui flex h-7 items-center rounded-full border border-border/70 bg-card/70 px-3 normal-case text-muted-foreground">
+									{accuracyLabel(data.accuracy)}
+								</span>
+							)
 						)
 					}
 				/>

@@ -34,7 +34,7 @@ export function WhatIf({ data, loading }: { data: ForecastData | null; loading: 
 					</Toggle>
 				))}
 				<Toggle on={adding} onClick={() => setAdding((v) => !v)} label="Add a monthly cost">
-					<span className="ml-auto flex items-center gap-1 text-muted-foreground">
+					<span className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
 						<input
 							aria-label="Monthly cost"
 							inputMode="decimal"

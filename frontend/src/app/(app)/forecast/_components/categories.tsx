@@ -42,7 +42,7 @@ export function ForecastCategories({ month, loading }: { month: ForecastMonth | 
 								<span>{money(Math.round(c.forecast))}</span>
 								<span className="text-muted-foreground max-sm:hidden">{c.budget != null ? money(c.budget) : "—"}</span>
 								<span className={cn(end.tone === "over" && "text-bad", end.tone === "none" && "text-muted-foreground")}>
-									{end.tone === "none" ? "no budget" : `${money(Math.round(end.by))} ${end.tone}`}
+									{end.tone === "none" ? "no budget" : end.tone === "on" ? "on budget" : `${money(Math.round(end.by))} ${end.tone}`}
 								</span>
 							</div>
 						);

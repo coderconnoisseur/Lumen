@@ -23,6 +23,7 @@ test("category end: over, left, or no budget", () => {
 	expect(categoryEnd({ category: "Shopping", spent: 18514, forecast: 19100, budget: 9000 })).toEqual({ tone: "over", by: 10100 });
 	expect(categoryEnd({ category: "Food", spent: 5095, forecast: 6000, budget: 6500 })).toEqual({ tone: "left", by: 500 });
 	expect(categoryEnd({ category: "Transport", spent: 2937, forecast: 3800, budget: null })).toEqual({ tone: "none", by: 0 });
+	expect(categoryEnd({ category: "Housing", spent: 22000, forecast: 22000.4, budget: 22000 })).toEqual({ tone: "on", by: 0 });
 });
 
 test("what if: changes the next three months only; money left with income, the forecast without", () => {
