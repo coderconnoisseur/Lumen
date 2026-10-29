@@ -8,8 +8,11 @@ import { forecastApi, type ForecastData } from "@/lib/api/client";
 import { accuracyLabel, headline, monthOf } from "@/lib/forecast-math";
 import { useMoney } from "@/lib/format";
 import { Brief } from "../home/_components/brief";
+import { ForecastCategories } from "./_components/categories";
 import { ForecastHero } from "./_components/hero";
+import { HowItWorks } from "./_components/how";
 import { ForecastMonths } from "./_components/months";
+import { WhatIf } from "./_components/what-if";
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -67,6 +70,13 @@ export default function ForecastContent() {
 						<ForecastHero data={data} today={today} loading={loading} />
 						<div className="mt-3.5">
 							<ForecastMonths months={data?.months ?? []} loading={loading} onIncome={load} />
+						</div>
+						<div className="mt-3.5 grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+							<ForecastCategories month={m0} loading={loading} />
+							<div className="grid gap-3.5">
+								<WhatIf data={data} loading={loading} />
+								<HowItWorks accuracy={data?.accuracy} loading={loading} />
+							</div>
 						</div>
 					</>
 				) : (

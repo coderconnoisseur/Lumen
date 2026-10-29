@@ -103,3 +103,63 @@ test("the forecast request names the browser's date", async ({ page }) => {
 	await expect(page.getByTestId("forecast-hero")).toBeVisible();
 	expect(urls.every((u) => u.includes(`today=${iso}`)) && urls.length > 0).toBe(true);
 });
+
+const cats = [
+	{ category: "Shopping", spent: 18514, forecast: 19100, budget: 9000 },
+	{ category: "Food", spent: 5095, forecast: 6000, budget: 6500 },
+	{ category: "Transport", spent: 2937, forecast: 3800, budget: null },
+];
+const catRow = (page: Page, name: string) => page.getByTestId("forecast-category").filter({ hasText: name });
+
+test("by category: spent, forecast, budget and where each lands", async ({ page }) => {
+	await openForecast(page, { forecast: fc({ categories: cats }) });
+	await expect(page.getByTestId("forecast-categories")).toContainText(`${monthName(0)} by category`);
+	await expect(page.getByTestId("forecast-category")).toHaveCount(3);
+	await expect(catRow(page, "Shopping")).toContainText(money(18514));
+	await expect(catRow(page, "Shopping")).toContainText(money(19100));
+	await expect(catRow(page, "Shopping")).toContainText("₹10,100 over");
+	await expect(catRow(page, "Food")).toContainText("₹500 left");
+	await expect(catRow(page, "Transport")).toContainText("no budget");
+	await expect(page.getByTestId("over-count")).toHaveText("1 will run over");
+});
+
+const items = [{ vendor: "StreamFlix", kind: "subscription", monthly_equivalent: 766 }, { vendor: "FitZone Gym", kind: "bill", monthly_equivalent: 1500 }];
+
+test("what if: cancelling a bill moves the next three months' money left, nothing is saved", async ({ page }) => {
+	await openForecast(page, { forecast: fc({ items }) });
+	const box = page.getByTestId("what-if");
+	await expect(box).toContainText("Turn one on");
+	const writes: string[] = [];
+	page.on("request", (r) => r.method() !== "GET" && writes.push(r.url()));
+	await box.getByRole("switch", { name: "Cancel StreamFlix" }).click();
+	const left = 85000 - 30000; // the fixture's next months: 1,000 a day × 30
+	await expect(box.getByTestId("effect")).toHaveCount(3);
+	await expect(box.getByTestId("effect").first()).toContainText(`${monthName(1)}: left ${money(left + 766)}`);
+	await expect(box.getByTestId("effect").first()).toContainText(`was ${money(left)}`);
+	await expect(box.getByRole("link", { name: "Cancel on Bills" })).toHaveAttribute("href", "/bills");
+	await box.getByRole("switch", { name: "Cancel StreamFlix" }).click();
+	await expect(box).toContainText("Turn one on");
+	expect(writes).toEqual([]);
+});
+
+test("what if: an added monthly cost lowers what's left; without income it moves the forecast", async ({ page }) => {
+	await openForecast(page, { forecast: fc({ items, income: null }) });
+	const box = page.getByTestId("what-if");
+	await box.getByLabel("Monthly cost", { exact: true }).fill("5000");
+	await box.getByRole("switch", { name: "Add a monthly cost" }).click();
+	await expect(box.getByTestId("effect").first()).toContainText(`${monthName(1)}: ${money(30000 + 5000)}`);
+	await expect(box.getByRole("link", { name: "Set a limit on Budget" })).toHaveAttribute("href", "/budget");
+});
+
+test("how this works: both methods' backtest error, the kept one marked", async ({ page }) => {
+	await openForecast(page);
+	const how = page.getByTestId("how-it-works");
+	await expect(how.getByTestId("method")).toHaveCount(2);
+	await expect(how.getByTestId("method").first()).toContainText("Bills + everyday");
+	await expect(how.getByTestId("method").first()).toContainText("13%");
+	await expect(how.getByTestId("method").first()).toContainText("kept");
+	await expect(how.getByTestId("method").nth(1)).toContainText("tried");
+	await openForecast(page, { forecast: fc({ accuracy: { months_tested: 2 } }) });
+	await expect(page.getByTestId("how-it-works")).toContainText("too little history");
+	await expect(page.getByTestId("how-it-works").getByTestId("method")).toHaveCount(0);
+});
