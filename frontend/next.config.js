@@ -19,6 +19,17 @@ if (missing.length > 0) {
 
 const nextConfig = {
 	reactStrictMode: true,
+	// Night's own icons and figures replace Sky's at bundle time, so a Sky build (production) never loads their libraries.
+	webpack(config, { webpack }) {
+		if (process.env.NEXT_PUBLIC_APP_THEME === "night") {
+			config.plugins.push(
+				new webpack.NormalModuleReplacementPlugin(/^@\/components\/(icons|page\/figure)$/, (resource) => {
+					resource.request += ".night";
+				})
+			);
+		}
+		return config;
+	},
 	// e2e runs its own dev server (playwright.config.ts) with dummy env; a separate build folder keeps it from
 	// clobbering the `npm run dev` server's cache in the same checkout ("missing required error components").
 	distDir: process.env.NEXT_DIST_DIR || ".next",
