@@ -21,7 +21,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 		<PageCard title={`Budget in ${monthName}`} href="/budget" loading={loading} skeletonHeight={64} data-testid="budget-card">
 			{total ? (
 				<>
-					<div className="text-[26px] leading-tight font-medium tracking-tight tabular-nums">
+					<div className="text-[26px] leading-tight font-medium tracking-tight tabular-nums dark:text-[24px] dark:font-normal">
 						{money(spent)} <span className="text-[13px] font-normal tracking-normal text-muted-foreground">of {money(total)}</span>
 					</div>
 					<div className="mt-2.5 flex items-center gap-2.5">
@@ -57,7 +57,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 								</div>
 								<div className="mt-1 h-[5px] overflow-hidden rounded-full bg-muted">
 									<i
-										className={cn("block h-full rounded-full", over ? "bg-bad" : used >= 0.9 ? "bg-amber-500" : "bg-primary")}
+										className={cn("block h-full rounded-full", over ? "bg-bad" : used >= 0.9 ? "bg-amber-500" : "bg-[var(--series)]")}
 										style={{ width: `${Math.max(0, Math.min(100, used * 100))}%` }}
 									/>
 								</div>

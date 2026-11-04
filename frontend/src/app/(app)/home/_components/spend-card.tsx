@@ -89,7 +89,7 @@ export function SpendCard({
 	const legend = (
 		<span className="ml-auto mr-2 hidden items-center gap-4 sm:flex">
 			<span className="flex items-center gap-1.5">
-				<i className="inline-block w-4 border-t-2 border-primary" />
+				<i className="inline-block w-4 border-t-2 border-[var(--series)]" />
 				Now
 			</span>
 			<span className="flex items-center gap-1.5">
@@ -98,7 +98,7 @@ export function SpendCard({
 			</span>
 			{fc.length > 0 && (
 				<span className="flex items-center gap-1.5">
-					<i className="inline-block w-4 border-t-2 border-dotted border-primary/60" />
+					<i className="inline-block w-4 border-t-2 border-dotted border-[var(--series-forecast)] opacity-60" />
 					Forecast
 				</span>
 			)}
@@ -125,7 +125,7 @@ export function SpendCard({
 			className="relative"
 			data-testid="spend-card"
 		>
-			<div className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">
+			<div data-testid="spend-figure" className="text-[36px] leading-tight font-medium tracking-tight tabular-nums dark:text-[34px] dark:font-normal">
 				<CountUp value={Math.round(total)} format={(n) => money(n)} />
 			</div>
 			<div className="h-5 text-[13px] text-muted-foreground">
