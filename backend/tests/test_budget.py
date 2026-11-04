@@ -21,7 +21,7 @@ def three_months(category, amounts):
 
 def test_draft_rounds_up_to_500():
     assert draft_budget(three_months("Food", [7000, 7160, 7200]), TODAY) == [
-        {"category": "Food", "limit": 7500, "basis": {"months": ["2026-07", "2026-08", "2026-09"], "average": 7120.0, "usual": 7180.0, "one_offs": []}}
+        {"category": "Food", "limit": 7500, "basis": {"months": ["2026-07", "2026-08", "2026-09"], "average": 7120.0, "usual": 7160.0, "one_offs": []}}
     ]
 
 
@@ -167,9 +167,15 @@ def test_a_big_buy_at_a_shop_used_for_small_things_is_a_one_off():
     assert one_offs(small(amount=500) + [big]) == [big]
 
 
-def test_blank_vendors_dont_count_as_the_same_vendor():
-    a, b = row("2026-08-17", 30000, None), row("2026-09-17", 30000, None)
-    assert one_offs(small() + [a, b]) == [a, b]
+def test_rent_with_no_vendor_name_isnt_left_out():
+    rent = [row(f"2026-{m:02d}-01", 25000, None, "Housing") for m in range(4, 10)]
+    others = [row(f"2026-{m:02d}-{d:02d}", 500, "Key cutter", "Housing") for m in range(4, 10) for d in (9, 12, 15)]
+    assert one_offs(rent + others) == []
+
+
+def test_one_big_purchase_with_no_vendor_name_is_still_a_one_off():
+    big = row("2026-09-17", 30000, None)
+    assert one_offs(small() + [big]) == [big]
 
 
 MONTHS6 = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
@@ -231,3 +237,15 @@ def test_reason_names_one_one_off():
 def test_reason_counts_several_one_offs():
     out = draft_reason(reason_line(("A", 30000.0), ("B", 21200.0), ("C", 10000.0)), "INR")
     assert out.endswith(" Left out 3 big one-off purchases (₹61,200).")
+
+
+def test_a_refund_earlier_in_the_month_than_its_purchase_goes_with_it():
+    rows = small(6, 5000) + [row("2026-09-20", 80000, "TechHub"), row("2026-09-02", -80000, "TechHub")]
+    assert usual_month_totals(rows, MONTHS6)[0]["2026-09"] == 5000
+
+
+def test_a_short_history_uses_the_median_so_a_laptop_cant_outrun_the_old_rule():
+    three = [row("2026-07-10", 1000), row("2026-08-10", 1000), row("2026-09-10", 81000)]  # too few purchases to judge a one-off
+    assert draft_budget(three, TODAY)[0]["limit"] == 1000
+    two = [row("2026-08-10", 1000), row("2026-09-10", 1000), row("2026-09-17", 80000, "TechHub")]
+    assert draft_budget(two, TODAY)[0]["limit"] <= 41000  # the old rule's mean

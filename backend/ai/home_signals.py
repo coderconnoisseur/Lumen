@@ -67,11 +67,12 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
     return out
 
 
-def _cause(buys: list[tuple[float, str]], rise: float, recurring: set[str]) -> tuple[float, str] | None:
-    """The one purchase behind a rise: between half and all of it, clearly bigger than the next, and not a regular bill."""
+def _cause(buys: list[tuple[float, str]], rise: float, before: float, recurring: set[str]) -> tuple[float, str] | None:
+    """The one purchase behind a rise: at least half of it, clearly bigger than the next, and not a regular bill. Bigger
+    than the rise, it must also dwarf last month, or it's just a usual purchase that grew (₹5,000 to ₹6,750 at a shop)."""
     ranked = sorted(buys, key=lambda b: -b[0])
     amount, vendor = ranked[0]
-    if not (rise / 2 <= amount <= rise) or not _norm(vendor) or _norm(vendor) in recurring:
+    if amount < rise / 2 or (amount > rise and amount < 2 * before) or not _norm(vendor) or _norm(vendor) in recurring:
         return None
     return None if len(ranked) > 1 and ranked[1][0] >= amount / 2 else (amount, vendor.strip())
 
@@ -103,7 +104,7 @@ def _spikes(txns: list[dict], today: date, recurring: list[dict] | None = None) 
         p = then.get(k, 0.0)
         if p > 0 and n >= p * SPIKE_RATIO and n - p >= floor:
             pct = round((n - p) / p * 100)
-            cause = _cause(buys[k], n - p, regular)
+            cause = _cause(buys[k], n - p, p, regular)
             headline = f"{{2}} at {cause[1]} pushed {names[k]} up {pct}%" if cause else f"{names[k]} is up {pct}%"
             out.append((pct, {"kind": "spike", "tag": "SPENDING", "subject": names[k], "headline": headline,
                               "detail": "{0} so far vs {1} by this point last month.",

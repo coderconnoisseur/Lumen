@@ -48,6 +48,25 @@ def _baseline_draft(txns: list[dict], today: date) -> list[dict]:
     return lines[:MAX_LINES]
 
 
+def _control_draft(txns: list[dict], today: date) -> list[dict]:
+    """Control: the same percentile and months as the new rule with one-offs kept in, to show what leaving them out costs."""
+    import numpy as np
+
+    months = [_shift(today.year, today.month, b) for b in range(1, 7)]
+    totals = _totals(txns, set(months))
+    spent = sorted({mo for (_, mo), v in totals.items() if v})
+    if len(spent) < 2:
+        return []
+    names = _display_names(txns)
+    lines = []
+    for key in {k for k, _ in totals}:
+        level = float(np.percentile([max(0.0, totals.get((key, mo), 0.0)) for mo in spent], 50 if len(spent) < 4 else 75))
+        if level >= MIN_MONTHLY:
+            lines.append({"category": names[key], "limit": _round_up(level)})
+    lines.sort(key=lambda l: l["limit"], reverse=True)
+    return lines[:MAX_LINES]
+
+
 def _shift(y: int, m: int, back: int) -> tuple[int, int]:
     t = y * 12 + m - 1 - back
     return t // 12, t % 12 + 1
@@ -76,28 +95,36 @@ def _reason_mismatches(key: str, month: str, lines: list[dict]) -> list[str]:
     return bad
 
 
+def _p90(values: list[float]) -> float | None:
+    import numpy as np
+
+    return float(np.percentile(values, 90)) if values else None
+
+
 def _laptop_shifts(past: list[dict], start: date, recurring: list[dict], lines: list[dict], rng: random.Random,
-                   window: tuple[int, int]) -> tuple[list[float], list[float]]:
-    """Add one laptop to a month of the lookback, per line of a category with at least 4 purchases; how far did the limit move?"""
-    new, base = [], []
-    before = {_key(l["category"]): l["limit"] for l in _baseline_draft(past, start)}
+                   window: tuple[int, int], min_buys: int = 4) -> dict[str, list[float]]:
+    """Add one laptop to a month of the lookback, per line of a category with at least `min_buys` purchases; how far did
+    each rule's limit move? `min_buys=4` is where the one-off rule can fire, so it flatters the rule: `min_buys=0` adds
+    the sparse categories where it can't."""
+    out: dict[str, list[float]] = {"new": [], "baseline": [], "control": []}
+    rules = {"new": lambda r: draft_budget(r, start, recurring), "baseline": lambda r: _baseline_draft(r, start),
+             "control": lambda r: _control_draft(r, start)}
+    before = {n: {_key(l["category"]): l["limit"] for l in rule(past)} for n, rule in rules.items()}
     for line in lines:
         k = _key(line["category"])
         keys = set(line["basis"]["months"])
-        if sum(_key(t.get("category")) == k and str(t["date"])[:7] in keys and float(t["total_amount"] or 0) > 0 for t in past) < 4:
+        if sum(_key(t.get("category")) == k and str(t["date"])[:7] in keys and float(t["total_amount"] or 0) > 0 for t in past) < min_buys:
             continue
         y, m = _shift(start.year, start.month, rng.randint(*window))
         if f"{y}-{m:02d}" not in keys:
             continue
         rows = past + [{"vendor_name": f"Laptop Store {rng.randint(1, 10**6)}", "date": f"{y}-{m:02d}-14",
                         "total_amount": LAPTOP, "category": line["category"]}]
-        after = {_key(l["category"]): l["limit"] for l in draft_budget(rows, start, recurring)}
-        if k in after:
-            new.append(abs(after[k] - line["limit"]))
-        after_base = {_key(l["category"]): l["limit"] for l in _baseline_draft(rows, start)}
-        if k in before and k in after_base:
-            base.append(abs(after_base[k] - before[k]))
-    return new, base
+        for n, rule in rules.items():
+            after = {_key(l["category"]): l["limit"] for l in rule(rows)}
+            if k in before[n] and k in after:
+                out[n].append(abs(after[k] - before[n][k]))
+    return out
 
 
 def _found_failures(key: str, txns: list[dict], today: date) -> list[str]:
@@ -114,7 +141,8 @@ def _found_failures(key: str, txns: list[dict], today: date) -> list[str]:
         "broad rise": ([row(f"{prev}-05", 5000, "A")] + [row(f"{this}-{d:02d}", 4000, f"V{d}") for d in range(1, 11)], None),
         "similar purchases": ([row(f"{prev}-05", 2000, "A")] + [row(f"{this}-{d:02d}", 9000, f"V{d}") for d in (3, 6, 9)], None),
         "two similar": ([row(f"{prev}-05", 2000, "A"), row(f"{this}-05", 12000, "A"), row(f"{this}-06", 12000, "B")], None),
-        "bill rises": (bills + [row(f"{this}-05", 30000, "Eval Power")], None),
+        # the other spend makes the rise bigger than the bill, so only the recurring check stops it being named
+        "bill rises": (bills + [row(f"{this}-05", 30000, "Eval Power"), row(f"{this}-06", 8000, "A")], None),
     }
     bad = []
     for name, (extra, want) in cases.items():
@@ -133,7 +161,11 @@ def run(tier: str, split: str) -> dict:
     gates = (yaml.safe_load((Path(__file__).parents[1] / "gates.yaml").read_text(encoding="utf-8")) or {}).get("drafts", {})
     rng = random.Random(42)
     new_rows, base_rows, shared_new, shared_base, per_user = [], [], [], [], {}
-    cases, reasons, wrongly, shift_new, shift_base, shift_older, found = {}, [], [], [], [], [], []
+    cases, reasons, wrongly, found = {}, [], [], []
+    control_rows: list[dict] = []
+    shifts: dict[str, list[float]] = {"new": [], "baseline": [], "control": []}
+    shift_older: list[float] = []
+    shift_sparse: dict[str, list[float]] = {"new": [], "baseline": []}
     left_out_lines = 0
     all_users = users()[:3]
     for key, txns, today in all_users:
@@ -173,16 +205,23 @@ def run(tier: str, split: str) -> dict:
                         wrongly.append(f"{key} {cut} {l['category']}: {o['vendor']} {o['amount']}")
             base_rows += [{"limit": l["limit"], "usual": usual.get(c, 0.0), "all": spent.get(c, 0.0)} for c, l in base_by.items()]
             reasons += _reason_mismatches(key, cut, lines)
-            n, b = _laptop_shifts(past, start, recurring, lines, rng, (1, 3))
-            shift_new += n
-            shift_base += b
-            shift_older += _laptop_shifts(past, start, recurring, lines, rng, (4, 6))[0]
+            control_rows += [{"limit": l["limit"], "usual": usual.get(_key(l["category"]), 0.0), "all": spent.get(_key(l["category"]), 0.0)}
+                             for l in _control_draft(past, start)]
+            for n, v in _laptop_shifts(past, start, recurring, lines, rng, (1, 3)).items():
+                shifts[n] += v
+            shift_older += _laptop_shifts(past, start, recurring, lines, rng, (4, 6))["new"]
+            sparse = _laptop_shifts(past, start, recurring, lines, rng, (1, 3), min_buys=0)
+            shift_sparse["new"] += sparse["new"]
+            shift_sparse["baseline"] += sparse["baseline"]
         per_user[key] = _score(user_new)
         found += _found_failures(key, txns, today)
     new, shared = _score(new_rows), {"new": _score(shared_new), "baseline": _score(shared_base)}
-    laptop = {"new_median": median(shift_new) if shift_new else None, "baseline_median": median(shift_base) if shift_base else None,
-              "older_months_new_median": median(shift_older) if shift_older else None, "tried": len(shift_new)}
-    metrics = {"users": len(all_users), "new": new, "baseline": _score(base_rows), "shared": shared, "laptop_shift": laptop,
+    laptop = {"tried": len(shifts["new"]), "new_median": median(shifts["new"]) if shifts["new"] else None, "new_p90": _p90(shifts["new"]),
+              "new_max": max(shifts["new"], default=None), "baseline_median": median(shifts["baseline"]) if shifts["baseline"] else None,
+              "control_median": median(shifts["control"]) if shifts["control"] else None, "control_p90": _p90(shifts["control"]),
+              "older_months_new_p90": _p90(shift_older),
+              "any_category_new_p90": _p90(shift_sparse["new"]), "any_category_baseline_p90": _p90(shift_sparse["baseline"])}
+    metrics = {"users": len(all_users), "new": new, "baseline": _score(base_rows), "control": _score(control_rows), "shared": shared, "laptop_shift": laptop,
                "lines_with_one_offs": left_out_lines, "reason_mismatches": reasons, "left_out_wrongly": wrongly,
                "found_failures": found, "per_user": per_user}
     hard = []
@@ -193,7 +232,7 @@ def run(tier: str, split: str) -> dict:
         hard.append(f"fit on usual months is {drop:.1f} points below today's rule on shared lines")
     if (new["unused_room_pct"] or 0) > gates.get("unused_room_max", 25):
         hard.append(f"unused room {new['unused_room_pct']}% > {gates.get('unused_room_max', 25)}%")
-    if laptop["new_median"] is None or laptop["new_median"] > gates.get("laptop_shift_max", 1000):
-        hard.append(f"one laptop moves a limit by {laptop['new_median']}")
+    if laptop["new_p90"] is None or laptop["new_p90"] > gates.get("laptop_shift_p90_max", 1000):
+        hard.append(f"one laptop moves 1 limit in 10 by {laptop['new_p90']} or more")
     hard += [f"reason: {r}" for r in reasons] + [f"left out a regular bill: {w}" for w in wrongly] + [f"found: {f}" for f in found]
     return {"cases": cases, "metrics": metrics, "hard_gate_failures": hard}

@@ -107,7 +107,7 @@
 - [ ] **Step 1: Write failing test** `test_eval_drafts.py` (`pytestmark = pytest.mark.eval`): `hard_gate_failures == []`, `users == 3`, `lines >= 100`, `baseline.laptop` around 26,667 (between 20,000 and 30,000), `found_failures == []`. Plus `test_every_reason_uses_its_own_numbers`.
 - [ ] **Step 2: Run** `python -m pytest tests/test_eval_drafts.py -m eval -q`. Expected: FAIL (no suite).
 - [ ] **Step 3: Implement** per spec §5. The baseline is today's rule copied into the suite as `_baseline_draft` (mean of 3 months). Recurring at draft time is `find_recurring(past, month_start)`. Register as `"drafts"` in `run.py`. Laptop vendor is new and unique, seed 42, spread over the last 3 lookback months. Found cases are built from a real user's rows with purchases injected into a fixed month.
-- [ ] **Step 4: Set `drafts:` gates** per spec §5 (`fit_usual_min: 70`, `fit_usual_vs_baseline: 2`, `unused_room_max: 25`, `laptop_shift_max: 1000`). Run, read real numbers. If a one-time threshold change helps, make it and note it for STORY. If the ship rule fails, stop and ask the owner.
+- [ ] **Step 4: Set `drafts:` gates** per spec §5 (`fit_usual_min: 70`, `fit_usual_vs_baseline: 2`, `unused_room_max: 25`, `laptop_shift_p90_max: 1000`). Run, read real numbers. If a one-time threshold change helps, make it and note it for STORY. If the ship rule fails, stop and ask the owner.
 - [ ] **Step 5: Run** the suite and confirm the existing suites are untouched: `python -m pytest -m eval -q`. Expected: PASS.
 - [ ] **Step 6: Commit** `feat: drafts eval suite with before/after numbers and CI gates`.
 

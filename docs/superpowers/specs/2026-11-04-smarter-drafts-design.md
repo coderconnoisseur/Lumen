@@ -47,7 +47,7 @@ What this says:
 - No seasonality or income-based limits. The data can't validate seasonality (about a year of history), and income
   says nothing about what's usual in a category.
 - No change to the forecast. It uses its own everyday-spending method and is scored separately.
-- No new UI: the reason is existing text on the draft line and the Found card.
+- No new UI: the reason is existing text on the draft line and the Found card. (Home's budget card has a wording fix.)
 
 **Anti-goals**
 - Limits that look smart but fail often. A rule more than 2 points below today's fit on usual months doesn't ship. Within
@@ -70,7 +70,8 @@ Pure functions over transaction dicts, in `ai/budget.py` and `ai/home_signals.py
 - its vendor isn't a recurring charge, by the same normalised vendor match `ai/recurring.py` uses;
 - the same vendor has no other charge within 25% of this amount in a different month of the lookback. This protects what
   recurring detection can't see yet: rent to a new landlord, a 6-monthly premium, a big monthly shop on irregular dates.
-  (My call.) A large purchase at a shop you also use for small things can still be a one-off.
+  Blank vendors count as the same vendor here, so unnamed monthly rent stays in. (My call.) A large purchase at a shop
+  you also use for small things can still be a one-off.
 
 Refunds (negative amounts) are never one-offs and aren't part of the median. A refund from a left-out one-off's vendor, in
 the same or a later month, up to that one-off's amount, is left out with it, so a returned laptop doesn't drag a usual
@@ -84,7 +85,9 @@ The starting values come from the prototype. The eval (§5) may move them once; 
   a month inside that span with no spend in a category counts as 0.
 - Fewer than 2 months with any spend: empty, as today.
 - A category's limit is the `DRAFT_PERCENTILE` (starting value 75) of its monthly totals with one-offs left out, rounded
-  up with the existing `_round_up`.
+  up with the existing `_round_up`. With under 4 months of history it's the median: the percentile would track the
+  biggest month, and a new account's sparse category can't yet tell a laptop from usual spending. (My call, after review:
+  this keeps a new account from getting a worse limit than the old rule.)
 - `MIN_MONTHLY` and `MAX_LINES` stay. `MIN_MONTHLY` is applied to the same usual monthly level as the limit.
 - `basis` becomes `{months, average, usual, one_offs: [{vendor, amount, date}]}`. `average` stays the plain mean over
   `months`, so proposals already saved keep reading correctly.
@@ -96,7 +99,7 @@ The starting values come from the prototype. The eval (§5) may move them once; 
 - With one one-off: add `"Left out the ₹34,746 TechHub order."`
 - With several: add `"Left out 3 big one-off purchases (₹61,200)."`
 
-Budget's draft panel already shows the reason, so no frontend change is needed. Saved pending proposals keep their old
+Budget's draft panel already shows the reason; the only frontend change is Home's budget card, whose "last 3 months" copy goes. Saved pending proposals keep their old
 reason text until redrafted. Ask Lumen's `draft_budget` tool description changes from "last 3 complete months" to match.
 Agent eval recordings that cover it are re-recorded by the owner, as with the forecast.
 
@@ -104,7 +107,8 @@ Agent eval recordings that cover it are re-recorded by the owner, as with the fo
 
 `find_signals` passes its recurring list to `_spikes`. A spike names the category's biggest purchase this month when all
 of these hold (my call; this will name fewer alerts than the 10 of 14 in §2):
-- the purchase is between half and all of the rise, Spending's brief's existing rule;
+- the purchase is at least half of the rise. If it's bigger than the whole rise, it must also be at least twice what the
+  category cost by this point last month, so a laptop is named but a usual ₹5,000 shop that grew to ₹6,750 isn't;
 - the next biggest purchase this month is less than half of it, so two similar purchases name nothing;
 - its vendor isn't recurring, so a bill's rise is never told as a purchase.
 
@@ -127,9 +131,11 @@ suite as the baseline, so before and after come from one run.
   break the limit).
 - `unused_room`: median of (limit − spend) ÷ limit in months that fit. Stops "just raise every limit" from passing.
 - `laptop_shift`: add one ₹80,000 purchase (seeded) to one of the last 3 lookback months of a category with at least 4
-  purchases, and measure how far that category's limit moves. Today's rule moves about ₹26,667. This is the headline
-  before/after and the gated figure. The same measure on lookback months 4-6, which only the new rule reads, is reported
-  alongside.
+  purchases, and measure how far that category's limit moves. Today's rule moves about ₹26,667. The gate is on the 90th
+  percentile, since a plain 75th percentile passes on the median. Reported alongside: lookback months 4-6, which only the
+  new rule reads; all categories without the 4-purchase filter; and the control below.
+- Control: the new rule's percentile and months with one-offs kept in, in the same run, so STORY can say what leaving them
+  out gains and costs.
 - `reason_truth`: every amount in a reason equals an amount in that line's `basis`.
 - `never_left_out`: measured against ground truth, not the list the draft was given. Truth is the demo's seeded bills plus
   vendors recurring across the full history. None may be a one-off once it has at least 2 earlier charges at draft time.
@@ -148,7 +154,7 @@ Refunded one-offs get a unit test, because the eval data has no refunds.
 **Gates** (`evals/gates.yaml`, `drafts:`), starting values, set against the first real run and recorded in STORY:
 - `fit_usual` ≥ 70% and not below the baseline's by more than 2 points, on the shared lines;
 - `unused_room` ≤ 25%;
-- `laptop_shift` median ≤ ₹1,000;
+- `laptop_shift` 90th percentile ≤ ₹1,000;
 - `reason_truth` and `never_left_out` 100%;
 - Found cases 100%.
 

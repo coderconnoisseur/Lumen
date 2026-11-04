@@ -17,6 +17,7 @@ MIN_MONTHLY = 300  # categories usually under this aren't worth a line
 MAX_LINES = 8
 DRAFT_MONTHS = 6  # complete months a draft looks back over
 DRAFT_PERCENTILE = 75  # a limit should fit about 3 usual months in 4
+SHORT_HISTORY_MONTHS = 4  # with fewer months than this the percentile just tracks the biggest one: use the median
 ONE_OFF_MULTIPLE = 3  # a one-off is at least this many times the category's median purchase
 ONE_OFF_FLOOR = 2000  # ... and at least this much, so small categories don't trigger it
 ONE_OFF_MIN_PURCHASES = 4  # a median of fewer purchases says nothing
@@ -82,9 +83,10 @@ def one_offs(rows: list[dict], recurring: set[str] | frozenset[str] = frozenset(
 
     def regular(r: dict) -> bool:
         v = _vendor(r)
-        return bool(v) and (v in recurring or any(
+        # a blank vendor matches other blanks: rent with no name on it must not read as a one-off every month
+        return bool(v and v in recurring) or any(
             _vendor(o) == v and _month(o.get("date")) != _month(r.get("date"))
-            and abs(_amount(o) - _amount(r)) <= SIMILAR_WITHIN * _amount(r) for o in buys))
+            and abs(_amount(o) - _amount(r)) <= SIMILAR_WITHIN * _amount(r) for o in buys)
 
     return [r for r in buys if _amount(r) >= cut and not regular(r)]
 
@@ -92,7 +94,7 @@ def one_offs(rows: list[dict], recurring: set[str] | frozenset[str] = frozenset(
 def usual_month_totals(rows: list[dict], keys: list[str], recurring: set[str] | frozenset[str] = frozenset()
                        ) -> tuple[dict[str, float], list[dict]]:
     """One category's spend per month ('YYYY-MM') with its one-offs left out, and the one-offs. A refund from a left-out
-    purchase's vendor, on or after it, goes with it, so a returned laptop doesn't drag a usual month down. Never below 0."""
+    purchase's vendor, that month or later, goes with it, so a returned laptop doesn't drag a usual month down. Never below 0."""
     left_out = one_offs(rows, recurring)
     remaining = [[r, _amount(r)] for r in left_out]
     totals = dict.fromkeys(keys, 0.0)
@@ -101,7 +103,7 @@ def usual_month_totals(rows: list[dict], keys: list[str], recurring: set[str] | 
         if any(r is o for o in left_out):
             continue
         for slot in remaining:
-            if amount < 0 and _vendor(r) and _vendor(slot[0]) == _vendor(r) and str(slot[0].get("date")) <= str(r.get("date")):
+            if amount < 0 and _vendor(r) and _vendor(slot[0]) == _vendor(r) and str(slot[0].get("date"))[:7] <= key:
                 taken = min(-amount, slot[1])
                 slot[1] -= taken
                 amount += taken
@@ -126,8 +128,8 @@ def draft_reason(line: dict, currency: str | None) -> str:
 
 
 def draft_budget(txns: list[dict], today: date, recurring: list[dict] | None = None) -> list[dict]:
-    """One line per category: the 75th percentile of its usual monthly spend over up to 6 complete months before today's,
-    rounded up, so it fits about 3 usual months in 4. Months with no spend at all are data gaps and don't count; a month
+    """One line per category: the 75th percentile of its usual monthly spend over up to 6 complete months before today's
+    (the median with under 4 months), rounded up, so it fits about 3 usual months in 4. Months with no spend at all are data gaps and don't count; a month
     without this category does, as 0. `recurring`: the user's recurring charges, never treated as one-offs.
     Empty when fewer than 2 of those months have any spend (not enough history to suggest limits)."""
     import numpy as np
@@ -144,6 +146,7 @@ def draft_budget(txns: list[dict], today: date, recurring: list[dict] | None = N
     if len(spent) < 2:
         return []
     keys = [f"{yy}-{mm:02d}" for yy, mm in spent]
+    percentile = 50 if len(keys) < SHORT_HISTORY_MONTHS else DRAFT_PERCENTILE
     regular = {_norm(r["vendor"]) for r in recurring or [] if r.get("vendor")}
     rows: dict[str, list[dict]] = defaultdict(list)
     for t in txns:
@@ -153,7 +156,7 @@ def draft_budget(txns: list[dict], today: date, recurring: list[dict] | None = N
     lines = []
     for key, group in rows.items():
         usual, left_out = usual_month_totals(group, keys, regular)
-        level = float(np.percentile([usual[k] for k in keys], DRAFT_PERCENTILE))
+        level = float(np.percentile([usual[k] for k in keys], percentile))
         if level >= MIN_MONTHLY:
             lines.append({"category": names[key], "limit": _round_up(level),
                           "basis": {"months": keys, "average": round(sum(totals.get((key, mo), 0.0) for mo in spent) / len(spent), 2),

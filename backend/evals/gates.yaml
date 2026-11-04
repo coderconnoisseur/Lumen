@@ -29,4 +29,4 @@ drafts:
   fit_usual_min: 70         # % of draft lines whose month, without its own one-offs, fits the limit (goal: about 75)
   fit_usual_vs_baseline: 2  # points it may sit below today's rule, on the lines both produce
   unused_room_max: 25       # median % of the limit left unused in months that fit
-  laptop_shift_max: 1000    # how far one 80,000 purchase moves a limit (median)
+  laptop_shift_p90_max: 1000  # how far one 80,000 purchase moves a limit, 90th percentile (the median can't tell the rules apart)

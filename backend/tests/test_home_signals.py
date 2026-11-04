@@ -182,8 +182,17 @@ def test_two_similar_purchases_name_nothing():
     assert spike([buy("2026-09-05", 2000), buy("2026-10-05", 3000), buy("2026-10-06", 3000, "B")])["headline"] == "Shopping is up 200%"
 
 
-def test_a_purchase_bigger_than_the_rise_names_nothing():
+def test_a_purchase_bigger_than_the_rise_is_still_named():
+    assert spike([buy("2026-09-05", 2000), buy("2026-10-05", 80000, "TechHub")])["headline"] == "{2} at TechHub pushed Shopping up 3900%"
+
+
+def test_a_usual_purchase_that_grew_names_nothing():
     assert spike([buy("2026-09-05", 5000), buy("2026-10-05", 7000)])["headline"] == "Shopping is up 40%"
+
+
+def test_a_purchase_under_half_the_rise_names_nothing():
+    rows = [buy("2026-09-05", 2000), buy("2026-10-05", 9000, "TechHub")] + [buy(f"2026-10-{d:02d}", 4000, f"V{d}") for d in (6, 7, 8)]
+    assert spike(rows)["headline"] == "Shopping is up 950%"
 
 
 def test_a_recurring_vendor_is_never_named():
