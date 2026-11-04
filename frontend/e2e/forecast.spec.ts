@@ -3,7 +3,7 @@ import { forecastFixture, signIn, type HomeFixture } from "./fixtures";
 
 const now = new Date();
 const monthName = (n: number) => new Date(now.getFullYear(), now.getMonth() + n, 1).toLocaleString("en-US", { month: "long" });
-const money = (n: number) => `₹${Math.round(n).toLocaleString("en-US")}`;
+const money = (n: number) => `${n < 0 ? "-" : ""}₹${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
 const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
 
@@ -57,6 +57,7 @@ test("hero: the forecast, its range, the split and a pin per bill still due", as
 	await expect(hero.getByTestId("split")).toContainText("Bills still due (0)");
 	await expect(hero.getByTestId("split")).toContainText(`Everyday spending, ${daysLeft} day${daysLeft === 1 ? "" : "s"}`);
 	await expect(hero.getByTestId("bill-pin")).toHaveCount(2);
+	if (daysLeft > 0) await expect(hero.locator('[data-series="band"]')).toHaveCount(1);
 });
 
 test("four month cards: forecast, range, budget, money left and the why line", async ({ page }) => {
