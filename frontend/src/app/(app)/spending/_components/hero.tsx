@@ -23,7 +23,7 @@ function MonthBars({ months, today, tall, testId }: { months: Month[]; today: Da
 							data-testid="month-bar"
 							data-current={current || undefined}
 							title={`${short(m.month)}: ${money(Math.round(m.total))}`}
-							className={cn("w-full max-w-10 rounded-t-md", current ? "bg-primary" : "bg-primary/15")}
+							className={cn("w-full max-w-10 rounded-t-md", current ? "bg-[var(--series)]" : "bg-primary/15")}
 							style={{ height: `${Math.max(2, (m.total / max) * (tall ? 170 : 110))}px` }}
 						/>
 						<span className={cn("label-ui", current ? "font-semibold text-primary" : "text-muted-foreground")}>{short(m.month)}</span>

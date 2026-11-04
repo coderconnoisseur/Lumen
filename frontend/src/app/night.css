@@ -45,6 +45,14 @@
 	--chart-3: #847dff;
 	--chart-4: #b8860b;
 	--chart-5: #2f9e8f;
+	/* the same five in the same order, then neutral: categories past the fifth stop competing for a colour */
+	--category-1: #0091b5;
+	--category-2: #d9608f;
+	--category-3: #847dff;
+	--category-4: #b8860b;
+	--category-5: #2f9e8f;
+	--category-6: #6a6b6b;
+	--category-7: #6a6b6b;
 }
 :root:has([data-app-theme="night"]) body {
 	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
@@ -62,6 +70,34 @@
 }
 :root:has([data-app-theme="night"]) :is(button, [role="button"]):active:not(:disabled, [aria-disabled="true"]) {
 	scale: 0.97;
+}
+
+/* Colours written for Sky's paper that wouldn't read on Night's cards. Overriding here keeps the page files untouched. */
+:root:has([data-app-theme="night"]) :is(.text-amber-700, .text-amber-800) {
+	color: #f5a35c;
+}
+:root:has([data-app-theme="night"]) [class~="bg-white/50"] {
+	background-color: rgb(255 255 255 / 0.05);
+}
+
+/* Toggles: with a white primary, a white knob would vanish on the "on" track. */
+:root:has([data-app-theme="night"]) .bg-primary > .bg-white {
+	background-color: #000;
+}
+/* The native file picker, which otherwise looks like bare text. */
+:root:has([data-app-theme="night"]) input[type="file"]::file-selector-button {
+	margin-right: 10px;
+	border: 1px solid var(--input);
+	border-radius: 999px;
+	background: var(--secondary);
+	color: var(--foreground);
+	padding: 6px 14px;
+	font: inherit;
+	cursor: pointer;
+	transition: background-color 150ms ease;
+}
+:root:has([data-app-theme="night"]) input[type="file"]::file-selector-button:hover {
+	background: var(--accent);
 }
 
 /* Vendor chips: the same stable hue as Sky, turned down for a dark card (inline styles set Sky's). */
@@ -144,7 +180,7 @@
 
 :root:has([data-app-theme="night"]) .bui {
 	--page: #0b0b0c;
-	--canvas: #050505;
+	--canvas: #161617; /* Ask's prompt bar, as in the landing page's chat demo */
 	--surface: #18181a;
 	--inset: #111112;
 	--hover: #232325;

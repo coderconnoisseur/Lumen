@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { FileCheck2, Lock, Quote, UserCheck, type LucideIcon } from "lucide-react";
+import { FileCheck2, Lock, Quote, UserCheck, type LucideIcon } from "@/components/icons";
 import "@/app/home.css";
 import { NOTIFICATIONS } from "@/components/home/mocks";
 import { Sky } from "@/components/home/sky";

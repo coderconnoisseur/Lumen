@@ -85,7 +85,7 @@ export function BudgetHero({
 				<div className="min-w-0">
 					<div className="label-ui flex items-center gap-3 text-muted-foreground">
 						<span>Pace</span>
-						<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-primary" />Actual</span>
+						<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-[var(--series)]" />Actual</span>
 						{total !== null && (
 							<span className="flex items-center gap-1.5"><i className="w-3.5 border-t-2 border-dashed border-muted-foreground/50" />Even pace to {money(total)}</span>
 						)}

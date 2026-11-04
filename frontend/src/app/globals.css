@@ -119,6 +119,13 @@
 	--heat-max: 100%;
 	--heat-ink-strong: #fff;
 	--heat-ink-soft: var(--muted-foreground);
+	--category-1: #2f6fe0;
+	--category-2: #c4572f;
+	--category-3: #2e8b57;
+	--category-4: #b7791f;
+	--category-5: #7fa8ee;
+	--category-6: #8b6fd6;
+	--category-7: #a8a69f;
 }
 :root:has([data-app-theme="sky"]) body {
 	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;

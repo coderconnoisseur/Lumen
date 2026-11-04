@@ -176,6 +176,46 @@ test.describe("review fixes", () => {
 	});
 });
 
+test.describe("other pages", () => {
+	test("an on toggle keeps a visible knob", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/spending");
+		await expect(page.getByText("Compare with")).toBeVisible();
+		await night(page);
+		const knob = page.locator(".bg-primary > .bg-white").first();
+		await expect(knob).toBeAttached();
+		const [k, track] = await knob.evaluate((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e.parentElement!).backgroundColor]);
+		expect(ratio(await rgb(page, k), await rgb(page, track))).toBeGreaterThanOrEqual(3);
+	});
+
+	test("category colours follow the theme", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/spending");
+		const dot = page.getByTestId("category-row").first().locator("i").first();
+		await expect(dot).toBeAttached();
+		await night(page);
+		expect(await rgb(page, await dot.evaluate((e) => getComputedStyle(e).backgroundColor))).toEqual([0, 145, 181]);
+	});
+
+	test("Ask's prompt bar sits above the page", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/ask");
+		const bar = page.locator(".bg-canvas").first();
+		await expect(bar).toBeVisible();
+		await night(page);
+		// the bar has a colour transition, so give the flip a moment to land
+		await expect.poll(async () => rgb(page, await bar.evaluate((e) => getComputedStyle(e).backgroundColor))).toEqual([22, 22, 23]);
+	});
+
+	test("sky category colours are unchanged", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/spending");
+		const dot = page.getByTestId("category-row").first().locator("i").first();
+		await expect(dot).toBeAttached();
+		expect(await rgb(page, await dot.evaluate((e) => getComputedStyle(e).backgroundColor))).toEqual([47, 111, 224]);
+	});
+});
+
 test.describe("motion", () => {
 	test("page change uses the night transition", async ({ page }) => {
 		await openNightHome(page);

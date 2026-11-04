@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { FileText, Save, CheckCircle } from "lucide-react";
+import { FileText, Save, CheckCircle } from "@/components/icons";
 import { eventBus, EVENTS } from "@/lib/events";
 import { transactionApi } from "@/lib/api/client";
 import { toast } from "@/lib/toast";

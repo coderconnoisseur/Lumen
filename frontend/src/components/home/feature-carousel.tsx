@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play } from "@/components/icons";
 
 export type FeatureCard = { title: string; body: string; mock: ReactNode };
 

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2, ShieldAlert } from "@/components/icons";
 
 import { useAuth } from "@/components/auth/auth-provider";
 

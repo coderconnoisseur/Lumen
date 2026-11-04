@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/components/icons";
 import type { ChatThread } from "@/lib/api/client";
 import { relativeTime } from "@/lib/home-math";
 import { cn } from "@/lib/utils";

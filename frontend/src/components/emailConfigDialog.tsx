@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Mail, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, Mail, Loader2, CheckCircle2, XCircle } from "@/components/icons";
 import { emailConfigApi } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 import { GmailOAuthButton } from "@/components/gmailOAuthButton";
@@ -122,7 +122,7 @@ export function EmailConfigDialog({
     setTestPassed(true);
     setTestResult({
       success: true,
-      message: `Gmail account ${email} connected successfully via OAuth! ✓`,
+      message: `Gmail account ${email} connected via OAuth`,
     });
   };
 
@@ -166,7 +166,7 @@ export function EmailConfigDialog({
       const result = await emailConfigApi.testConnection();
       setTestResult({
         success: true,
-        message: result.message || "Connection successful! ✓",
+        message: result.message || "Connection works",
       });
       setTestPassed(true);
     } catch (error: any) {
@@ -610,7 +610,8 @@ export function EmailConfigDialog({
           </DialogFooter>
           {!testPassed && !existingConfig && (
             <p className="text-xs text-orange-600 dark:text-orange-400 text-center mt-2">
-              ⚠️{" "}
+              <AlertCircle className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />
+              {" "}
               {isGmailEmail && authMethod === "oauth"
                 ? "Please connect with Google OAuth before saving"
                 : "Please test the connection before saving"}
