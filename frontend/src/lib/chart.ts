@@ -2,6 +2,19 @@
 
 const n = (v: number) => +v.toFixed(2);
 
+// The likely range around a forecast path, from nothing today to the full low-high at the end. It rides on the path, so
+// a big bill mid-month lifts the band with it, and it widens with the square root of the days ahead (as the forecast's
+// range does). What's already spent stays spent, so the lower edge never drops below today's total.
+export function bandEdges(path: number[], low: number, high: number) {
+	const last = path.length - 1;
+	const end = path[last];
+	const at = (i: number) => Math.sqrt(last ? i / last : 1);
+	return {
+		upper: path.map((v, i) => v + (high - end) * at(i)),
+		lower: path.map((v, i) => Math.max(path[0], v - (end - low) * at(i))),
+	};
+}
+
 // A smooth SVG path through every point: monotone cubic (Fritsch–Carlson), so a running total never dips or
 // overshoots between two days the way a plain Catmull-Rom curve does.
 export function smoothPath(points: [number, number][]): string {

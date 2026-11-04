@@ -31,7 +31,7 @@ test("old URLs redirect", async ({ request }) => {
 });
 
 test("new URLs require a session", async ({ request }) => {
-	for (const p of ["/home", "/spending", "/bills", "/receipts", "/ask", "/settings"]) {
+	for (const p of ["/home", "/spending", "/bills", "/budget", "/forecast", "/receipts", "/ask", "/settings"]) {
 		const r = await request.get(p, { maxRedirects: 0 });
 		expect(r.headers()["location"] ?? "", p).toContain("/login?reason=unauthorized");
 	}
