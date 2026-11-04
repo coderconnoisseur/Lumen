@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Copy, ReceiptText, RefreshCw, TrendingUp, type LucideIcon } from "lucide-react";
+import { Copy, ReceiptText, RefreshCw, TrendingUp, type LucideIcon } from "@/components/icons";
 import type { FoundItem, HomeSummary } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { fill } from "@/lib/home-math";

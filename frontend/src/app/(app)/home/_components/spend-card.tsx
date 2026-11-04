@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { CumulativeChart } from "@/components/page/cumulative-chart";
 import { animate } from "motion/react";
-import { Plus } from "lucide-react";
+import NumberFlow from "@number-flow/react";
+import { Plus } from "@/components/icons";
 import { PageCard } from "@/components/page/page-card";
+import { useProfile } from "@/components/profile/profile-provider";
 import { useMoney } from "@/lib/format";
 import { dayIndex, ordinal, parseDay, sameDayDelta, type Period, type Range } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
@@ -41,6 +43,21 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
 	}, [value]);
 	return <>{format(shown)}</>;
 }
+
+// Night's version: the digits roll to each new total, so switching range shows what changed. NumberFlow does the rolling
+// and honours reduced motion itself.
+function RollingFigure({ value, format }: { value: number; format: (n: number) => string }) {
+	const { profile } = useProfile();
+	const currency = profile?.currency || "INR";
+	try {
+		new Intl.NumberFormat(undefined, { style: "currency", currency });
+	} catch {
+		return <>{format(value)}</>; // an unknown code stored on an old profile
+	}
+	return <NumberFlow value={value} format={{ style: "currency", currency, maximumFractionDigits: 0 }} />;
+}
+
+const Figure = process.env.NEXT_PUBLIC_APP_THEME === "night" ? RollingFigure : CountUp;
 
 // Home's hero (spec 2026-10-22 §4.1, Origin style): the period's total, how it compares, where it's heading, and the
 // running total as a smooth line against the previous period, with upcoming bills pinned on the axis.
@@ -126,7 +143,7 @@ export function SpendCard({
 			data-testid="spend-card"
 		>
 			<div data-testid="spend-figure" className="text-[36px] leading-tight font-medium tracking-tight tabular-nums dark:text-[34px] dark:font-normal">
-				<CountUp value={Math.round(total)} format={(n) => money(n)} />
+				<Figure value={Math.round(total)} format={(n) => money(n)} />
 			</div>
 			<div className="h-5 text-[13px] text-muted-foreground">
 				{delta && Math.round(delta.abs) !== 0 && (

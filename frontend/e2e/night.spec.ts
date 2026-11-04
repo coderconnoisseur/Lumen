@@ -150,6 +150,51 @@ test.describe("charts and calendar", () => {
 	});
 });
 
+test.describe("motion", () => {
+	test("page change uses the night transition", async ({ page }) => {
+		await openNightHome(page);
+		const wrap = page.locator(".app-page-in");
+		await expect(wrap).toHaveCSS("animation-name", "night-page-in");
+		await expect(wrap).toHaveCSS("animation-duration", "0.2s");
+	});
+
+	test("reduced motion drops the page slide", async ({ browser }) => {
+		const ctx = await browser.newContext({ reducedMotion: "reduce", baseURL: test.info().project.use.baseURL });
+		const page = await ctx.newPage();
+		await openNightHome(page);
+		await expect(page.locator(".app-page-in")).toHaveCSS("animation-name", "none");
+		await ctx.close();
+	});
+
+	test("menus open fast and float", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await page.getByTestId("open-dropdown").click();
+		const menu = page.locator('[role="menu"]');
+		await expect(menu).toHaveCSS("animation-duration", "0.16s");
+		expect(await menu.evaluate((e) => getComputedStyle(e).boxShadow)).toContain("60px");
+	});
+
+	test("dialogs sit above the page, not below it", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await page.getByTestId("open-dialog").click();
+		const bg = await page.locator('[role="dialog"]').evaluate((e) => getComputedStyle(e).backgroundColor);
+		expect(await rgb(page, bg)).toEqual([35, 35, 37]);
+	});
+
+	test("keyboard focus is visible", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await page.keyboard.press("Tab");
+		const [style, width] = await page.evaluate(() => {
+			const s = getComputedStyle(document.activeElement!);
+			return [s.outlineStyle, s.outlineWidth];
+		});
+		expect([style, width]).toEqual(["solid", "2px"]);
+	});
+});
+
 test.describe("tokens", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto("/dev/layout-shift");

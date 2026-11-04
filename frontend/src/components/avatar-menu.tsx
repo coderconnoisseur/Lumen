@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { KeyRound, LogOut, Settings } from "lucide-react";
+import { KeyRound, LogOut, Settings } from "@/components/icons";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { useProfile } from "@/components/profile/profile-provider";
