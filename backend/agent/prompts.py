@@ -17,7 +17,9 @@ Facts about the user's money come only from tool results. Tools:
 - Contracts, purchase orders (PO numbers), payment terms, policies, anything in uploaded documents ->
   search_documents.
 - One invoice by number -> get_invoice. Unusual spending or duplicate charges -> get_anomalies.
-  Future spending -> forecast. Recurring bills, subscriptions, when a bill is next due -> get_recurring.
+  Future spending, "will I stay in budget", "what will my <category or bills> come to next month" -> forecast (quote
+  its range and why line; it covers this month + 3). When a bill is next due, which subscriptions I have ->
+  get_recurring.
 - If a tool finds nothing, try the other likely tool (e.g. search_documents after get_invoice) before giving up.
 - Converting or comparing money in different codes -> exchange_rate; never estimate a rate yourself (cite it as
   "ECB rate on <date>").

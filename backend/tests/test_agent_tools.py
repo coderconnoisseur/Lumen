@@ -122,9 +122,12 @@ def test_anomalies_and_forecast_use_the_pinned_today(db, world):
     anomalies = run_tool(_ctx(db, world), "get_anomalies", {})
     assert anomalies["transactions_checked"] > 10 and isinstance(anomalies["anomalies"], list)
     fc = run_tool(_ctx(db, world), "forecast", {"months": 2})
-    assert [h["month"] for h in fc["history"]] == ["2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05"]
-    assert [p["month"] for p in fc["projection"]] == ["2026-06", "2026-07"]
-    assert all(h["total"] > 0 for h in fc["history"])
+    # the same forecast as the page and Home (api/forecast.forecast_for_user), as of the pinned today
+    assert [m["month"] for m in fc["months"]] == ["2026-06", "2026-07"]
+    assert all({"forecast", "low", "high", "bills", "everyday", "why", "categories"} <= set(m) for m in fc["months"])
+    assert fc["method"] in ("bills_everyday", "holt") and fc["accuracy"]["months_tested"] == 6
+    m = fc["months"][1]
+    assert m["low"] <= m["forecast"] <= m["high"] and abs(m["forecast"] - m["bills"] - m["everyday"]) < 1
 
 
 def test_propose_action_files_a_pending_proposal_and_changes_nothing_else(db, world):
@@ -146,7 +149,7 @@ def test_propose_action_files_a_pending_proposal_and_changes_nothing_else(db, wo
 def test_bad_arguments_and_unknown_tools_come_back_as_errors(db, world):
     from agent.tools import run_tool
 
-    assert "invalid arguments" in run_tool(_ctx(db, world), "forecast", {"months": 99})["error"]
+    assert "invalid arguments" in run_tool(_ctx(db, world), "forecast", {"months": 5})["error"]  # this month + 3 at most
     assert "invalid arguments" in run_tool(_ctx(db, world), "run_sql", "{not json")["error"]
     assert "unknown tool" in run_tool(_ctx(db, world), "delete_everything", {})["error"]
     assert "unavailable" in run_tool(_ctx(db, world), "search_documents", {"query": "fees"})["error"]

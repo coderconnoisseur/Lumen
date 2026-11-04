@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { agentApi, budgetApi, type BudgetMonth, type BudgetState, type Proposal } from "@/lib/api/client";
+import { agentApi, budgetApi, forecastApi, type BudgetMonth, type BudgetState, type Proposal } from "@/lib/api/client";
 import type { Txn } from "@/lib/home-math";
 import { fetchTxns } from "../home/use-home-data";
 
@@ -15,6 +15,8 @@ export type BudgetData = {
 	history: BudgetMonth[];
 	/** set_budget proposals still waiting for a decision when the page opened */
 	pending: Proposal[];
+	/** this month's forecast total (GET /api/forecast), null without one */
+	forecast: number | null;
 	/** after a save: replace the shown month's state */
 	setBudget: (b: BudgetState) => void;
 	/** after budget decisions: refetch this month's budget and the history */
@@ -25,7 +27,7 @@ export type BudgetData = {
 // changes, keeping the old numbers until the new ones arrive (like Spending); history and pending draft lines load once.
 export function useBudgetData(month: Date, today: Date): BudgetData {
 	const [shown, setShown] = useState<{ budget: BudgetState | null; txns: Txn[] } | null>(null);
-	const [once, setOnce] = useState<{ history: BudgetMonth[]; pending: Proposal[] } | null>(null);
+	const [once, setOnce] = useState<{ history: BudgetMonth[]; pending: Proposal[]; forecast: number | null } | null>(null);
 	const key = ym(month);
 	const day = today.toDateString();
 
@@ -44,8 +46,15 @@ export function useBudgetData(month: Date, today: Date): BudgetData {
 
 	useEffect(() => {
 		let live = true;
-		Promise.allSettled([budgetApi.history(6, ym(today)), agentApi.proposals()]).then(([h, p]) => {
-			if (live) setOnce({ history: value(h, []), pending: value(p, []).filter((x) => x.type === "set_budget") });
+		const isoDay = `${ym(today)}-${String(today.getDate()).padStart(2, "0")}`;
+		Promise.allSettled([budgetApi.history(6, ym(today)), agentApi.proposals(), forecastApi.get(isoDay)]).then(([h, p, f]) => {
+			const fc = value(f, null);
+			if (live)
+				setOnce({
+					history: value(h, []),
+					pending: value(p, []).filter((x) => x.type === "set_budget"),
+					forecast: fc && fc.months[0]?.month === ym(today) ? fc.months[0].forecast : null,
+				});
 		});
 		return () => {
 			live = false;
@@ -69,6 +78,7 @@ export function useBudgetData(month: Date, today: Date): BudgetData {
 		txns: shown?.txns ?? [],
 		history: once?.history ?? [],
 		pending: once?.pending ?? [],
+		forecast: once?.forecast ?? null,
 		setBudget,
 		reload,
 	};

@@ -81,7 +81,7 @@ class GetInvoiceArgs(BaseModel):
 
 
 class ForecastArgs(BaseModel):
-    months: int = Field(1, ge=1, le=6, description="How many months ahead to project.")
+    months: int = Field(1, ge=1, le=4, description="How many months to forecast, starting with this one (at most 4).")
 
 
 class RememberArgs(BaseModel):
@@ -238,31 +238,16 @@ def _get_anomalies(ctx: ToolContext, _: NoArgs) -> dict:
 
 
 def _forecast(ctx: ToolContext, args: ForecastArgs) -> dict:
-    """Monthly totals for the last 6 full months, a least-squares trend, and the projection (no LLM)."""
-    first_of_month = ctx.today.replace(day=1)
-    months = []
-    cursor = first_of_month
-    for _ in range(6):
-        cursor = (cursor - timedelta(days=1)).replace(day=1)
-        months.append(cursor)
-    months.reverse()
-    with ctx.engine.connect() as conn:
-        totals = {r["m"]: r["total"] for r in conn.execute(text(
-            "SELECT substr(date, 1, 7) AS m, SUM(total_amount) AS total FROM transactions WHERE user_id = :u "
-            "AND date >= :a AND date < :b GROUP BY substr(date, 1, 7)"),
-            {"u": ctx.user_id, "a": months[0].isoformat(), "b": first_of_month.isoformat()}).mappings()}
-    history = [round(totals.get(m.strftime("%Y-%m"), 0.0) or 0.0, 2) for m in months]
-    n = len(history)
-    mean_x, mean_y = (n - 1) / 2, sum(history) / n
-    denom = sum((x - mean_x) ** 2 for x in range(n)) or 1
-    slope = sum((x - mean_x) * (y - mean_y) for x, y in enumerate(history)) / denom
-    projection, month = [], first_of_month
-    for k in range(args.months):
-        projection.append({"month": month.strftime("%Y-%m"), "projected_total": round(max(0.0, mean_y + slope * (n + k - mean_x)), 2)})
-        month = (month + timedelta(days=32)).replace(day=1)
-    return {"history": [{"month": m.strftime("%Y-%m"), "total": t} for m, t in zip(months, history)],
-            "trend_per_month": round(slope, 2), "projection": projection,
-            "method": "least-squares trend over the last 6 full months"}
+    """The app's one forecast (api/forecast.forecast_for_user, no LLM): this month and the months ahead with a range,
+    bills vs everyday, per category and a why line, plus how accurate it has been on the user's past months."""
+    from api.forecast import forecast_for_user
+
+    f = forecast_for_user(ctx.engine, ctx.user_id, ctx.today)
+    if f is None:
+        return {"error": "too little history to forecast yet (Lumen needs about three months of spending)"}
+    keep = ("month", "forecast", "low", "high", "bills", "everyday", "budget", "left", "why", "categories")
+    return {"months": [{k: m[k] for k in keep} for m in f["months"][:args.months]], "method": f["method"],
+            "accuracy": f["accuracy"], "this_month_so_far": f["current"]}
 
 
 def _get_recurring(ctx: ToolContext, _: NoArgs) -> dict:
@@ -548,7 +533,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in (
     Tool("get_invoice", "Look up one invoice by its number, with its line items.", GetInvoiceArgs, _get_invoice),
     Tool("get_anomalies", "Unusual transactions in the last 90 days (statistical and rule checks), with reasons.",
          NoArgs, _get_anomalies),
-    Tool("forecast", "Project total spending for the coming months from the last 6 months' trend.", ForecastArgs, _forecast),
+    Tool("forecast", "Forecast spending for this month and up to 3 more: total with a likely range, bills vs everyday, "
+         "per category, budget, money left and why; the same forecast the app shows.", ForecastArgs, _forecast),
     Tool("get_recurring", "The user's recurring charges (subscriptions, bills like electricity or rent, other regular "
          "payments) with cadence, typical amount, next due date, price changes and ones that look stopped.",
          NoArgs, _get_recurring),

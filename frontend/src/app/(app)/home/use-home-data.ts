@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { aiAnalyticsApi, billsApi, budgetApi, homeApi, transactionApi, type BudgetState, type HomeSummary, type RecurringItem } from "@/lib/api/client";
+import { billsApi, forecastApi, budgetApi, homeApi, transactionApi, type BudgetState, type ForecastData, type HomeSummary, type RecurringItem } from "@/lib/api/client";
 import { parseDay, periods, type Range, type Txn } from "@/lib/home-math";
 
 export type Reminder = { id: string | number; vendor: string; amount: number | null; date: string; type: string; category?: string };
 import { toBills } from "@/lib/bills-math";
-export type Forecast = { dates: string[]; values: number[] } | null;
+export type Forecast = ForecastData | null;
 export type HomeData = {
 	status: "loading" | "ready";
 	txns: Txn[];
@@ -88,12 +88,7 @@ export function useHomeData(range: Range, today: Date): HomeData {
 		]).then(([reminders, summary, budget]) => {
 			if (live) setExtras({ reminders: value(reminders, []), summary: value(summary, null), budget: value(budget, null) });
 		});
-		aiAnalyticsApi
-			.getForecast(31, false)
-			.then((r: { forecast?: { success?: boolean; forecast?: Forecast } }) =>
-				r.forecast?.success === false ? null : (r.forecast?.forecast ?? null),
-			)
-			.then((f) => live && setForecast(f), () => {});
+		forecastApi.get(ymd(today)).then((f) => live && setForecast(f), () => {});
 		return () => {
 			live = false;
 		};

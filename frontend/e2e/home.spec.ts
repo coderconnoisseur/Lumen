@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, type HomeFixture } from "./fixtures";
+import { forecastFixture, signIn, type HomeFixture } from "./fixtures";
 
 // Dates relative to the real "today" so the Home's period maths sees them in this / last month.
 const now = new Date();
@@ -96,8 +96,7 @@ test("chart survives a failed forecast", async ({ page }) => {
 
 test("forecast draws to month end", async ({ page }) => {
 	test.skip(now.getDate() === lastDay, "no future days left this month");
-	const dates = Array.from({ length: 31 }, (_, i) => ymd(Y, M, now.getDate() + 1 + i));
-	await openHome(page, { ...typical, forecast: { dates, values: dates.map(() => 100) } });
+	await openHome(page, { ...typical, forecast: forecastFixture({ spent: 18412, perDay: 100 }) });
 	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(1);
 	// 18,412 so far + 100 for each day left in the month
 	const left = lastDay - now.getDate();
@@ -219,11 +218,11 @@ test("totals include every transaction, not just the first page", async ({ page 
 	await expect(spend(page).getByText("₹14,000", { exact: true })).toBeVisible();
 });
 
-test("a slow forecast never holds up the rest of Home", async ({ page }) => {
-	const forecastReq = page.waitForRequest((r) => r.url().includes("/api/analytics/forecast"));
+test("a slow forecast never holds up the rest of Home, and it asks for the browser's day", async ({ page }) => {
+	const forecastReq = page.waitForRequest((r) => r.url().includes("/api/forecast"));
 	await openHome(page, { ...typical, forecastDelayMs: 6000 });
 	await expect(page.getByTestId("brief")).toContainText("lighter than", { timeout: 2500 });
-	expect((await forecastReq).url()).toContain("insights=0");
+	expect((await forecastReq).url()).toContain(`today=${ymd(Y, M, now.getDate())}`);
 });
 
 test("calendar shading works without relative colour syntax", async ({ page }) => {
@@ -237,8 +236,10 @@ test("spend card has a real empty state for a new user", async ({ page }) => {
 	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(0);
 });
 
-test("a forecast with no matching days draws no line", async ({ page }) => {
-	await openHome(page, { ...typical, forecast: { dates: [lastMonth(2), lastMonth(3)], values: [500, 500] } });
+test("a forecast for another month, or none at all, draws no line", async ({ page }) => {
+	await openHome(page, { ...typical, forecast: null });
+	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
+	await openHome(page, { ...typical, forecast: forecastFixture({ spent: 18412, perDay: 100, month: lastMonth(1).slice(0, 7) }) });
 	await expect(spend(page).locator('[data-series="current"]')).toHaveCount(1);
 	await expect(spend(page).locator('[data-series="forecast"]')).toHaveCount(0);
 	await expect(spend(page)).not.toContainText("heading for");
