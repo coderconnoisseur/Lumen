@@ -1,0 +1,76 @@
+/* Night: the signed-in app's dark theme, built from the landing page's product mockups, independent of Sky.
+   Values and reasoning: docs/superpowers/specs/2026-11-05-dark-mode-design.md. Turned on by NEXT_PUBLIC_APP_THEME=night. */
+:root:has([data-app-theme="night"]) {
+	color-scheme: dark;
+	scrollbar-gutter: stable;
+	--background: #0b0b0c;
+	--foreground: #f5f5f7;
+	--card: #18181a;
+	--card-foreground: #f5f5f7;
+	--popover: #232325;
+	--popover-foreground: #f5f5f7;
+	--primary: #ffffff;
+	--primary-foreground: #000000;
+	--secondary: #2a2a2c;
+	--secondary-foreground: #f5f5f7;
+	--muted: #1f1f21;
+	--muted-foreground: #8a8a8c;
+	--accent: #232325;
+	--accent-foreground: #f5f5f7;
+	--destructive: #f87171;
+	--destructive-foreground: #0b0b0c;
+	--border: rgb(255 255 255 / 0.06);
+	--input: rgb(255 255 255 / 0.1);
+	--ring: #a49eff;
+	--sidebar: #0e0e0f;
+	--sidebar-foreground: #f5f5f7;
+	--sidebar-primary: #ffffff;
+	--sidebar-primary-foreground: #000000;
+	--sidebar-accent: #1f1f21;
+	--sidebar-accent-foreground: #f5f5f7;
+	--sidebar-border: rgb(255 255 255 / 0.06);
+	--sidebar-ring: #a49eff;
+	--accent-soft: #232325;
+	--series: #00b3dd;
+	--series-forecast: #a49eff;
+	--heat: #ffffff;
+	--heat-max: 22%;
+	--heat-ink-strong: #f5f5f7;
+	--heat-ink-soft: #f5f5f7;
+	--good: #4ade80;
+	--bad: #f87171;
+	--band: none;
+	--chart-1: #0091b5;
+	--chart-2: #d9608f;
+	--chart-3: #847dff;
+	--chart-4: #b8860b;
+	--chart-5: #2f9e8f;
+}
+:root:has([data-app-theme="night"]) body {
+	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+	background-image: none;
+}
+
+:root:has([data-app-theme="night"]) .bui {
+	--page: #0b0b0c;
+	--canvas: #050505;
+	--surface: #18181a;
+	--inset: #111112;
+	--hover: #232325;
+	--hover-2: #2a2a2c;
+	--ink: #f5f5f7;
+	--ink-2: #b4b4b6;
+	--ink-3: #8a8a8c;
+	--line: rgb(255 255 255 / 0.06);
+	--line-strong: rgb(255 255 255 / 0.12);
+	--field: #161617;
+	--accent: #847dff;
+	--accent-ink: #a49eff;
+	--accent-tint: rgb(132 125 255 / 0.16);
+	--green: #4ade80;
+	--green-tint: rgb(74 222 128 / 0.1);
+	--orange: #f5a35c;
+	--orange-tint: rgb(245 163 92 / 0.1);
+	--red: #f87171;
+	--red-tint: rgb(248 113 113 / 0.1);
+}
