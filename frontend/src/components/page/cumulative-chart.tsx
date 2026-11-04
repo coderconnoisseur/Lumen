@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { pickTicks, smoothPath } from "@/lib/chart";
+import { bandEdges, pickTicks, smoothPath } from "@/lib/chart";
 import { dayIndex, parseDay, type Period } from "@/lib/home-math";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +47,7 @@ export function CumulativeChart({
 	/** today's index in the period (already clamped to it) */
 	t: number;
 	pins?: { id: string | number; vendor: string; date: string }[];
-	/** the forecast's likely range at the period's end, drawn as a band fanning out from today */
+	/** the forecast's likely range at the period's end; the band rides on the forecast, widening from today */
 	band?: { low: number; high: number };
 	ticks: "day" | "dayMonth" | "month";
 }) {
@@ -59,6 +59,7 @@ export function CumulativeChart({
 	const y = (v: number) => H - (v / max) * (H - 16);
 	const pts = (vals: number[], from = 0) => vals.map((v, i) => [x(i + from), y(v)] as [number, number]);
 	const actual = pts(cur.slice(0, t + 1));
+	const edges = band && fc.length > 0 ? bandEdges([total, ...fc], band.low, band.high) : null;
 
 	// Today always shows; the two ends unless they'd touch it; the dates in between only where they fit. Widths are
 	// estimated (12.5px UI font).
@@ -103,7 +104,7 @@ export function CumulativeChart({
 					{prev && prev.length > 1 && (
 						<path data-series="previous" d={smoothPath(pts(prev.slice(0, period.days)))} fill="none" stroke="var(--muted-foreground)" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
 					)}
-					{band && <path data-series="band" d={`M${x(t)} ${y(total)} L${x(last)} ${y(band.low)} L${x(last)} ${y(band.high)}Z`} fill="var(--primary)" fillOpacity=".1" />}
+					{edges && <path data-series="band" d={`M${[...pts(edges.upper, t), ...pts(edges.lower, t).reverse()].map(([a, b]) => `${a} ${b}`).join(" L")}Z`} fill="var(--primary)" fillOpacity=".1" />}
 					<path d={`${smoothPath(actual)} L${x(t)} ${H} L0 ${H}Z`} fill="url(#spend-fill)" />
 					<path data-series="current" d={smoothPath(actual)} fill="none" stroke="var(--primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
 					{fc.length > 0 && (

@@ -551,3 +551,9 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   A phone layout-shift test caught the italic headline verdict loading its font a frame late; it's upright now.
 - **R:** 23 page/helper tests (incl. layout shift < 0.01 on desktop and phone, nothing past 375 px, every control
   named, nothing written by a what-if); the forecast's accuracy is shown to the user exactly as the eval measures it.
+
+## 41. Testing the forecast on the live site (after release #112)
+- **S:** The Forecast page had only ever run against a stubbed API.
+- **T:** Check it on the live site through the demo account: do the numbers agree everywhere, and does anything look wrong?
+- **A:** A throwaway Playwright walk read the real `/api/forecast` payload and compared it with the page, Home, Budget and Ask Lumen, then tried a what-if and a phone-width pass. Reading the screenshot caught what the assertions couldn't: the range band fanned straight from today while the forecast jumped at rent, so the line sat outside its own "likely range" most of the month. It now rides on the forecast. Probing routes signed out showed `/budget` and `/forecast` skipped the login redirect, and today's date exposed a test helper that only passed late in a month.
+- **R:** ₹63,264 on the page, Home, Budget's bar and in Ask's answer; the split adds up, no console or API errors, nothing written by a what-if. `/api/forecast` took 3.5 s to first byte on the first call and 174-345 ms after. e2e 259 passed.

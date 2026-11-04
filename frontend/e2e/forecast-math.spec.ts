@@ -2,6 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { accuracyLabel, barScale, categoryEnd, headline, heroSeries, whatIf } from "../src/lib/forecast-math";
 import type { ForecastMonth } from "../src/lib/api/client";
+import { bandEdges } from "../src/lib/chart";
 
 const m = (month: string, forecast: number, o: Partial<ForecastMonth> = {}): ForecastMonth => ({
 	month, forecast, low: forecast - 3000, high: forecast + 3000, bills: 0, everyday: forecast, budget: null, income: null,
@@ -41,4 +42,18 @@ test("bar scale: the highest range end or budget across the months, with headroo
 test("hero series: the forecast runs on from today; on the last day today's bills end the line", () => {
 	expect(heroSeries({ actual: [100, 200], path: [200, 300, 400] })).toEqual({ cur: [100, 200], forecast: [300, 400] });
 	expect(heroSeries({ actual: [100, 200], path: [2200] })).toEqual({ cur: [100, 2200], forecast: [] });
+});
+
+test("range band: follows the forecast through a big bill, so the forecast is always inside it", () => {
+	const path = [3000, 25000, 26000, 27000, 28000]; // rent lands on the next day
+	const { upper, lower } = bandEdges(path, 22000, 31000);
+	expect(upper[0]).toBe(3000);
+	expect(lower[0]).toBe(3000);
+	expect(upper[4]).toBe(31000);
+	expect(lower[4]).toBe(22000);
+	path.forEach((v, i) => {
+		expect(upper[i]).toBeGreaterThanOrEqual(v);
+		expect(lower[i]).toBeLessThanOrEqual(v);
+	});
+	expect(bandEdges([100, 200], 0, 300).lower[1]).toBe(100); // what's already spent stays spent
 });
