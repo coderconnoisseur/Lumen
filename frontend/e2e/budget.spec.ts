@@ -10,7 +10,7 @@ const monthName = (n: number) => new Date(now.getFullYear(), now.getMonth() - n,
 const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
 const c = (category: string, limit: number, spent: number) => ({ category, limit, spent });
 const line = (id: string, target: string, limit: number) => ({
-	id, type: "set_budget", target, risk: "low", reason: "Averaged a month over Jul–Sep, rounded up.",
+	id, type: "set_budget", target, risk: "low", reason: "Usually up to a month over Jul–Sep, rounded up.",
 	payload: { limit, basis: { months: [], average: limit } }, status: "pending", created_at: null,
 });
 const sample: HomeFixture = {
