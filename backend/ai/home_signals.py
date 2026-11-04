@@ -2,7 +2,7 @@
 
 Money stays numeric: headlines and details carry {0}/{1} placeholders and an `amounts` list, so the client
 formats them in the user's currency. A ₹ "worth" is only given where money can plausibly come back (duplicates).
-ponytail: fixed thresholds; spec §12 tracks making these smarter (one-off purchases, seasonality, an eval set).
+Scored by evals/suites/drafts.py. ponytail: fixed spike thresholds; seasonality would need more than a year of data.
 """
 from __future__ import annotations
 
@@ -67,33 +67,47 @@ def _duplicates(txns: list[dict], today: date) -> list[dict]:
     return out
 
 
-def _spikes(txns: list[dict], today: date) -> list[dict]:
+def _cause(buys: list[tuple[float, str]], rise: float, recurring: set[str]) -> tuple[float, str] | None:
+    """The one purchase behind a rise: between half and all of it, clearly bigger than the next, and not a regular bill."""
+    ranked = sorted(buys, key=lambda b: -b[0])
+    amount, vendor = ranked[0]
+    if not (rise / 2 <= amount <= rise) or not _norm(vendor) or _norm(vendor) in recurring:
+        return None
+    return None if len(ranked) > 1 and ranked[1][0] >= amount / 2 else (amount, vendor.strip())
+
+
+def _spikes(txns: list[dict], today: date, recurring: list[dict] | None = None) -> list[dict]:
     first = today.replace(day=1)
     prev_end = first - timedelta(days=1)
     prev_first = prev_end.replace(day=1)
     same_day = prev_first.replace(day=min(today.day, prev_end.day))
     # spending only: a refund in either month would shrink the base and fake a huge percentage
     now, then, prev_total = defaultdict(float), defaultdict(float), 0.0
+    buys: dict[str, list[tuple[float, str]]] = defaultdict(list)
     for t in txns:
         d, amount = _day(t.get("date")), t.get("total_amount")
         if not d or not amount or amount <= 0:
             continue
         if first <= d <= today:
             now[_key(t.get("category"))] += amount
+            buys[_key(t.get("category"))].append((amount, t.get("vendor_name") or ""))
         elif prev_first <= d <= prev_end:
             prev_total += amount
             if d <= same_day:
                 then[_key(t.get("category"))] += amount
     names = _display_names(txns)
     floor = max(SPIKE_FLOOR, 0.05 * prev_total)
+    regular = {_norm(r["vendor"]) for r in recurring or [] if r.get("vendor")}
     out = []
     for k, n in now.items():
         p = then.get(k, 0.0)
         if p > 0 and n >= p * SPIKE_RATIO and n - p >= floor:
             pct = round((n - p) / p * 100)
-            out.append((pct, {"kind": "spike", "tag": "SPENDING", "subject": names[k], "headline": f"{names[k]} is up {pct}%",
+            cause = _cause(buys[k], n - p, regular)
+            headline = f"{{2}} at {cause[1]} pushed {names[k]} up {pct}%" if cause else f"{names[k]} is up {pct}%"
+            out.append((pct, {"kind": "spike", "tag": "SPENDING", "subject": names[k], "headline": headline,
                               "detail": "{0} so far vs {1} by this point last month.",
-                              "amounts": [round(n), round(p)], "worth": None,
+                              "amounts": [round(n), round(p)] + ([round(cause[0])] if cause else []), "worth": None,
                               "href": f"/spending?category={quote(names[k])}"}))
     return [s for _, s in sorted(out, key=lambda x: -x[0])]
 
@@ -118,7 +132,7 @@ def find_signals(txns: list[dict], today: date, review_count: int, recurring: li
                    "headline": f"{review_count} {'receipt needs' if review_count == 1 else 'receipts need'} a glance",
                    "detail": "Lumen wasn't sure about these. Nothing is saved until you approve.",
                    "amounts": [], "worth": None, "href": "/receipts"}]
-    return _duplicates(txns, today) + review + _spikes(txns, today) + _price_rises(recurring, today)
+    return _duplicates(txns, today) + review + _spikes(txns, today, recurring) + _price_rises(recurring, today)
 
 
 def _at(value) -> datetime | None:
