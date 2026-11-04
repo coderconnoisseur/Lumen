@@ -107,7 +107,7 @@ export function SpendCard({
 			className="relative"
 			data-testid="spend-card"
 		>
-			<div data-testid="spend-figure" className="text-[36px] leading-tight font-medium tracking-tight tabular-nums dark:text-[34px] dark:font-normal">
+			<div data-testid="spend-figure" className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">
 				<Figure value={Math.round(total)} format={(n) => money(n)} />
 			</div>
 			<div className="h-5 text-[13px] text-muted-foreground">

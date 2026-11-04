@@ -21,7 +21,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 		<PageCard title={`Budget in ${monthName}`} href="/budget" loading={loading} skeletonHeight={64} data-testid="budget-card">
 			{total ? (
 				<>
-					<div className="text-[26px] leading-tight font-medium tracking-tight tabular-nums dark:text-[24px] dark:font-normal">
+					<div className="text-[26px] leading-tight font-medium tracking-tight tabular-nums">
 						{money(spent)} <span className="text-[13px] font-normal tracking-normal text-muted-foreground">of {money(total)}</span>
 					</div>
 					<div className="mt-2.5 flex items-center gap-2.5">

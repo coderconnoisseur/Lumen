@@ -28,6 +28,15 @@ test("hero figure uses NumberFlow", async ({ page }) => {
 	await expect(page.getByTestId("spend-figure").locator("number-flow-react")).toHaveAttribute("data", /"valueAsString":"[^"]*18,412"/);
 });
 
+test("page heroes roll too", async ({ page }) => {
+	const budget = { monthly_budget: 60000, spent: 18412, categories: [] };
+	await signIn(page, { home: { ...home, budget } });
+	await page.goto("/spending");
+	await expect(page.getByTestId("spending-hero").locator("number-flow-react").first()).toBeAttached();
+	await page.goto("/budget");
+	await expect(page.getByTestId("budget-hero").locator("number-flow-react").first()).toBeAttached();
+});
+
 test("switching range rolls the figure without moving the card", async ({ page }) => {
 	await signIn(page, { home });
 	await page.goto("/home");

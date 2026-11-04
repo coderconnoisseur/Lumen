@@ -221,4 +221,13 @@ Add a short entry to `docs/direction/STORY.md`: the contrast and palette failure
 
 - [ ] **Step 5: Commit and show the owner**
 
-`fix: Night review pass on /home`. Send screenshots. The rollout to other pages, including `by-category.tsx`'s hardcoded tints and the `text-amber-700/800` uses in Bills, Budget and Receipts, gets its own plan once the owner approves. The PR into `refactor` waits for that approval too.
+`fix: Night review pass on /home`. Send screenshots. The PR into `refactor` waits for the owner's approval.
+
+### Task 6: Every other page (added 2026-11-05)
+
+The owner asked for work to continue overnight on anything not blocked on them, so the rollout happened before sign-off. It stays behind the switch.
+
+- All icon imports moved to `@/components/icons`, with a bundle-time swap so a Sky build never loads Phosphor or NumberFlow.
+- Legends and data marks use `--series`; `by-category.tsx` uses `--category-*`, whose Sky values are the old hex colours.
+- `night.css` handles the leftovers: amber text, `bg-white/50` skeletons, toggle knobs, the file picker and page hero type.
+- The error page reads its theme from `APP_THEME`; visible emoji are gone.

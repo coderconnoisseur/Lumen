@@ -47,7 +47,7 @@ export function CalendarCard({
 		<PageCard title={`${monthLong(period.start)}, day by day`} href="/spending" loading={loading} skeletonHeight={386} data-testid="calendar-card">
 			<div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
 				<div className="min-w-0">
-					<div className="mb-3 text-[26px] leading-tight font-medium tracking-tight tabular-nums dark:text-[24px] dark:font-normal">
+					<div className="mb-3 text-[26px] leading-tight font-medium tracking-tight tabular-nums">
 						{money(Math.round(total))}{" "}
 						<span className="text-[13px] font-normal tracking-normal text-muted-foreground">
 							across {spentDays} {spentDays === 1 ? "day" : "days"}

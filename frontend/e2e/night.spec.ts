@@ -207,6 +207,22 @@ test.describe("other pages", () => {
 		await expect.poll(async () => rgb(page, await bar.evaluate((e) => getComputedStyle(e).backgroundColor))).toEqual([22, 22, 23]);
 	});
 
+	test("page hero figures share Night's type", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/spending");
+		const figure = page.locator('.tabular-nums[class~="text-[36px]"]').first();
+		await expect(figure).toBeAttached();
+		await night(page);
+		await expect(figure).toHaveCSS("font-weight", "400");
+		await expect(figure).toHaveCSS("font-size", "34px");
+	});
+
+	test("buttons don't select on a long press", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await expect(page.getByTestId("open-dropdown")).toHaveCSS("user-select", "none");
+	});
+
 	test("sky category colours are unchanged", async ({ page }) => {
 		await signIn(page, { home: typical });
 		await page.goto("/spending");

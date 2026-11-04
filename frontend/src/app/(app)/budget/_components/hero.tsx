@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CumulativeChart } from "@/components/page/cumulative-chart";
+import { Amount } from "@/components/page/figure";
 import { PageCard } from "@/components/page/page-card";
 import { evenLine, pace } from "@/lib/budget-math";
 import { useMoney } from "@/lib/format";
@@ -57,7 +58,7 @@ export function BudgetHero({
 			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
 				<div className="min-w-0">
 					<div className="flex h-11 items-baseline gap-2 text-[36px] leading-tight font-medium tracking-tight tabular-nums">
-						{money(Math.round(spent))}
+						<Amount value={Math.round(spent)} format={(n) => money(n)} />
 						<span className="text-[13px] font-normal tracking-normal text-muted-foreground">
 							{editing ? <TotalInput initial={total} onSave={onSave} onCancel={onCancel} /> : total !== null ? `of ${money(total)}` : "no budget set"}
 						</span>

@@ -80,6 +80,30 @@
 	background-color: rgb(255 255 255 / 0.05);
 }
 
+/* Headline figures on the pages that don't set Night's type themselves: regular weight, one step down. */
+:root:has([data-app-theme="night"]) [class~="text-[36px]"].tabular-nums {
+	font-size: 34px;
+	font-weight: 400;
+}
+:root:has([data-app-theme="night"]) [class~="text-[26px]"].tabular-nums {
+	font-size: 24px;
+	font-weight: 400;
+}
+
+/* On a phone: a long press on a button doesn't select its label, inputs are big enough that iOS doesn't zoom into them,
+   and overscrolling the page doesn't bounce the whole app. Never by disabling zoom. */
+:root:has([data-app-theme="night"]) :is(button, [role="button"]) {
+	user-select: none;
+}
+:root:has([data-app-theme="night"]) {
+	overscroll-behavior: none;
+}
+@media (pointer: coarse) {
+	:root:has([data-app-theme="night"]) :is(input, textarea, select) {
+		font-size: max(16px, 1em);
+	}
+}
+
 /* Toggles: with a white primary, a white knob would vanish on the "on" track. */
 :root:has([data-app-theme="night"]) .bg-primary > .bg-white {
 	background-color: #000;
