@@ -51,6 +51,19 @@
 	background-image: none;
 }
 
+/* Click response: the press shows the instant it happens. `scale` rather than `transform`, so nothing that positions
+   itself with a transform gets overwritten. */
+:root:has([data-app-theme="night"]) :is(button, [role="button"]) {
+	transition:
+		scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
+		background-color 150ms ease,
+		color 150ms ease,
+		border-color 150ms ease;
+}
+:root:has([data-app-theme="night"]) :is(button, [role="button"]):active:not(:disabled, [aria-disabled="true"]) {
+	scale: 0.97;
+}
+
 :root:has([data-app-theme="night"]) .bui {
 	--page: #0b0b0c;
 	--canvas: #050505;
