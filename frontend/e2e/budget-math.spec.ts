@@ -1,6 +1,6 @@
 // Node-only unit tests (no browser) for the Budget page's calculations (UI revamp Phase 5d).
 import { test, expect } from "@playwright/test";
-import { evenLine, pace, runRate, usedTone } from "../src/lib/budget-math";
+import { evenLine, pace, usedTone } from "../src/lib/budget-math";
 
 const today = new Date(2026, 9, 22); // 22 Oct 2026; October has 31 days
 const october = new Date(2026, 9, 1);
@@ -30,8 +30,7 @@ test("usedTone: green, amber from 90%, red when over", () => {
 	expect(usedTone(1001, 1000)).toBe("bad");
 });
 
-test("evenLine reaches the budget on the last day; runRate projects the month", () => {
+test("evenLine reaches the budget on the last day", () => {
 	const line = evenLine(31000, 31);
 	expect([line[0], line[30], line.length]).toEqual([1000, 31000, 31]);
-	expect(runRate(22000, today)).toBe(31000);
 });

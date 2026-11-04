@@ -37,12 +37,12 @@ MODEL_OVERRIDES = ("LLM_TEXT_MODEL", "LLM_TEXT_FALLBACK_MODELS", "LLM_VISION_MOD
 
 
 def default_suites() -> dict[str, SuiteFn]:
-    from evals.suites import agent, ask_lumen, extraction, feedback, retrieval, safety, selftest, sql, validation
+    from evals.suites import agent, ask_lumen, extraction, feedback, forecast, retrieval, safety, selftest, sql, validation
 
     return {"selftest": selftest.run, "sql": sql.run, "safety": safety.run, "extraction": extraction.run,
             "retrieval": retrieval.run, "agent": agent.run, "agent_sql": agent.run_sql, "agent_safety": agent.run_safety,
             "ask_lumen": ask_lumen.run,
-            "validation": validation.run, "feedback": feedback.run}
+            "validation": validation.run, "feedback": feedback.run, "forecast": forecast.run}
 
 
 def _parse(argv) -> argparse.Namespace:

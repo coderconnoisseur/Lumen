@@ -636,3 +636,22 @@ def test_the_list_can_leave_out_statement_lines(client, ocr):
         db.session.commit()
     listed = client.get("/transactions?exclude_source=statement&page_size=2", headers=AUTH).get_json()
     assert [t["id"] for t in listed["data"]] == [body["transaction_id"]]
+
+
+def test_a_failed_transaction_list_is_logged_and_hides_the_database_error(client, monkeypatch, caplog):
+    """Seen live: a 500 on GET /transactions left no trace in the logs, and the raw database error went to the browser."""
+    import logging
+
+    from models import Transaction
+
+    class Boom:
+        def filter_by(self, **kw):
+            raise RuntimeError('relation "transactions" secret detail')
+
+    with client.application.app_context():  # reading the old .query needs a context
+        monkeypatch.setattr(Transaction, "query", Boom())
+    with caplog.at_level(logging.ERROR):
+        r = client.get("/transactions", headers=AUTH)
+    assert r.status_code == 500
+    assert "secret detail" not in r.get_data(as_text=True)
+    assert any("secret detail" in rec.getMessage() or rec.exc_info for rec in caplog.records if rec.levelno >= logging.ERROR)

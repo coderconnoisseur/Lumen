@@ -504,3 +504,50 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   what the pages said, not whether they loaded. After the fixes: backend 1011 passed, e2e 225 + reruns green, each
   fix with a test that failed first (including one that the seeded demo's double charge is found).
 
+## 38. A forecast that is measured, not guessed (Forecast F1)
+- **S:** Home said "heading for ₹80,697" from daily exponential smoothing with a fixed ±5% trend nudge. It ignored
+  bills (rent is a third of a month), gave no range, and nobody had measured it.
+- **T:** A forecast for this month and the next three that is explainable line by line and measured on the user's
+  own history, so the app can say how right it usually is.
+- **A:** `ai/forecast.py` (TDD, 33 tests): detected bills on their due days plus everyday spending predicted two ways
+  (a median of past months, and Holt's linear trend), each backtested over the last 6 complete months using only what
+  was known before each month (and from the 15th), keeping the better method per user. A why line per month is built
+  only from its own numbers. An offline eval suite scores it on the eval world's two users and one demo account, and
+  scores the old smoothing forecast the same way. A fresh review caught that cancelling a subscription didn't lower
+  the forecast (its past charges slid into everyday history), late yearly bills counted every month, weekly bills
+  paid today counted twice, a too-narrow mid-month range, and an eval that counted three copies of the demo account;
+  all fixed test-first.
+- **R:** Median error over 18 backtested months: **old forecast 44.8% → new 21.8%** whole-month (12.6% from the 15th),
+  with the actual inside the range 67% of months (78% from the 15th; the old one had no range). Per user: demo account
+  12.8%, the eval world's users 32.0% and 33.6% (they spend in a two-month purchase-order cycle, swinging ±30-40%).
+  Bills + everyday beat Holt (61.2%) for every user. The spec's 10% target is **not met**; the CI gates are regression
+  guards just above these numbers (25% / 15% / 60% in range / at most 55% of the old forecast's error).
+
+## 39. One forecast everywhere (Forecast F2)
+- **S:** The app had three different forecasts: Home's "heading for" (daily smoothing), Budget's "at this pace" bar
+  (spent so far ÷ days × days in month) and Ask Lumen's `forecast` tool (a least-squares line through monthly
+  totals). They could disagree, and none knew about bills.
+- **T:** Every place that predicts spending reads the one measured forecast from F1.
+- **A:** `GET /api/forecast` (TDD) runs the forecast over the user's own data with their saved bill states (a
+  cancelled subscription lowers the months after), budgets per month and income, taking the browser's date so the
+  1st of the month in India isn't read as last month. Home, Budget and Ask Lumen's tool were switched to it; the old
+  forecast route, its client call and the run-rate projection were removed. The eval world's database now has the
+  (empty) tables the forecast reads, as the app's does.
+- **R:** One number everywhere. Backend 1047 passed (6 new API tests + rewritten tool tests), evals green, e2e 230
+  passed (Home and Budget tests rewritten for the new forecast, including "asks for the browser's day" and "no
+  forecast, no line").
+
+## 40. The Forecast page (Forecast F3)
+- **S:** The one forecast (F2) fed a dotted line on Home and a bar on Budget, but nowhere showed where the month lands,
+  why, how sure Lumen is, or what changing a bill would do.
+- **T:** A Plan · Forecast page that answers "will I stay in budget, what's left of my income, what if I cut this,
+  and why did it move", from the same payload as everywhere else, with zero layout shift and working at 375 px.
+- **A:** TDD: pure helpers (`lib/forecast-math.ts`: headline, accuracy label, category end, what-if, bar scale) with
+  node tests, then the page against a stubbed API: a one-line headline ("October lands near ₹X · ₹Y over budget"),
+  an accuracy pill that says "usually off by about X%" (a median, so never "within"), the hero with the split and a
+  day-by-day chart (the shared chart got a range band; the payload now lists the bills still due for the pins), four
+  month cards on one scale with the budget tick and money left, categories, try-only what-ifs in the browser, and
+  "How this works" with both methods' backtest error. Income can be added in place (only onboarding asked for it).
+  A phone layout-shift test caught the italic headline verdict loading its font a frame late; it's upright now.
+- **R:** 23 page/helper tests (incl. layout shift < 0.01 on desktop and phone, nothing past 375 px, every control
+  named, nothing written by a what-if); the forecast's accuracy is shown to the user exactly as the eval measures it.

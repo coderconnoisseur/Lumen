@@ -189,8 +189,8 @@ POST /api/agent/ask ─▶ api/agent.py builds ToolContext(user_id from the JWT,
 matched on name, category and items; fixes "electric" → City Power Ltd), `run_sql` (`SQLAgent.execute_sql` with
 `require_user_filter=False`: the model never sees the user id, and `_scope_to_user` restricts every table anyway;
 another user's id is still rejected; also reads the review queue, insights and the documents list), `search_documents`
-(hybrid RAG), `get_invoice`, `get_anomalies` (existing statistical + rule detectors), `forecast` (least-squares
-trend), `get_recurring` (`ai/recurring.py`: bills and subscriptions with next due dates), `get_overview` (months of
+(hybrid RAG), `get_invoice`, `get_anomalies` (existing statistical + rule detectors), `forecast` (the app's one forecast,
+`api/forecast.forecast_for_user`: up to this month + 3 with range, bills/everyday, categories, why), `get_recurring` (`ai/recurring.py`: bills and subscriptions with next due dates), `get_overview` (months of
 spend, income, budget, savings, recurring bills, where the data ends), `remember` / `forget` (short notes in the
 profile), `income_tax_india` (new regime 2026-27, tested), `exchange_rate` (Frankfurter / ECB reference rates,
 cited "ECB rate on <date>"; errors return {error}), `web_search` (Tavily, up to 5 results per search cited
@@ -298,6 +298,27 @@ embeds the demo documents once per server and uploads the files in the backgroun
   pure in `lib/spending-math.ts` (tests: `e2e/spending-math.spec.ts`); data from `GET /transactions` (which now
   includes `source`) and `/api/home/summary` (spikes link to `/spending?category=<name>`). The old Analytics and
   AI Insights pages, their components and the API calls only they used are gone.
+- **Forecast service** (`backend/ai/forecast.py`, spec `docs/superpowers/specs/2026-10-28-forecast-design.md`): pure
+  functions, no DB, no LLM. Bills (recurring charges of kind bill/subscription still being paid) fall on their due
+  days (`bills_in_month`; late ones count today, ones already charged this month don't count again); everyday spending
+  is predicted by two methods, `robust_level` (median of past months, 20th-80th percentile range) and `holt_level`
+  (Holt's linear trend). `backtest` predicts each of the last 6 complete months from what was known before it (or
+  from the 15th, `cut_day`), `score` gives the median absolute % error and in-range rate, `choose` keeps the better
+  method per user (ties and too little history: bills + everyday), and `forecast` returns this month + the next three
+  with bills/everyday/categories/budget/money left, a daily path, a `why` line per month built only from its own
+  numbers, the measured accuracy and the bills a what-if can switch off. Eval: `evals/suites/forecast.py`, gates in
+  `evals/gates.yaml` (`forecast`), run by `pytest -m eval tests/test_eval_forecast.py`.
+  `GET /api/forecast?today=YYYY-MM-DD` (`api/forecast.py`, Forecast F2): `forecast_for_user` feeds it the user's
+  transactions, recurring charges with their saved states (`api/bills._recurring`), budgets per month and income;
+  `today` is the browser's date (within a day of the server's). Home's dotted line and "heading for", Budget's
+  this-month bar in Last 6 months and Ask Lumen's `forecast` tool all read it. The old smoothing forecast
+  (`ai/forecasting_agent.py`) is only left behind the legacy `/api/analytics/analyze`, which no page calls.
+- **Forecast page** (`app/(app)/forecast/`, Forecast F3, sidebar Plan · Forecast): one `forecastApi.get(today)`;
+  `forecast-content.tsx` holds the headline and accuracy pill (`lib/forecast-math.ts`), then `_components/`: `hero`
+  (split + `CumulativeChart` with the budget as a flat dashed line, the range `band` and `daily.bills` as pins),
+  `months` (four cards on one `barScale`; "Add your income" saves the profile in place), `categories`, `what-if`
+  (client-side only, nothing saved; "Make it real" links to Bills/Budget) and `how` (both methods' backtest error).
+  Null forecast or a failed load: one card instead. Tests: `e2e/forecast.spec.ts`, `e2e/forecast-math.spec.ts`.
 - **Bills & subscriptions** (`app/(app)/bills/`, Phase 5c): "what's due, what recurs, what can I cut?" Everything
   comes from `GET /api/bills/recurring` (`api/bills.py`): `ai/recurring.find_recurring` over the user's transactions
   plus their saved choices in `recurring_states` (keyed by the detection's normalised vendor). `not_a_bill` moves a
@@ -333,7 +354,7 @@ embeds the demo documents once per server and uploads the files in the backgroun
   Lumen found as a list whose links act ("Ask Lumen" opens `/ask?draft=` with the question typed but not sent). The
   side column has Budget in <Month> (spent of total, % bar, top four categories by spend), Coming up (next four
   bills), the draft-budget promo and Activity. `use-home-data.ts` fetches today's endpoints in parallel (transactions, recurring
-  charges, forecast, review queue). Bills come from `GET /api/bills/recurring`: `toBills` keeps active ones that
+  charges, `GET /api/forecast` for the dotted line and "heading for", review queue). Bills come from `GET /api/bills/recurring`: `toBills` keeps active ones that
   don't look stopped and are due in the next 31 days. A failed call empties only its card. Skeletons show only on the first load, so changing the chart range
   never blanks other cards. All the maths is pure, in `lib/home-math.ts` (unit tests: `e2e/home-math.spec.ts`).
   **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
