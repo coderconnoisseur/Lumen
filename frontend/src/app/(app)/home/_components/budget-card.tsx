@@ -39,7 +39,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 			) : cats.length === 0 ? (
 				<>
 					<p className="text-[15px] font-medium">No budget yet</p>
-					<p className="mt-1 text-[12.5px] text-muted-foreground">Lumen can draft one from your last 3 months.</p>
+					<p className="mt-1 text-[12.5px] text-muted-foreground">Lumen can draft one from your recent months.</p>
 				</>
 			) : null}
 			{cats.length > 0 && (
@@ -76,7 +76,7 @@ export function DraftBudgetPromo() {
 		<section className="rounded-[14px] bg-accent-soft px-4 py-3.5">
 			<h3 className="text-[15px] font-semibold">Let Lumen draft your budget</h3>
 			<p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-				Built from 3 months of your actual spending. You approve every line before it&apos;s saved.
+				Built from up to 6 months of your actual spending. You approve every line before it&apos;s saved.
 			</p>
 			<Link href="/budget?draft=1" className="label-ui mt-2.5 inline-block rounded-full bg-foreground px-3.5 py-1.5 text-background">
 				Draft budget

@@ -360,7 +360,7 @@ embeds the demo documents once per server and uploads the files in the backgroun
   **Phase 3 backend:** `GET /api/home/summary` (`api/home.py` over the pure `ai/home_signals.py`, no LLM) supplies
   Lumen found and Activity:
   - Lumen found shows double charges (the only items with a "you may get back" ₹), receipts to review, category spikes
-    vs the same day last month, and subscription price rises from `ai.recurring`.
+    vs the same day last month (naming the purchase when one explains the rise), and subscription price rises from `ai.recurring`.
   - Activity shows statement imports grouped into one line, receipts read, and your approve/reject decisions.
 
   Text carries `{0}` placeholders plus `amounts`, which the client fills in the user's currency (`fill` in
@@ -373,8 +373,9 @@ embeds the demo documents once per server and uploads the files in the backgroun
   constraint (SQLite rebuilds the table).
   - `GET /api/budget?month=YYYY-MM` (default this month), `PUT /api/budget` (writes from the current month),
     `GET /api/budget/history?months=6` (budget vs spent per month; `budget` null for a past month with no limits).
-  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (3-month mean over the months that had spend,
-    rounded up; `basis.months` lists those) and files `set_budget` proposals with `payload.month` = this month.
+  - `POST /api/budget/draft` runs the deterministic `ai/budget.py` (75th percentile of up to 6 complete months with
+    `one_offs` left out, rounded up; `basis` holds `months`, `average`, `usual` and `one_offs`, and `draft_reason` builds the
+    line's sentence from them; eval `evals/suites/drafts.py`, gates `drafts` in `evals/gates.yaml`) and files `set_budget` proposals with `payload.month` = this month.
     Approving one (`/api/agent/proposals/{id}/approve`) writes the row from that month. A new draft retires pending ones.
   - Ask Lumen's `draft_budget` tool files the same proposals.
   - The Budget page's draft panel approves lines; Home's promo links to `/budget?draft=1`.

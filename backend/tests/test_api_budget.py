@@ -153,6 +153,37 @@ def test_agent_tool_draft_budget(setup):
     assert {p["type"] for p in pending} == {"set_budget"} and len(pending) == 2
 
 
+def _seed_vendor(engine, user, rows):
+    from models import Transaction
+
+    with Session(engine) as s, s.begin():
+        for i, (d, amount, vendor) in enumerate(rows):
+            s.add(Transaction(user_id=user, vendor_name=vendor, invoice_number=f"{user}-v{i}", date=d,
+                              total_amount=amount, category="Utilities"))
+
+
+def test_draft_treats_a_recurring_vendor_as_usual(setup):
+    """A bill that detection knows about is never left out, even in a month it was far higher than its usual."""
+    from api.budget import create_draft
+
+    _, engine = setup
+    rows = [(months_back(n), 1000, "City Power") for n in range(1, 7)] + [(months_back(3)[:8] + "20", 30000, "City Power")]
+    _seed_vendor(engine, A, rows)
+    [p] = create_draft(engine, A, date.today())
+    assert p["payload"]["basis"]["one_offs"] == []
+
+
+def test_draft_reason_is_stored_on_the_proposal(setup):
+    from api.budget import create_draft
+
+    _, engine = setup
+    rows = [(months_back(n), 1000, "Shop") for n in range(1, 7)] + [(months_back(3)[:8] + "20", 30000, "TechHub")]
+    _seed_vendor(engine, A, rows)
+    [p] = create_draft(engine, A, date.today())
+    assert p["reason"].startswith("Usually up to ")
+    assert p["reason"].endswith("Left out the ₹30,000 TechHub order.")
+
+
 @pytest.mark.parametrize("payload", [{"amount": 5000}, {"limit": 0}, {"limit": -5}, {"limit": "lots"}, {"limit": float("inf")}])
 def test_agent_set_budget_with_a_bad_limit_is_rejected_not_applied(setup, payload):
     """The LLM can file set_budget with any payload: approving a bad one must be a 422, never a broken budget."""
