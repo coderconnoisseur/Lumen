@@ -19,7 +19,6 @@ from api.profile import ensure_user, get_engine
 
 router = APIRouter(prefix="/api/budget", tags=["budget"])
 
-_MONTH = "%b"
 MONTH_RE = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
@@ -122,13 +121,14 @@ def upsert_budget(session: Session, user_id: str, category: str, limit: float, m
 
 def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
     """File one pending set_budget proposal per drafted line, after retiring the user's still-pending ones."""
-    from ai.budget import draft_budget
+    from ai.budget import draft_budget, draft_reason
     from api.agent import _proposal_dict
+    from api.bills import _recurring
     from models import AuditEvent, Proposal, User
-    from utils.money import fmt
 
+    recurring = _recurring(engine, user_id, today)["items"]  # "not a bill" vendors left out, so they can be one-offs
     with engine.connect() as conn:
-        lines = draft_budget(_txns(conn, user_id), today)
+        lines = draft_budget(_txns(conn, user_id), today, recurring)
     with Session(engine) as session, session.begin():
         user = session.get(User, user_id)
         currency = user.currency if user else None
@@ -139,11 +139,9 @@ def create_draft(engine: Engine, user_id: str, today: date) -> list[dict]:
                                    detail=json.dumps({"superseded": True})))
         out = []
         for line in lines:
-            months = line["basis"]["months"]
-            span = f"{date.fromisoformat(months[0] + '-01'):{_MONTH}}–{date.fromisoformat(months[-1] + '-01'):{_MONTH}}"
             p = Proposal(user_id=user_id, type="set_budget", target=line["category"], risk="low",
                          payload=json.dumps({"limit": line["limit"], "basis": line["basis"], "month": this_month(today)}),
-                         reason=f"Averaged {fmt(line['basis']['average'], currency)} a month over {span}, rounded up.",
+                         reason=draft_reason(line, currency),
                          evidence="[]", status="pending")
             session.add(p)
             session.flush()

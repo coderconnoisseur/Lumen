@@ -1,7 +1,7 @@
 """UI revamp Phase 3: Home's "Lumen found" signals and activity feed (ai/home_signals.py), pure functions."""
 from datetime import date, datetime
 
-from ai.home_signals import activity, find_signals
+from ai.home_signals import _spikes, activity, find_signals
 
 TODAY = date(2026, 10, 21)
 
@@ -149,3 +149,56 @@ def test_a_habit_vendor_on_neighbouring_days_is_still_not_a_duplicate():
     coffee = [t("2026-10-10", 180, "Blue Tokai", "Food"), t("2026-10-11", 180, "Blue Tokai", "Food"),
               t("2026-10-12", 180, "Blue Tokai", "Food")]
     assert find_signals(coffee, TODAY, 0, []) == []
+
+
+# ---- naming the purchase behind a spike (spec 2026-11-04 §4.4) ----
+
+SPIKE_TODAY = date(2026, 10, 21)
+
+
+def buy(d, amount, vendor="Shop", category="Shopping"):
+    return {"vendor_name": vendor, "date": d, "total_amount": amount, "category": category}
+
+
+def spike(rows, recurring=None):
+    return _spikes(rows, SPIKE_TODAY, recurring)[0]
+
+
+def test_a_spike_from_one_purchase_names_it():
+    s = spike([buy("2026-09-05", 5000), buy("2026-10-05", 5000), buy("2026-10-10", 20000, "TechHub")])
+    assert s["headline"] == "{2} at TechHub pushed Shopping up 400%"
+    assert s["amounts"] == [25000, 5000, 20000]
+    assert s["detail"] == "{0} so far vs {1} by this point last month."
+
+
+def test_a_broad_rise_names_nothing():
+    rows = [buy("2026-09-05", 5000)] + [buy(f"2026-10-{d:02d}", 2000, f"V{d}") for d in range(1, 11)]
+    s = spike(rows)
+    assert s["headline"] == "Shopping is up 300%"
+    assert s["amounts"] == [20000, 5000]
+
+
+def test_two_similar_purchases_name_nothing():
+    assert spike([buy("2026-09-05", 2000), buy("2026-10-05", 3000), buy("2026-10-06", 3000, "B")])["headline"] == "Shopping is up 200%"
+
+
+def test_a_purchase_bigger_than_the_rise_is_still_named():
+    assert spike([buy("2026-09-05", 2000), buy("2026-10-05", 80000, "TechHub")])["headline"] == "{2} at TechHub pushed Shopping up 3900%"
+
+
+def test_a_usual_purchase_that_grew_names_nothing():
+    assert spike([buy("2026-09-05", 5000), buy("2026-10-05", 7000)])["headline"] == "Shopping is up 40%"
+
+
+def test_a_purchase_under_half_the_rise_names_nothing():
+    rows = [buy("2026-09-05", 2000), buy("2026-10-05", 9000, "TechHub")] + [buy(f"2026-10-{d:02d}", 4000, f"V{d}") for d in (6, 7, 8)]
+    assert spike(rows)["headline"] == "Shopping is up 950%"
+
+
+def test_a_recurring_vendor_is_never_named():
+    rows = [buy("2026-09-05", 5000, "City Power"), buy("2026-10-05", 5000, "City Power"), buy("2026-10-10", 20000, "City Power")]
+    assert spike(rows, [{"vendor": "City Power"}])["headline"] == "Shopping is up 400%"
+
+
+def test_a_blank_vendor_is_never_named():
+    assert spike([buy("2026-09-05", 5000), buy("2026-10-05", 5000), buy("2026-10-10", 20000, None)])["headline"] == "Shopping is up 400%"
