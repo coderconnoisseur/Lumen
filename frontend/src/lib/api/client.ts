@@ -582,7 +582,7 @@ export interface ForecastData {
 	months: ForecastMonth[];
 	current: { spent_so_far: number; bills_still_due: { count: number; amount: number }; everyday_rest: number; days_left: number };
 	/** this month: running total to today, and the forecast path from today to month end */
-	daily: { actual: number[]; path: number[]; low: number; high: number };
+	daily: { actual: number[]; path: number[]; low: number; high: number; bills: { day: number; vendor: string; amount: number }[] };
 	method: string;
 	accuracy: { months_tested: number; method?: string; label?: string; median_error_pct?: number; in_range_pct?: number; tried?: { method: string; label: string; median_error_pct: number }[] };
 	items: { vendor: string; kind: string; monthly_equivalent: number }[];

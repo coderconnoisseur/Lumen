@@ -102,9 +102,9 @@ Every number in the line must match the numbers on the page.
     `everyday_rest`.
   - `daily`: this month's cumulative actual to today and the forecast path to month end (for the hero chart), with
     `low`/`high` at month end.
-  - `categories`: this month's per-category `{category, spent, forecast, budget|null}`.
-  - `categories` is returned for every month in `months` too (`months[i].categories`), for the Ask tool; the page
-    shows this month's.
+  - `categories`: per month, as `months[i].categories` `{category, spent (this month only), forecast, budget|null}`
+    (built that way in F2; there's no top-level copy). The page shows `months[0]`'s; the Ask tool uses any month's.
+  - `daily.bills`: this month's bills still due `{day, vendor, amount}`, for the chart's pins (added in F3).
   - `items`: the recurring charges the what-ifs can toggle (kind `bill` or `subscription`, active)
     `{vendor, monthly_equivalent, kind}`.
   - `accuracy`: `{method: "bills_everyday"|"<model name>", median_error_pct, months_tested, in_range_pct,

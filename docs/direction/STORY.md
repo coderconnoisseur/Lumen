@@ -537,3 +537,17 @@ with the numbers and the files that prove them. Newest last. Raw numbers live in
   passed (Home and Budget tests rewritten for the new forecast, including "asks for the browser's day" and "no
   forecast, no line").
 
+## 40. The Forecast page (Forecast F3)
+- **S:** The one forecast (F2) fed a dotted line on Home and a bar on Budget, but nowhere showed where the month lands,
+  why, how sure Lumen is, or what changing a bill would do.
+- **T:** A Plan · Forecast page that answers "will I stay in budget, what's left of my income, what if I cut this,
+  and why did it move", from the same payload as everywhere else, with zero layout shift and working at 375 px.
+- **A:** TDD: pure helpers (`lib/forecast-math.ts`: headline, accuracy label, category end, what-if, bar scale) with
+  node tests, then the page against a stubbed API: a one-line headline ("October lands near ₹X · ₹Y over budget"),
+  an accuracy pill that says "usually off by about X%" (a median, so never "within"), the hero with the split and a
+  day-by-day chart (the shared chart got a range band; the payload now lists the bills still due for the pins), four
+  month cards on one scale with the budget tick and money left, categories, try-only what-ifs in the browser, and
+  "How this works" with both methods' backtest error. Income can be added in place (only onboarding asked for it).
+  A phone layout-shift test caught the italic headline verdict loading its font a frame late; it's upright now.
+- **R:** 23 page/helper tests (incl. layout shift < 0.01 on desktop and phone, nothing past 375 px, every control
+  named, nothing written by a what-if); the forecast's accuracy is shown to the user exactly as the eval measures it.

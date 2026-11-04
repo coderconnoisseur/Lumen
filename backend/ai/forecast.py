@@ -300,8 +300,9 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
         run += v
         actual.append(round(run, 2))
     rate = months[0]["everyday"] / days_left if days_left else 0.0
+    due_now = bills_in_month(bills, today.year, today.month, today, txns)
     due_by_day: dict[int, float] = {}
-    for b in bills_in_month(bills, today.year, today.month, today, txns):
+    for b in due_now:
         due_by_day[b["day"]] = due_by_day.get(b["day"], 0.0) + b["amount"]
     path, run = [round(spent, 2)], spent + due_by_day.get(today.day, 0.0)
     for day in range(today.day + 1, days_in + 1):
@@ -310,7 +311,8 @@ def forecast_months(txns: list[dict], recurring: list[dict], today: date, method
     if days_left == 0:
         path = [round(spent + due_by_day.get(today.day, 0.0), 2)]
     return {"months": months, "current": current,
-            "daily": {"actual": actual, "path": path, "low": months[0]["low"], "high": months[0]["high"]}}
+            "daily": {"actual": actual, "path": path, "low": months[0]["low"], "high": months[0]["high"],
+                      "bills": [{"day": b["day"], "vendor": b["vendor"], "amount": b["amount"]} for b in due_now]}}
 
 
 # ---- backtest, choice, the forecast ----

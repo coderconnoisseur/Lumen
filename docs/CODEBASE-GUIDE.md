@@ -313,6 +313,12 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `today` is the browser's date (within a day of the server's). Home's dotted line and "heading for", Budget's
   this-month bar in Last 6 months and Ask Lumen's `forecast` tool all read it. The old smoothing forecast
   (`ai/forecasting_agent.py`) is only left behind the legacy `/api/analytics/analyze`, which no page calls.
+- **Forecast page** (`app/(app)/forecast/`, Forecast F3, sidebar Plan · Forecast): one `forecastApi.get(today)`;
+  `forecast-content.tsx` holds the headline and accuracy pill (`lib/forecast-math.ts`), then `_components/`: `hero`
+  (split + `CumulativeChart` with the budget as a flat dashed line, the range `band` and `daily.bills` as pins),
+  `months` (four cards on one `barScale`; "Add your income" saves the profile in place), `categories`, `what-if`
+  (client-side only, nothing saved; "Make it real" links to Bills/Budget) and `how` (both methods' backtest error).
+  Null forecast or a failed load: one card instead. Tests: `e2e/forecast.spec.ts`, `e2e/forecast-math.spec.ts`.
 - **Bills & subscriptions** (`app/(app)/bills/`, Phase 5c): "what's due, what recurs, what can I cut?" Everything
   comes from `GET /api/bills/recurring` (`api/bills.py`): `ai/recurring.find_recurring` over the user's transactions
   plus their saved choices in `recurring_states` (keyed by the detection's normalised vendor). `not_a_bill` moves a

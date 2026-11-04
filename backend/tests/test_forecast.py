@@ -168,6 +168,13 @@ def test_daily_path_runs_from_today_to_month_end():
     assert len(d["path"]) == 10 and d["path"][0] == 29000 and abs(d["path"][-1] - f["months"][0]["forecast"]) < 1
 
 
+def test_daily_lists_this_months_bills_still_due():
+    f = fc.forecast_months(history_txns(), [RENT, POWER], TODAY, "bills_everyday")
+    assert f["daily"]["bills"] == [{"day": 28, "vendor": "City Power", "amount": 2000}]  # rent was paid on the 5th
+    f = fc.forecast_months(history_txns(), [RENT], TODAY, "bills_everyday")
+    assert f["daily"]["bills"] == []
+
+
 # ---- Task 4: backtest, choice, accuracy ----
 
 def year_txns(groceries=12000):
