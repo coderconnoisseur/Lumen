@@ -64,6 +64,12 @@
 	scale: 0.97;
 }
 
+/* Vendor chips: the same stable hue as Sky, turned down for a dark card (inline styles set Sky's). */
+:root:has([data-app-theme="night"]) [data-vendor-chip] {
+	background: hsl(var(--vendor-hue) 22% 19%) !important;
+	color: hsl(var(--vendor-hue) 55% 80%) !important;
+}
+
 /* Keyboard focus and selection. Text inputs are left out: their caret and ring already say where you are. */
 :root:has([data-app-theme="night"]) :is(a, button, [role="button"], summary):focus-visible {
 	outline: 2px solid var(--ring);
@@ -73,17 +79,16 @@
 	background: rgb(255 255 255 / 0.18);
 }
 
-/* Moving between pages: the new page settles in, slightly out of focus at first so it doesn't read as a hard cut. */
+/* Moving between pages: the new page settles in. No blur: animating one over a whole page is too costly for something
+   seen this often. */
 @keyframes night-page-in {
 	from {
 		opacity: 0;
 		transform: translateY(6px);
-		filter: blur(2px);
 	}
 	to {
 		opacity: 1;
 		transform: none;
-		filter: none;
 	}
 }
 @media (prefers-reduced-motion: no-preference) {

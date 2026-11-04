@@ -40,7 +40,7 @@ export function AvatarMenu() {
 			>
 				<Avatar className="size-8">
 					{avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
-					<AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+					<AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground dark:bg-secondary dark:text-foreground">
 						{initials(name) || "U"}
 					</AvatarFallback>
 				</Avatar>

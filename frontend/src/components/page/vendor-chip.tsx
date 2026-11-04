@@ -7,8 +7,9 @@ export function VendorChip({ name, className }: { name: string; className?: stri
 	return (
 		<span
 			aria-hidden
+			data-vendor-chip
 			className={cn("flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold", className)}
-			style={{ background: `hsl(${hue} 70% 94%)`, color: `hsl(${hue} 45% 38%)` }}
+			style={{ background: `hsl(${hue} 70% 94%)`, color: `hsl(${hue} 45% 38%)`, ["--vendor-hue" as string]: hue }}
 		>
 			{initials}
 		</span>

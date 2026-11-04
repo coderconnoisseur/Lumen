@@ -24,8 +24,8 @@ test("sidebar icons are Phosphor", async ({ page }) => {
 test("hero figure uses NumberFlow", async ({ page }) => {
 	await signIn(page, { home });
 	await page.goto("/home");
-	await expect(page.getByTestId("spend-figure").locator("number-flow-react")).toBeAttached();
-	await expect(page.getByTestId("spend-figure").getByRole("img", { name: /18,412/ })).toBeVisible();
+	// NumberFlow gives screen readers this string through ElementInternals, so it isn't an attribute we can read
+	await expect(page.getByTestId("spend-figure").locator("number-flow-react")).toHaveAttribute("data", /"valueAsString":"[^"]*18,412"/);
 });
 
 test("switching range rolls the figure without moving the card", async ({ page }) => {

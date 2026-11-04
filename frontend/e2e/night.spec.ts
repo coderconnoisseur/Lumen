@@ -150,6 +150,32 @@ test.describe("charts and calendar", () => {
 	});
 });
 
+test.describe("review fixes", () => {
+	test("vendor chips sit quietly on the dark card", async ({ page }) => {
+		await openNightHome(page);
+		const chip = page.getByTestId("recent-row").locator("[data-vendor-chip]");
+		const [bg, color] = await chip.evaluate((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).color]);
+		const [b, c] = [await rgb(page, bg), await rgb(page, color)];
+		expect(lum(b)).toBeLessThan(0.05);
+		expect(ratio(c, b)).toBeGreaterThanOrEqual(4.5);
+	});
+
+	test("the avatar doesn't compete with the main action", async ({ page }) => {
+		await openNightHome(page);
+		const fallback = page.getByRole("button", { name: "Account menu" }).locator('[data-slot="avatar-fallback"]');
+		const bg = await fallback.first().evaluate((e) => getComputedStyle(e).backgroundColor);
+		expect(lum(await rgb(page, bg))).toBeLessThan(0.05);
+	});
+
+	test("a large amount fits its calendar cell on a laptop", async ({ page }) => {
+		await page.setViewportSize({ width: 1265, height: 900 });
+		await openNightHome(page, { txns: [tx("a", 1, 22000)] });
+		const amount = page.getByTestId("cal-day-1").locator("b");
+		const [scroll, client] = await amount.evaluate((e) => [e.scrollWidth, e.clientWidth]);
+		expect(scroll).toBeLessThanOrEqual(client);
+	});
+});
+
 test.describe("motion", () => {
 	test("page change uses the night transition", async ({ page }) => {
 		await openNightHome(page);
