@@ -24,3 +24,9 @@ forecast:
   in_range_min: 60          # % of months whose actual landed inside the range, whole month
   in_range_mid_min: 60      # ... and from the 15th
   baseline_ratio_max: 0.55  # the chosen method's error at most 55% of the old smoothing forecast's
+
+drafts:
+  fit_usual_min: 70         # % of draft lines whose month, without its own one-offs, fits the limit (goal: about 75)
+  fit_usual_vs_baseline: 2  # points it may sit below today's rule, on the lines both produce
+  unused_room_max: 25       # median % of the limit left unused in months that fit
+  laptop_shift_max: 1000    # how far one 80,000 purchase moves a limit (median)
