@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signIn } from "./fixtures";
+import { budgetHeroOverlaps, signIn } from "./fixtures";
 
 // What only a real Night build can show. In PowerShell: $env:NEXT_PUBLIC_APP_THEME="night"; npx playwright test e2e/night-build.spec.ts
 test.skip(process.env.NEXT_PUBLIC_APP_THEME !== "night", "needs NEXT_PUBLIC_APP_THEME=night");
@@ -60,4 +60,13 @@ test("switching range rolls the figure without moving the card", async ({ page }
 	await card.getByRole("button", { name: "YTD" }).click();
 	await expect(card.getByRole("link", { name: /Spent in \d{4}/ })).toBeVisible();
 	expect((await card.boundingBox())!.height).toBeCloseTo(before, 0);
+});
+
+test("the budget hero holds a 12-digit amount on a phone with rolling digits", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await signIn(page, { home: { ...home, budget: { monthly_budget: 999_999_999_999, spent: 499_999_999_999, categories: [] } } });
+	await page.goto("/budget");
+	await expect(page.getByTestId("budget-hero").locator("number-flow-react").first()).toBeAttached();
+	await page.waitForTimeout(1000); // let the digits finish rolling in
+	expect(await budgetHeroOverlaps(page)).toEqual([]);
 });

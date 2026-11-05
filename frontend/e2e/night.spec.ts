@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
-import { forecastFixture, signIn, type HomeFixture } from "./fixtures";
+// @ts-expect-error eslint 8 ships no types
+import { ESLint } from "eslint";
+import { budgetHeroOverlaps, forecastFixture, signIn, type HomeFixture } from "./fixtures";
 
 // Night is CSS-driven, so these flip the attribute on a normal dev server instead of needing a second build.
 async function night(page: Page) {
@@ -390,5 +392,148 @@ test.describe("tokens", () => {
 	test("bui tokens follow night", async ({ page }) => {
 		const bg = await page.getByTestId("bui-probe").evaluate((e) => getComputedStyle(e).backgroundColor);
 		expect(await rgb(page, bg)).toEqual([11, 11, 12]);
+	});
+});
+
+test.describe("known issues", () => {
+	test("pull-to-refresh still works", async ({ page }) => {
+		await openNightHome(page);
+		expect(await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY)).toBe("auto");
+	});
+
+	test("the Ctrl+K palette doesn't animate at all, backdrop included", async ({ page }) => {
+		await openNightHome(page);
+		await page.evaluate(() => {
+			const started: string[] = ((window as unknown as { started: string[] }).started = []);
+			document.addEventListener("animationstart", (e) => {
+				const slot = (e.target as Element).getAttribute("data-slot");
+				if (slot?.startsWith("dialog-")) started.push(slot);
+			});
+		});
+		await page.keyboard.press("Control+k");
+		const palette = page.locator('[data-slot="dialog-content"]');
+		await expect(palette).toBeVisible();
+		await page.waitForTimeout(100);
+		await page.keyboard.press("Escape");
+		await expect(palette).toHaveCount(0);
+		expect(await page.evaluate(() => (window as unknown as { started: string[] }).started)).toEqual([]);
+	});
+
+	// Tailwind's unset ring layers compute to transparent, so look for anything visible
+	const visibleShadow = (s: string) => s.split(/,(?![^()]*\))/).some((layer) => !layer.includes("rgba(0, 0, 0, 0)") && /[1-9]\d*px/.test(layer));
+
+	test("a focused button shows the outline and nothing else", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		const button = page.getByTestId("open-dialog");
+		await button.evaluate((e) => e.classList.add("border")); // as the outline variant has, so its colour can show
+		while (!(await button.evaluate((e) => e === document.activeElement))) await page.keyboard.press("Tab");
+		await page.waitForTimeout(300); // box-shadow and border colour have transitions
+		const [shadow, style, border] = await button.evaluate((e) => {
+			const s = getComputedStyle(e);
+			return [s.boxShadow, s.outlineStyle, s.borderTopColor];
+		});
+		expect(style).toBe("solid");
+		expect(visibleShadow(shadow)).toBe(false);
+		expect(await rgb(page, border)).not.toEqual([164, 158, 255]);
+	});
+
+	for (const collapsed of [false, true]) {
+		test(`a focused sidebar item has one outline, unclipped${collapsed ? ", collapsed" : ""}`, async ({ page }) => {
+			await openNightHome(page);
+			if (collapsed) await page.keyboard.press("Control+b");
+			await page.waitForTimeout(300); // the rail's width transition
+			while (!(await page.evaluate(() => !!document.activeElement?.closest('[data-sidebar="menu-button"]')))) await page.keyboard.press("Tab");
+			await page.waitForTimeout(300); // box-shadow has a transition
+			const [shadow, clipped] = await page.evaluate(() => {
+				const e = document.activeElement!;
+				const s = getComputedStyle(e);
+				const reach = parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset);
+				const r = e.getBoundingClientRect();
+				let clip = false;
+				for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+					if (getComputedStyle(a).overflow === "visible") continue;
+					const b = a.getBoundingClientRect();
+					clip ||= r.left - reach < b.left || r.right + reach > b.right;
+				}
+				return [s.boxShadow, clip] as const;
+			});
+			expect(visibleShadow(shadow)).toBe(false);
+			expect(clipped).toBe(false);
+		});
+	}
+
+	test("a full-width row doesn't shrink when pressed, but still answers", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/spending");
+		const row = page.getByTestId("category-row").first();
+		await expect(row).toBeVisible();
+		await night(page);
+		await row.hover();
+		await page.mouse.down();
+		await expect.poll(async () => rgb(page, await row.evaluate((e) => getComputedStyle(e).backgroundColor))).toEqual([35, 35, 37]);
+		await expect(row).toHaveCSS("scale", "none");
+		await page.mouse.up();
+	});
+
+	const short: [number, string][] = [
+		[9999, "10k"],
+		[123_456, "123k"],
+		[999_400, "999k"],
+		[999_600, "1.0M"],
+		[1_500_000, "1.5M"],
+		[12_345_678, "12M"],
+		[2_500_000_000, "2.5B"],
+		[123_456_789_012, "123B"],
+	];
+	for (const [amount, text] of short) {
+		for (const [width, theme] of [[375, "night"], [1265, "night"], [375, "sky"], [1265, "sky"]] as const) {
+			// Sky's symbol still clips under six figures on a laptop, as it always has
+			if (theme === "sky" && width === 1265 && amount < 100_000) continue;
+			test(`a calendar cell shows ${amount} as ${text} at ${width}px in ${theme}`, async ({ page }) => {
+				await page.setViewportSize({ width, height: 900 });
+				await signIn(page, { home: { txns: [tx("a", 1, amount)] } });
+				await page.goto("/home");
+				if (theme === "night") await night(page);
+				const b = page.getByTestId("cal-day-1").locator("b");
+				await expect(b).toContainText(text);
+				const [scroll, client] = await b.evaluate((e) => [e.scrollWidth, e.clientWidth]);
+				expect(scroll).toBeLessThanOrEqual(client);
+			});
+		}
+	}
+
+	for (const amount of [999_999_999, 99_999_999_999, 999_999_999_999]) {
+		for (const theme of ["sky", "night"]) {
+			test(`budget hero holds ${amount} on a phone in ${theme}`, async ({ page }) => {
+				await page.setViewportSize({ width: 375, height: 812 });
+				await signIn(page, { home: { ...typical, budget: { monthly_budget: amount, spent: Math.floor(amount / 2), categories: [] } } });
+				await page.goto("/budget");
+				await expect(page.getByTestId("left")).toBeVisible();
+				if (theme === "night") await night(page);
+				expect(await budgetHeroOverlaps(page)).toEqual([]);
+			});
+		}
+	}
+
+	test("a normal budget hero keeps its one-line figure and three stats", async ({ page }) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await signIn(page, { home: { ...typical, budget: { monthly_budget: 60000, spent: 18412, categories: [] } } });
+		await page.goto("/budget");
+		await expect(page.getByTestId("left")).toBeVisible();
+		const row = page.getByTestId("budget-hero").locator('[class~="h-11"]');
+		await expect(row).toHaveCSS("height", "44px");
+		await expect(row).toHaveCSS("font-size", "36px");
+		const tops = await Promise.all(["left", "days-left", "per-day"].map(async (id) => (await page.getByTestId(id).boundingBox())!.y));
+		expect(new Set(tops).size).toBe(1);
+	});
+
+	test("lint refuses a direct lucide-react import outside the icon files", async () => {
+		const eslint = new ESLint();
+		const code = 'import { Star } from "lucide-react";\nexport const s = Star;\n';
+		const rules = async (filePath: string) => (await eslint.lintText(code, { filePath }))[0].messages.map((m: { ruleId: string }) => m.ruleId);
+		expect(await rules("src/components/anything.tsx")).toContain("no-restricted-imports");
+		expect(await rules("src/components/icons.tsx")).not.toContain("no-restricted-imports");
+		expect(await rules("src/components/icons.night.tsx")).not.toContain("no-restricted-imports");
 	});
 });

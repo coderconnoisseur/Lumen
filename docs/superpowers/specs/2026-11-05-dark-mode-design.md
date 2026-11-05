@@ -169,7 +169,7 @@ The mockups' `9.5–10.5 px` uppercase tracked labels are not carried over. They
 
 | Use | Duration | Easing or spring |
 | --- | --- | --- |
-| Press on anything pressable | 120 ms, `scale(0.97)` | `--ease-out` |
+| Press on anything pressable, except full-width rows, which change background instead | 120 ms, `scale(0.97)` | `--ease-out` |
 | Hover colour | 150 ms, on pointer devices only | `ease` |
 | Tooltip, small popover | 125–160 ms, from `scale(0.97)` | `--ease-out`, origin at the trigger |
 | Menu, select | 160–200 ms, from `scale(0.96)` | `--ease-out`, origin at the trigger |

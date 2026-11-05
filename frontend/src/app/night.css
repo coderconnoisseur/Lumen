@@ -70,8 +70,12 @@
 		box-shadow 150ms ease,
 		opacity 150ms ease;
 }
-:root:has([data-app-theme="night"]) :is(button, [role="button"]):active:not(:disabled, [aria-disabled="true"]) {
+:root:has([data-app-theme="night"]) :is(button, [role="button"]):active:not(:disabled, [aria-disabled="true"], .grid, .w-full:not([data-slot="button"])) {
 	scale: 0.97;
+}
+/* 0.97 of a whole row is a visible lurch, so rows answer with their background instead. */
+:root:has([data-app-theme="night"]) button:is(.grid, .w-full):not([data-slot]):active:not(:disabled) {
+	background-color: var(--accent);
 }
 
 /* Colours written for Sky's paper that wouldn't read on Night's cards. Overriding here keeps the page files untouched. */
@@ -111,13 +115,10 @@
 	font-weight: 400;
 }
 
-/* On a phone: a long press on a button doesn't select its label, inputs are big enough that iOS doesn't zoom into them,
-   and overscrolling the page doesn't bounce the whole app. Never by disabling zoom. */
+/* On a phone: a long press on a button doesn't select its label, and inputs are big enough that iOS doesn't zoom into
+   them. Never by disabling zoom. */
 :root:has([data-app-theme="night"]) :is(button, [role="button"]) {
 	user-select: none;
-}
-:root:has([data-app-theme="night"]) {
-	overscroll-behavior: none;
 }
 @media (pointer: coarse) {
 	:root:has([data-app-theme="night"]) :is(input, textarea, select) {
@@ -151,10 +152,16 @@
 	color: hsl(var(--vendor-hue) 55% 80%) !important;
 }
 
-/* Keyboard focus and selection. Text inputs are left out: their caret and ring already say where you are. */
+/* Keyboard focus and selection. Text inputs are left out: their caret and ring already say where you are. The outline
+   is the one indicator, so it replaces Button's ring and border; inside the sidebar it's inset, clear of its scroll area. */
 :root:has([data-app-theme="night"]) :is(a, button, [role="button"], summary):focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
+	box-shadow: none;
+	border-color: var(--input);
+}
+:root:has([data-app-theme="night"]) [data-sidebar="sidebar"] :is(a, button):focus-visible {
+	outline-offset: -2px;
 }
 :root:has([data-app-theme="night"]) ::selection {
 	background: rgb(255 255 255 / 0.18);
