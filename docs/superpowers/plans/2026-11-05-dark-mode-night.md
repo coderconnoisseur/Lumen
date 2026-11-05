@@ -17,7 +17,7 @@
 - No violet glow, gradient or tinted card. Labels are sentence case.
 - Text passes AA (4.5:1) on the surface it sits on; `#6a6b6b` is never used for text.
 - Press feedback 120 ms at scale 0.97; hover colour 150 ms. Reduced motion keeps working through the existing `globals.css` rule.
-- Git: no "claude" in branch names, no attribution lines, no stacked PRs (PR targets `refactor`). No PR until the owner has seen `/home` and approved it.
+- Git: no stacked PRs (PR targets `refactor`). No PR until the owner has seen `/home` and approved it.
 
 ## Review Focus
 
