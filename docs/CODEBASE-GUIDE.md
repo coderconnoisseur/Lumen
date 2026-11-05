@@ -281,7 +281,9 @@ embeds the demo documents once per server and uploads the files in the backgroun
   in `app/night.css`. Night-only tweaks in shared components use `dark:` classes, which stay off in Sky. A Night build
   swaps `components/icons`, `page/figure` and `page/amount` for their `.night` files at bundle time (`next.config.js`),
   so a Sky build never loads Phosphor or NumberFlow. Always import icons from `@/components/icons`: a lint rule refuses
-  `lucide-react` anywhere else, because a direct import would skip the swap.
+  `lucide-react` anywhere else, because a direct import would skip the swap. Menus, dialogs and sheets animate through
+  keyframes in `night.css`; `tw-animate-css` isn't loaded, so the components' `animate-in` classes do nothing and Sky
+  doesn't animate them. The Ctrl+K palette opts out with `data-instant`.
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in

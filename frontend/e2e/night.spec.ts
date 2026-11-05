@@ -338,6 +338,7 @@ test.describe("motion", () => {
 		await night(page);
 		await page.getByTestId("open-dropdown").click();
 		const menu = page.locator('[role="menu"]');
+		await expect(menu).toHaveCSS("animation-name", "night-float-in");
 		await expect(menu).toHaveCSS("animation-duration", "0.16s");
 		expect(await menu.evaluate((e) => getComputedStyle(e).boxShadow)).toContain("60px");
 	});
