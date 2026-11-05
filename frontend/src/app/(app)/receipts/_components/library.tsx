@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileSpreadsheet, FileText, Receipt, Search, Trash2 } from "lucide-react";
+import { FileSpreadsheet, FileText, Receipt, Search, Trash2 } from "@/components/icons";
 import { PageCard } from "@/components/page/page-card";
 import { filesApi, type LumenDocument, type ReviewItem, type StatementImport } from "@/lib/api/client";
 import { toast } from "@/lib/toast";

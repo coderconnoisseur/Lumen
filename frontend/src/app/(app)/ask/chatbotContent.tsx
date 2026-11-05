@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { History, Paperclip, Plus } from "lucide-react";
+import { History, Paperclip, Plus } from "@/components/icons";
 import { Answer } from "@/components/ask/answer";
 import { Button } from "@/components/ask/button";
 import { PromptBar } from "@/components/ask/prompt-bar";

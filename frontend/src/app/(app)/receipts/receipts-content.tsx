@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileSpreadsheet, Mail } from "lucide-react";
+import { FileSpreadsheet, Mail } from "@/components/icons";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

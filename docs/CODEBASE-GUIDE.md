@@ -276,6 +276,12 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `dark:` variant is also switched off while the shell is mounted. Public pages keep the forced dark theme.
   Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
   `.label-ui` (card titles, tags, ticks: Funnel Sans, sentence case; the owner ruled out all-caps mono labels).
+- **Night theme (local only, `docs/superpowers/specs/2026-11-05-dark-mode-design.md`).** `lib/app-theme.ts` makes the
+  shell's `data-app-theme` `night` when `NEXT_PUBLIC_APP_THEME=night`; production never sets it. Tokens and motion live
+  in `app/night.css`. Night-only tweaks in shared components use `dark:` classes, which stay off in Sky. A Night build
+  swaps `components/icons`, `page/figure` and `page/amount` for their `.night` files at bundle time (`next.config.js`),
+  so a Sky build never loads Phosphor or NumberFlow. Always import icons from `@/components/icons`: a lint rule refuses
+  `lucide-react` anywhere else, because a direct import would skip the swap.
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in

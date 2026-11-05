@@ -64,9 +64,9 @@ export function ForecastHero({ data, today, loading }: { data: ForecastData | nu
 					>
 						<div className="label-ui flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
 							<span>Day by day</span>
-							<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-primary" />Spent</span>
-							<span className="flex items-center gap-1.5"><i className="w-3.5 border-t-2 border-dotted border-primary/60" />Forecast</span>
-							<span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary/15" />Likely range</span>
+							<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-[var(--series)]" />Spent</span>
+							<span className="flex items-center gap-1.5"><i className="w-3.5 border-t-2 border-dotted border-[var(--series-forecast)] opacity-60" />Forecast</span>
+							<span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-[var(--series-forecast)] opacity-15" />Likely range</span>
 							{m.budget != null && <span className="flex items-center gap-1.5"><i className="w-3.5 border-t-2 border-dashed border-muted-foreground/50" />Budget</span>}
 						</div>
 						<CumulativeChart
