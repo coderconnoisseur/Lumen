@@ -40,6 +40,8 @@ export function BudgetHero({
 	const span = period(month, new Date(month.getFullYear(), month.getMonth(), days));
 	const t = p.evenPct === null ? days - 1 : dayIndex(span, today);
 	const over = total !== null && spent > total;
+	// past "₹10,00,000" a phone can't fit these side by side, so they wrap (h-11 stays for Night's figure rules)
+	const wide = money(Math.max(spent, total ?? 0, Math.abs(p.left))).length > 10;
 	const tone = over ? "bad" : p.vsPace !== null && p.vsPace > 0 ? "warn" : "good";
 	return (
 		<PageCard
@@ -57,7 +59,7 @@ export function BudgetHero({
 		>
 			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
 				<div className="min-w-0">
-					<div className="flex h-11 items-baseline gap-2 text-[36px] leading-tight font-medium tracking-tight tabular-nums">
+					<div className={cn("flex h-11 items-baseline gap-x-2 text-[36px] leading-tight font-medium tracking-tight tabular-nums", wide && "h-auto! flex-wrap")}>
 						<Amount value={Math.round(spent)} format={(n) => money(n)} />
 						<span className="text-[13px] font-normal tracking-normal text-muted-foreground">
 							{editing ? <TotalInput initial={total} onSave={onSave} onCancel={onCancel} /> : total !== null ? `of ${money(total)}` : "no budget set"}
@@ -75,7 +77,7 @@ export function BudgetHero({
 								<span>{Math.round(p.pct * 100)}% spent</span>
 								{p.evenPct !== null && <span>Even pace today: {Math.round(p.evenPct * 100)}%</span>}
 							</div>
-							<div className="mt-5 grid grid-cols-3 gap-3">
+							<div className={cn("mt-5 grid grid-cols-3 gap-3", wide && "grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]")}>
 								<Stat label={over ? "Over by" : "Left to spend"} testId="left" value={money(Math.abs(p.left))} bad={over} />
 								{p.evenPct !== null && <Stat label="Days left" testId="days-left" value={String(p.daysLeft)} />}
 								{p.perDay !== null && <Stat label="Safe per day" testId="per-day" value={money(Math.round(p.perDay))} />}
