@@ -186,7 +186,78 @@
 }
 
 /* Floating layers: a lighter surface and a layered shadow, the only shadows in Night. They open fast and close faster
-   (Radix sets the origin at the trigger). Anything opened from the keyboard skips the animation (data-instant). */
+   (Radix sets the origin at the trigger). Anything opened from the keyboard skips the animation (data-instant).
+   The components' `animate-in` classes come from tw-animate-css, which the app doesn't load, so Sky doesn't animate
+   these and the keyframes live here. `scale` and `translate` rather than `transform`, which positions some of them. */
+@keyframes night-float-in {
+	from {
+		opacity: 0;
+		scale: 0.96;
+	}
+}
+@keyframes night-float-out {
+	to {
+		opacity: 0;
+		scale: 0.96;
+	}
+}
+@keyframes night-fade-in {
+	from {
+		opacity: 0;
+	}
+}
+@keyframes night-sheet-in {
+	from {
+		translate: var(--sheet-from);
+	}
+}
+@keyframes night-sheet-out {
+	to {
+		translate: var(--sheet-from);
+	}
+}
+[data-sheet-side="right"] {
+	--sheet-from: 100% 0;
+}
+[data-sheet-side="left"] {
+	--sheet-from: -100% 0;
+}
+[data-sheet-side="top"] {
+	--sheet-from: 0 -100%;
+}
+[data-sheet-side="bottom"] {
+	--sheet-from: 0 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root:has([data-app-theme="night"]) :is(
+		[data-slot="dropdown-menu-content"],
+		[data-slot="dropdown-menu-sub-content"],
+		[data-slot="select-content"],
+		[data-slot="popover-content"],
+		[data-slot="dialog-content"]
+	) {
+		&[data-state="open"] {
+			animation-name: night-float-in;
+		}
+		&[data-state="closed"] {
+			animation-name: night-float-out;
+			animation-fill-mode: forwards;
+		}
+	}
+	/* Fades in only: Radix removes the overlay the moment a dialog closes, without waiting for an exit animation. */
+	:root:has([data-app-theme="night"]) :is([data-slot="dialog-overlay"], [data-slot="sheet-overlay"])[data-state="open"] {
+		animation-name: night-fade-in;
+	}
+	:root:has([data-app-theme="night"]) [data-sheet-side] {
+		&[data-state="open"] {
+			animation-name: night-sheet-in;
+		}
+		&[data-state="closed"] {
+			animation-name: night-sheet-out;
+			animation-fill-mode: forwards;
+		}
+	}
+}
 :root:has([data-app-theme="night"]) :is(
 	[data-slot="dropdown-menu-content"],
 	[data-slot="dropdown-menu-sub-content"],
@@ -215,7 +286,8 @@
 	[data-slot="dropdown-menu-sub-content"],
 	[data-slot="select-content"],
 	[data-slot="popover-content"],
-	[data-slot="dialog-overlay"]
+	[data-slot="dialog-overlay"],
+	[data-slot="sheet-overlay"]
 ) {
 	animation-duration: 160ms;
 	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
@@ -225,18 +297,18 @@
 	animation-duration: 220ms;
 	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
-:root:has([data-app-theme="night"]) [data-slot="sheet-content"][data-state="open"] {
+:root:has([data-app-theme="night"]) [data-sheet-side][data-state="open"] {
 	animation-duration: 280ms;
 	animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
-:root:has([data-app-theme="night"]) [data-slot="sheet-content"][data-state="closed"] {
+:root:has([data-app-theme="night"]) [data-sheet-side][data-state="closed"] {
 	animation-duration: 200ms;
 	animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
-:root:has([data-app-theme="night"]) [data-slot][data-state="closed"]:not([data-slot="sheet-content"]) {
+:root:has([data-app-theme="night"]) [data-slot][data-state="closed"]:not([data-sheet-side]) {
 	animation-duration: 110ms;
 }
-:root:has([data-app-theme="night"]) [data-instant][data-state="open"] {
+:root:has([data-app-theme="night"]) :is([data-instant], [data-slot="dialog-overlay"]:has(+ [data-instant]))[data-state] {
 	animation: none;
 }
 
