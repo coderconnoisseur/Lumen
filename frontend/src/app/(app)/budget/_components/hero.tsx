@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CumulativeChart } from "@/components/page/cumulative-chart";
-import { Amount } from "@/components/page/figure";
+import { Amount } from "@/components/page/amount";
 import { PageCard } from "@/components/page/page-card";
 import { evenLine, pace } from "@/lib/budget-math";
 import { useMoney } from "@/lib/format";

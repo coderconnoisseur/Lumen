@@ -176,6 +176,89 @@ test.describe("review fixes", () => {
 	});
 });
 
+test.describe("review findings", () => {
+	test("the focused menu item stands out from the menu", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await page.getByTestId("open-dropdown").click();
+		const item = page.locator('[role="menuitem"]').first();
+		await item.focus();
+		await expect
+			.poll(async () => {
+				const [i, m] = await item.evaluate((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e.closest('[role="menu"]')!).backgroundColor]);
+				return ratio(await rgb(page, i), await rgb(page, m));
+			})
+			.toBeGreaterThan(1.1);
+	});
+
+	test("select panels are night too", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		await page.getByTestId("open-select").click();
+		const bg = await page.locator('[role="listbox"]').evaluate((e) => getComputedStyle(e.closest('[data-slot="select-content"]') ?? e).backgroundColor);
+		expect(await rgb(page, bg)).toEqual([35, 35, 37]);
+	});
+
+	for (const width of [1265, 1280]) {
+		test(`a four-digit amount fits its calendar cell at ${width}px`, async ({ page }) => {
+			await page.setViewportSize({ width, height: 900 });
+			await openNightHome(page, { txns: [tx("a", 1, 3465)] });
+			const amount = page.getByTestId("cal-day-1").locator("b");
+			await expect(amount).toBeVisible();
+			const [scroll, client] = await amount.evaluate((e) => [e.scrollWidth, e.clientWidth]);
+			expect(scroll).toBeLessThanOrEqual(client);
+		});
+	}
+
+	test("the default button is white, not blue", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		const [bg, color] = await page.evaluate(() => {
+			const b = document.createElement("button");
+			b.className = "bg-blue-600 text-white";
+			document.body.append(b);
+			const s = getComputedStyle(b);
+			return [s.backgroundColor, s.color];
+		});
+		expect(await rgb(page, bg)).toEqual([255, 255, 255]);
+		expect(await rgb(page, color)).toEqual([0, 0, 0]);
+	});
+
+	test("the shared button transition keeps fades and leaves the sidebar alone", async ({ page }) => {
+		await signIn(page, { home: typical });
+		await page.goto("/home");
+		const side = page.locator('button[data-slot="sidebar-menu-button"]').first();
+		await expect(side).toBeAttached();
+		const sky = await side.evaluate((e) => getComputedStyle(e).transitionProperty);
+		await night(page);
+		expect(await side.evaluate((e) => getComputedStyle(e).transitionProperty)).toBe(sky);
+		const other = page.getByRole("button", { name: "1W" });
+		expect(await other.evaluate((e) => getComputedStyle(e).transitionProperty)).toContain("opacity");
+	});
+
+	test("calendar weekday letters pass AA at a readable size", async ({ page }) => {
+		await openNightHome(page);
+		const letter = page.getByTestId("calendar-card").locator('[class~="text-muted-foreground/70"]').first();
+		await expect(letter).toBeAttached();
+		const [color, size, card] = await letter.evaluate((e) => [getComputedStyle(e).color, parseFloat(getComputedStyle(e).fontSize), getComputedStyle(document.documentElement).getPropertyValue("--card").trim()]);
+		expect(size).toBeGreaterThanOrEqual(11);
+		expect(ratio(await rgb(page, color as string), await rgb(page, card as string))).toBeGreaterThanOrEqual(4.5);
+	});
+
+	test("white text on the red confirm becomes dark", async ({ page }) => {
+		await page.goto("/dev/layout-shift");
+		await night(page);
+		const [bg, color] = await page.evaluate(() => {
+			const b = document.createElement("button");
+			b.className = "bg-bad text-white";
+			document.body.append(b);
+			const s = getComputedStyle(b);
+			return [s.backgroundColor, s.color];
+		});
+		expect(ratio(await rgb(page, color), await rgb(page, bg))).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
 test.describe("other pages", () => {
 	test("an on toggle keeps a visible knob", async ({ page }) => {
 		await signIn(page, { home: typical });

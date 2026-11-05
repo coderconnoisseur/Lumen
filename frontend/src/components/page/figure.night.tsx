@@ -15,5 +15,3 @@ export function Figure({ value, format }: { value: number; format: (n: number) =
 	}
 	return <NumberFlow value={value} format={{ style: "currency", currency, maximumFractionDigits: 0 }} />;
 }
-
-export const Amount = Figure;

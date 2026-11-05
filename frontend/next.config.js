@@ -23,7 +23,7 @@ const nextConfig = {
 	webpack(config, { webpack }) {
 		if (process.env.NEXT_PUBLIC_APP_THEME === "night") {
 			config.plugins.push(
-				new webpack.NormalModuleReplacementPlugin(/^@\/components\/(icons|page\/figure)$/, (resource) => {
+				new webpack.NormalModuleReplacementPlugin(/^@\/components\/(icons|page\/figure|page\/amount)$/, (resource) => {
 					resource.request += ".night";
 				})
 			);

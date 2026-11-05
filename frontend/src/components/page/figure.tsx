@@ -20,8 +20,3 @@ export function Figure({ value, format }: { value: number; format: (n: number) =
 	}, [value]);
 	return <>{format(shown)}</>;
 }
-
-// A headline amount on the other pages: plain text here, rolling digits in Night.
-export function Amount({ value, format }: { value: number; format: (n: number) => string }) {
-	return <>{format(value)}</>;
-}

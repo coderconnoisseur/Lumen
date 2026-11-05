@@ -73,7 +73,7 @@ export function CalendarCard({
 									data-today={i === t || undefined}
 									data-future={future || undefined}
 									className={cn(
-										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 max-sm:px-1 text-[10.5px] leading-tight text-muted-foreground dark:@container dark:px-1",
+										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 max-sm:px-1 text-[10.5px] leading-tight text-muted-foreground dark:@container dark:px-0.5",
 										future ? "border-dashed border-border" : "border-border/60",
 										i === t && "outline-[1.5px] outline-primary outline-solid -outline-offset-1",
 									)}

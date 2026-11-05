@@ -178,7 +178,7 @@ The mockups' `9.5–10.5 px` uppercase tracked labels are not carried over. They
 | State crossfade | 200–250 ms | `--ease-out`, reserved space |
 | Page change | 160 ms | Existing `.app-page-in` |
 | Ctrl+K palette, keyboard actions | None | None |
-| Hero figure rolls in | Once per visit, not on refetch | Existing `RollingNumber` |
+| Hero figure | Digits roll to each new value (range or month switch) | NumberFlow, honours reduced motion |
 | Charts | Draw once at most, never replay on filter | None |
 
 `--ease-out: cubic-bezier(0.22, 1, 0.36, 1)` is what the landing already uses, and it's nearly the same as Emil's recommended curve, so we keep it. With reduced motion, slides become short fades and the existing `globals.css` rule still applies.

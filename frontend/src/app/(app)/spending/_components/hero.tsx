@@ -1,5 +1,5 @@
 import { CumulativeChart } from "@/components/page/cumulative-chart";
-import { Amount } from "@/components/page/figure";
+import { Amount } from "@/components/page/amount";
 import { PageCard } from "@/components/page/page-card";
 import { useMoney } from "@/lib/format";
 import type { Period } from "@/lib/home-math";

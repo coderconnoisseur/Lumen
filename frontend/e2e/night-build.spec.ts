@@ -28,6 +28,20 @@ test("hero figure uses NumberFlow", async ({ page }) => {
 	await expect(page.getByTestId("spend-figure").locator("number-flow-react")).toHaveAttribute("data", /"valueAsString":"[^"]*18,412"/);
 });
 
+for (const [route, testId] of [["/home", "spend-card"], ["/spending", "spending-hero"]]) {
+	test(`${route} hero keeps its height when the figure arrives`, async ({ page }) => {
+		await signIn(page, { home: { ...home, delayMs: 1500 } });
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await page.goto(route);
+		const card = page.getByTestId(testId);
+		await expect(card.locator('[data-slot="skeleton"]').first()).toBeVisible();
+		const loading = (await card.boundingBox())!.height;
+		await expect(card.locator("number-flow-react").first()).toBeAttached({ timeout: 15_000 });
+		await page.waitForTimeout(300);
+		expect((await card.boundingBox())!.height).toBeCloseTo(loading, 0);
+	});
+}
+
 test("page heroes roll too", async ({ page }) => {
 	const budget = { monthly_budget: 60000, spent: 18412, categories: [] };
 	await signIn(page, { home: { ...home, budget } });
