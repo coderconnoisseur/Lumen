@@ -94,8 +94,8 @@ export function CumulativeChart({
 				<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 					<defs>
 						<linearGradient id="spend-fill" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0" stopColor="var(--primary)" stopOpacity=".26" />
-							<stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
+							<stop offset="0" stopColor="var(--series)" stopOpacity=".26" />
+							<stop offset="1" stopColor="var(--series)" stopOpacity="0" />
 						</linearGradient>
 					</defs>
 					{[0.25, 0.5, 0.75].map((f) => (
@@ -104,16 +104,16 @@ export function CumulativeChart({
 					{prev && prev.length > 1 && (
 						<path data-series="previous" d={smoothPath(pts(prev.slice(0, period.days)))} fill="none" stroke="var(--muted-foreground)" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="4 5" vectorEffect="non-scaling-stroke" />
 					)}
-					{edges && <path data-series="band" d={`M${[...pts(edges.upper, t), ...pts(edges.lower, t).reverse()].map(([a, b]) => `${a} ${b}`).join(" L")}Z`} fill="var(--primary)" fillOpacity=".1" />}
+					{edges && <path data-series="band" d={`M${[...pts(edges.upper, t), ...pts(edges.lower, t).reverse()].map(([a, b]) => `${a} ${b}`).join(" L")}Z`} fill="var(--series-forecast)" fillOpacity=".1" />}
 					<path d={`${smoothPath(actual)} L${x(t)} ${H} L0 ${H}Z`} fill="url(#spend-fill)" />
-					<path data-series="current" d={smoothPath(actual)} fill="none" stroke="var(--primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+					<path data-series="current" d={smoothPath(actual)} fill="none" stroke="var(--series)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
 					{fc.length > 0 && (
-						<path data-series="forecast" d={smoothPath(pts([total, ...fc], t))} fill="none" stroke="var(--primary)" strokeOpacity=".6" strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+						<path data-series="forecast" d={smoothPath(pts([total, ...fc], t))} fill="none" stroke="var(--series-forecast)" strokeOpacity=".6" strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
 					)}
-					<line x1={x(t)} x2={x(t)} y1={y(total)} y2={H} stroke="var(--primary)" strokeOpacity=".25" vectorEffect="non-scaling-stroke" />
+					<line x1={x(t)} x2={x(t)} y1={y(total)} y2={H} stroke="var(--series)" strokeOpacity=".25" vectorEffect="non-scaling-stroke" />
 				</svg>
 				{/* HTML overlays keep text and dots crisp while the svg stretches */}
-				<span className="absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow-sm" style={{ left: `${(x(t) / W) * 100}%`, top: `${(y(total) / H) * 100}%` }} />
+				<span className="absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[var(--series)] shadow-sm" style={{ left: `${(x(t) / W) * 100}%`, top: `${(y(total) / H) * 100}%` }} />
 				{pins.map((p) => {
 					const i = dayIndex(period, parseDay(p.date));
 					return (

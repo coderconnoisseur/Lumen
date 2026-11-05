@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { FileDown, Filter } from "lucide-react";
+import { FileDown, Filter } from "@/components/icons";
 import { invoiceApi } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 

@@ -57,7 +57,7 @@ export function BudgetCard({ budget, monthName, today, loading }: { budget: Budg
 								</div>
 								<div className="mt-1 h-[5px] overflow-hidden rounded-full bg-muted">
 									<i
-										className={cn("block h-full rounded-full", over ? "bg-bad" : used >= 0.9 ? "bg-amber-500" : "bg-primary")}
+										className={cn("block h-full rounded-full", over ? "bg-bad" : used >= 0.9 ? "bg-amber-500" : "bg-[var(--series)]")}
 										style={{ width: `${Math.max(0, Math.min(100, used * 100))}%` }}
 									/>
 								</div>

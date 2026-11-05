@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CumulativeChart } from "@/components/page/cumulative-chart";
+import { Amount } from "@/components/page/amount";
 import { PageCard } from "@/components/page/page-card";
 import { evenLine, pace } from "@/lib/budget-math";
 import { useMoney } from "@/lib/format";
@@ -57,7 +58,7 @@ export function BudgetHero({
 			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
 				<div className="min-w-0">
 					<div className="flex h-11 items-baseline gap-2 text-[36px] leading-tight font-medium tracking-tight tabular-nums">
-						{money(Math.round(spent))}
+						<Amount value={Math.round(spent)} format={(n) => money(n)} />
 						<span className="text-[13px] font-normal tracking-normal text-muted-foreground">
 							{editing ? <TotalInput initial={total} onSave={onSave} onCancel={onCancel} /> : total !== null ? `of ${money(total)}` : "no budget set"}
 						</span>
@@ -85,7 +86,7 @@ export function BudgetHero({
 				<div className="min-w-0">
 					<div className="label-ui flex items-center gap-3 text-muted-foreground">
 						<span>Pace</span>
-						<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-primary" />Actual</span>
+						<span className="ml-auto flex items-center gap-1.5"><i className="h-0.5 w-3.5 rounded bg-[var(--series)]" />Actual</span>
 						{total !== null && (
 							<span className="flex items-center gap-1.5"><i className="w-3.5 border-t-2 border-dashed border-muted-foreground/50" />Even pace to {money(total)}</span>
 						)}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Loader2 } from "@/components/icons";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { LOGIN_HEADLINE } from "./headline";

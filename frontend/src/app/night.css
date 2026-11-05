@@ -1,0 +1,258 @@
+/* Night: the signed-in app's dark theme, built from the landing page's product mockups, independent of Sky.
+   Values and reasoning: docs/superpowers/specs/2026-11-05-dark-mode-design.md. Turned on by NEXT_PUBLIC_APP_THEME=night. */
+:root:has([data-app-theme="night"]) {
+	color-scheme: dark;
+	scrollbar-gutter: stable;
+	--background: #0b0b0c;
+	--foreground: #f5f5f7;
+	--card: #18181a;
+	--card-foreground: #f5f5f7;
+	--popover: #232325;
+	--popover-foreground: #f5f5f7;
+	--primary: #ffffff;
+	--primary-foreground: #000000;
+	--secondary: #2a2a2c;
+	--secondary-foreground: #f5f5f7;
+	--muted: #1f1f21;
+	--muted-foreground: #8a8a8c;
+	--accent: #232325;
+	--accent-foreground: #f5f5f7;
+	--destructive: #f87171;
+	--destructive-foreground: #0b0b0c;
+	--border: rgb(255 255 255 / 0.06);
+	--input: rgb(255 255 255 / 0.1);
+	--ring: #a49eff;
+	--sidebar: #0e0e0f;
+	--sidebar-foreground: #f5f5f7;
+	--sidebar-primary: #ffffff;
+	--sidebar-primary-foreground: #000000;
+	--sidebar-accent: #1f1f21;
+	--sidebar-accent-foreground: #f5f5f7;
+	--sidebar-border: rgb(255 255 255 / 0.06);
+	--sidebar-ring: #a49eff;
+	--accent-soft: #232325;
+	--series: #00b3dd;
+	--series-forecast: #a49eff;
+	--heat: #ffffff;
+	--heat-max: 22%;
+	--heat-ink-strong: #f5f5f7;
+	--heat-ink-soft: #f5f5f7;
+	--good: #4ade80;
+	--bad: #f87171;
+	--band: none;
+	--chart-1: #0091b5;
+	--chart-2: #d9608f;
+	--chart-3: #847dff;
+	--chart-4: #b8860b;
+	--chart-5: #2f9e8f;
+	/* the same five in the same order, then neutral: categories past the fifth stop competing for a colour */
+	--category-1: #0091b5;
+	--category-2: #d9608f;
+	--category-3: #847dff;
+	--category-4: #b8860b;
+	--category-5: #2f9e8f;
+	--category-6: #6a6b6b;
+	--category-7: #6a6b6b;
+}
+:root:has([data-app-theme="night"]) body {
+	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+	background-image: none;
+}
+
+/* Click response: the press shows the instant it happens. `scale` rather than `transform`, so nothing that positions
+   itself with a transform gets overwritten. */
+:root:has([data-app-theme="night"]) :is(button, [role="button"]):not([data-slot="sidebar-menu-button"]) {
+	transition:
+		scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
+		background-color 150ms ease,
+		color 150ms ease,
+		border-color 150ms ease,
+		box-shadow 150ms ease,
+		opacity 150ms ease;
+}
+:root:has([data-app-theme="night"]) :is(button, [role="button"]):active:not(:disabled, [aria-disabled="true"]) {
+	scale: 0.97;
+}
+
+/* Colours written for Sky's paper that wouldn't read on Night's cards. Overriding here keeps the page files untouched. */
+:root:has([data-app-theme="night"]) :is(.text-amber-700, .text-amber-800) {
+	color: #f5a35c;
+}
+/* the default button: white is what you press, not blue */
+:root:has([data-app-theme="night"]) .bg-blue-600 {
+	background-color: var(--primary);
+	color: var(--primary-foreground);
+}
+:root:has([data-app-theme="night"]) .bg-blue-600:hover {
+	background-color: rgb(255 255 255 / 0.9);
+}
+:root:has([data-app-theme="night"]) .bg-bad.text-white {
+	color: #0b0b0c;
+}
+:root:has([data-app-theme="night"]) [class~="text-muted-foreground/70"][class~="text-[10.5px]"] {
+	color: var(--muted-foreground);
+	font-size: 11px;
+}
+:root:has([data-app-theme="night"]) [class~="bg-white/50"] {
+	background-color: rgb(255 255 255 / 0.05);
+}
+
+/* Headline figures on the pages that don't set Night's type themselves: regular weight, one step down. */
+:root:has([data-app-theme="night"]) [class~="text-[36px]"].tabular-nums {
+	font-size: 34px;
+	font-weight: 400;
+}
+/* Sky's line box, held fixed: the rolling digits are taller than the text, and the card mustn't grow when they arrive. */
+:root:has([data-app-theme="night"]) [class~="text-[36px]"].tabular-nums:not(.h-11) {
+	height: 45px;
+}
+:root:has([data-app-theme="night"]) [class~="text-[26px]"].tabular-nums {
+	font-size: 24px;
+	font-weight: 400;
+}
+
+/* On a phone: a long press on a button doesn't select its label, inputs are big enough that iOS doesn't zoom into them,
+   and overscrolling the page doesn't bounce the whole app. Never by disabling zoom. */
+:root:has([data-app-theme="night"]) :is(button, [role="button"]) {
+	user-select: none;
+}
+:root:has([data-app-theme="night"]) {
+	overscroll-behavior: none;
+}
+@media (pointer: coarse) {
+	:root:has([data-app-theme="night"]) :is(input, textarea, select) {
+		font-size: max(16px, 1em);
+	}
+}
+
+/* Toggles: with a white primary, a white knob would vanish on the "on" track. */
+:root:has([data-app-theme="night"]) .bg-primary > .bg-white {
+	background-color: #000;
+}
+/* The native file picker, which otherwise looks like bare text. */
+:root:has([data-app-theme="night"]) input[type="file"]::file-selector-button {
+	margin-right: 10px;
+	border: 1px solid var(--input);
+	border-radius: 999px;
+	background: var(--secondary);
+	color: var(--foreground);
+	padding: 6px 14px;
+	font: inherit;
+	cursor: pointer;
+	transition: background-color 150ms ease;
+}
+:root:has([data-app-theme="night"]) input[type="file"]::file-selector-button:hover {
+	background: var(--accent);
+}
+
+/* Vendor chips: the same stable hue as Sky, turned down for a dark card (inline styles set Sky's). */
+:root:has([data-app-theme="night"]) [data-vendor-chip] {
+	background: hsl(var(--vendor-hue) 22% 19%) !important;
+	color: hsl(var(--vendor-hue) 55% 80%) !important;
+}
+
+/* Keyboard focus and selection. Text inputs are left out: their caret and ring already say where you are. */
+:root:has([data-app-theme="night"]) :is(a, button, [role="button"], summary):focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+:root:has([data-app-theme="night"]) ::selection {
+	background: rgb(255 255 255 / 0.18);
+}
+
+/* Moving between pages: the new page settles in. No blur: animating one over a whole page is too costly for something
+   seen this often. */
+@keyframes night-page-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root:has([data-app-theme="night"]) .app-page-in {
+		animation: night-page-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+}
+
+/* Floating layers: a lighter surface and a layered shadow, the only shadows in Night. They open fast and close faster
+   (Radix sets the origin at the trigger). Anything opened from the keyboard skips the animation (data-instant). */
+:root:has([data-app-theme="night"]) :is(
+	[data-slot="dropdown-menu-content"],
+	[data-slot="dropdown-menu-sub-content"],
+	[data-slot="select-content"],
+	[data-slot="popover-content"],
+	[data-slot="dialog-content"],
+	[data-slot="sheet-content"]
+) {
+	border-color: rgb(255 255 255 / 0.09);
+	box-shadow:
+		0 1px 2px rgb(0 0 0 / 0.3),
+		0 24px 60px rgb(0 0 0 / 0.45);
+	/* one step above the layer itself, so the focused item and hover states show */
+	--accent: #323234;
+}
+:root:has([data-app-theme="night"]) [data-slot="select-content"] {
+	background: var(--popover);
+	color: var(--popover-foreground);
+}
+:root:has([data-app-theme="night"]) [data-slot="select-item"]:is(:hover, :focus, [data-highlighted]) {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+:root:has([data-app-theme="night"]) :is(
+	[data-slot="dropdown-menu-content"],
+	[data-slot="dropdown-menu-sub-content"],
+	[data-slot="select-content"],
+	[data-slot="popover-content"],
+	[data-slot="dialog-overlay"]
+) {
+	animation-duration: 160ms;
+	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+:root:has([data-app-theme="night"]) [data-slot="dialog-content"] {
+	background: var(--popover);
+	animation-duration: 220ms;
+	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+:root:has([data-app-theme="night"]) [data-slot="sheet-content"][data-state="open"] {
+	animation-duration: 280ms;
+	animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root:has([data-app-theme="night"]) [data-slot="sheet-content"][data-state="closed"] {
+	animation-duration: 200ms;
+	animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root:has([data-app-theme="night"]) [data-slot][data-state="closed"]:not([data-slot="sheet-content"]) {
+	animation-duration: 110ms;
+}
+:root:has([data-app-theme="night"]) [data-instant][data-state="open"] {
+	animation: none;
+}
+
+:root:has([data-app-theme="night"]) .bui {
+	--page: #0b0b0c;
+	--canvas: #161617; /* Ask's prompt bar, as in the landing page's chat demo */
+	--surface: #18181a;
+	--inset: #111112;
+	--hover: #232325;
+	--hover-2: #2a2a2c;
+	--ink: #f5f5f7;
+	--ink-2: #b4b4b6;
+	--ink-3: #8a8a8c;
+	--line: rgb(255 255 255 / 0.06);
+	--line-strong: rgb(255 255 255 / 0.12);
+	--field: #161617;
+	--accent: #847dff;
+	--accent-ink: #a49eff;
+	--accent-tint: rgb(132 125 255 / 0.16);
+	--green: #4ade80;
+	--green-tint: rgb(74 222 128 / 0.1);
+	--orange: #f5a35c;
+	--orange-tint: rgb(245 163 92 / 0.1);
+	--red: #f87171;
+	--red-tint: rgb(248 113 113 / 0.1);
+}

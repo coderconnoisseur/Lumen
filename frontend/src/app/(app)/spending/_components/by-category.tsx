@@ -3,7 +3,7 @@ import { useMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // Tints for the bars, in order of spend; the rest share the last one.
-const TINTS = ["#2f6fe0", "#c4572f", "#2e8b57", "#b7791f", "#7fa8ee", "#8b6fd6", "#a8a69f"];
+const TINTS = [1, 2, 3, 4, 5, 6, 7].map((n) => `var(--category-${n})`);
 
 // Where the money went (spec 2026-10-22 §4.2): each category's spend, share and change; a click filters the
 // transactions below to it. The footer only appears when some rows still have no real category.

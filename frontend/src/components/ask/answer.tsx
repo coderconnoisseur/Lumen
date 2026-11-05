@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUpRight, Check, Copy, FileText, Globe, Info, RotateCcw, Upload } from "lucide-react";
+import { ArrowUpRight, Check, Copy, FileText, Globe, Info, RotateCcw, Upload } from "@/components/icons";
 import { filesApi, type ChatAttachment, type ChatSource } from "@/lib/api/client";
 import { InvoiceCard } from "./invoice-card";
 import { toast } from "@/lib/toast";

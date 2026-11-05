@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./beautiful-ui.css";
+@import "./night.css";
 
 /* <html> is always `.dark` (public pages), but it doesn't count while the Sky app shell is mounted. */
 @custom-variant dark (&:is(.dark:not(:has([data-app-theme="sky"])) *));
@@ -111,6 +112,20 @@
 	--good: oklch(0.569 0.119 155);
 	--bad: oklch(0.588 0.15 40);
 	--band: linear-gradient(180deg, #cfe2fb 0%, #e9f1fb 55%, #f4f3ef 100%);
+	/* what charts and the calendar draw with; Night (night.css) picks its own */
+	--series: var(--primary);
+	--series-forecast: var(--primary);
+	--heat: var(--primary);
+	--heat-max: 100%;
+	--heat-ink-strong: #fff;
+	--heat-ink-soft: var(--muted-foreground);
+	--category-1: #2f6fe0;
+	--category-2: #c4572f;
+	--category-3: #2e8b57;
+	--category-4: #b7791f;
+	--category-5: #7fa8ee;
+	--category-6: #8b6fd6;
+	--category-7: #a8a69f;
 }
 :root:has([data-app-theme="sky"]) body {
 	font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;

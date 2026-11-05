@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Copy, ReceiptText, RefreshCw, TrendingUp, type LucideIcon } from "lucide-react";
+import { Copy, ReceiptText, RefreshCw, TrendingUp, type LucideIcon } from "@/components/icons";
 import type { FoundItem, HomeSummary } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { fill } from "@/lib/home-math";
@@ -9,7 +9,7 @@ import { PageCard } from "@/components/page/page-card";
 const KIND: Record<FoundItem["kind"], { icon: LucideIcon; tint: string; action: string }> = {
 	duplicate: { icon: Copy, tint: "bg-bad/10 text-bad", action: "Review duplicate" },
 	review: { icon: ReceiptText, tint: "bg-primary/10 text-primary", action: "Review receipts" },
-	spike: { icon: TrendingUp, tint: "bg-amber-500/10 text-amber-700", action: "See in Spending" },
+	spike: { icon: TrendingUp, tint: "bg-amber-500/10 text-amber-700 dark:text-[#f5a35c]", action: "See in Spending" },
 	price_rise: { icon: RefreshCw, tint: "bg-primary/10 text-primary", action: "See the charges" },
 };
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Mail, CheckCircle2, AlertCircle } from "@/components/icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { tokenManager, emailConfigApi } from "@/lib/api/client";
 
@@ -94,7 +94,7 @@ export function GmailOAuthButton({
             callbackState
           );
 
-          setSuccess(`Successfully connected to ${result.email_address}! ✓`);
+          setSuccess(`Connected to ${result.email_address}`);
           onSuccess(result.email_address);
 
           // Try to close popup

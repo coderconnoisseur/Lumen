@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, RefreshCw, Pause, Play, Settings } from "lucide-react";
+import { Mail, RefreshCw, Pause, Play, Settings } from "@/components/icons";
 import { emailConfigApi } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 import { EmailConfigDialog } from "./emailConfigDialog";

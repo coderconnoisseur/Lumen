@@ -8,7 +8,7 @@ import type { Reminder } from "../use-home-data";
 
 // "2.2k"; the user's currency symbol (from how useMoney prints zero) goes in front, except on phones, where a cell
 // is too narrow for "₹25.6k" and the card's total already says the currency
-const kShort = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${Math.round(n)}`);
+const kShort = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${Math.round(n)}`);
 const dayMonth = (s: string) => parseDay(s).toLocaleString("en-GB", { day: "numeric", month: "short" });
 const monthLong = (d: Date) => d.toLocaleString("en-US", { month: "long" });
 
@@ -73,16 +73,16 @@ export function CalendarCard({
 									data-today={i === t || undefined}
 									data-future={future || undefined}
 									className={cn(
-										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 max-sm:px-1 text-[10.5px] leading-tight text-muted-foreground",
+										"flex h-[50px] flex-col justify-between overflow-hidden rounded-[7px] border px-1.5 py-1 max-sm:px-1 text-[10.5px] leading-tight text-muted-foreground dark:@container dark:px-0.5",
 										future ? "border-dashed border-border" : "border-border/60",
 										i === t && "outline-[1.5px] outline-primary outline-solid -outline-offset-1",
 									)}
-									style={h ? { background: `color-mix(in srgb, var(--primary) ${Math.round(h * 100)}%, transparent)`, color: h > 0.5 ? "#fff" : undefined } : undefined}
+									style={h ? { background: `color-mix(in srgb, var(--heat) calc(var(--heat-max) * ${h.toFixed(2)}), transparent)`, color: h > 0.5 ? "var(--heat-ink-strong)" : "var(--heat-ink-soft)" } : undefined}
 								>
 									{day}
 									{amount > 0 && (
 										<b className="truncate font-medium text-inherit">
-											<span className="max-sm:hidden">{symbol}</span>
+											<span className="max-sm:hidden dark:hidden dark:@min-[38px]:inline">{symbol}</span>
 											{kShort(amount)}
 										</b>
 									)}
