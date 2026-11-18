@@ -1,22 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { animate } from "motion/react";
+import { useAppTheme } from "@/components/app-theme";
+import { Figure as NightFigure } from "./figure.night";
+import { Figure as SkyFigure } from "./figure.sky";
 
-// A hero total. Counts up once per browser session, then shows the number straight away (motion rule: no replay on
-// revisits). A Night build swaps this file for figure.night.tsx at bundle time (see next.config.js).
-export function Figure({ value, format }: { value: number; format: (n: number) => string }) {
-	const [shown, setShown] = useState(value);
-	useEffect(() => {
-		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		let seen = false;
-		try {
-			seen = sessionStorage.getItem("home-countup") === "1";
-			sessionStorage.setItem("home-countup", "1");
-		} catch {}
-		if (reduce || seen || value <= 0) return setShown(value);
-		const c = animate(0, value, { duration: 0.6, ease: [0.22, 1, 0.36, 1], onUpdate: (v) => setShown(Math.round(v)) });
-		return () => c.stop();
-	}, [value]);
-	return <>{format(shown)}</>;
+// A hero total: Sky counts up once (figure.sky.tsx), Night rolls the digits on every change (figure.night.tsx).
+export function Figure(props: { value: number; format: (n: number) => string }) {
+	return useAppTheme().theme === "night" ? <NightFigure {...props} /> : <SkyFigure {...props} />;
 }

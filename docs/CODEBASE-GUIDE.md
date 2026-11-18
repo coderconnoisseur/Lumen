@@ -276,14 +276,16 @@ embeds the demo documents once per server and uploads the files in the backgroun
   `dark:` variant is also switched off while the shell is mounted. Public pages keep the forced dark theme.
   Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
   `.label-ui` (card titles, tags, ticks: Funnel Sans, sentence case; the owner ruled out all-caps mono labels).
-- **Night theme (local only, `docs/superpowers/specs/2026-11-05-dark-mode-design.md`).** `lib/app-theme.ts` makes the
-  shell's `data-app-theme` `night` when `NEXT_PUBLIC_APP_THEME=night`; production never sets it. Tokens and motion live
-  in `app/night.css`. Night-only tweaks in shared components use `dark:` classes, which stay off in Sky. A Night build
-  swaps `components/icons`, `page/figure` and `page/amount` for their `.night` files at bundle time (`next.config.js`),
-  so a Sky build never loads Phosphor or NumberFlow. Always import icons from `@/components/icons`: a lint rule refuses
-  `lucide-react` anywhere else, because a direct import would skip the swap. Menus, dialogs and sheets animate through
-  keyframes in `night.css`; `tw-animate-css` isn't loaded, so the components' `animate-in` classes do nothing and Sky
-  doesn't animate them. The Ctrl+K palette opts out with `data-instant`.
+- **Night theme (`docs/superpowers/specs/2026-11-05-dark-mode-design.md`).** The user switches between Sky and Night with
+  "Dark mode" in the account menu. `components/app-theme.tsx` holds the choice, writes the `app_theme` cookie and sets
+  the shell's `data-app-theme`; `(app)/layout.tsx` reads the cookie on the server so the first paint (and the browser-bar
+  colour) is already right. `NEXT_PUBLIC_APP_THEME=night` only changes the default for someone with no cookie. Tokens and
+  motion live in `app/night.css`. Night-only tweaks in shared components use `dark:` classes, which stay off in Sky.
+  `components/icons.tsx` and `page/figure.tsx`/`page/amount.tsx` pick the Sky (`.sky`) or Night (`.night`) version
+  from the theme context, so both icon sets ship; outside the signed-in app it's always Sky. Always import icons from
+  `@/components/icons`: a lint rule refuses `lucide-react` anywhere else, because a direct import would ignore the
+  theme. Menus, dialogs and sheets animate through keyframes in `night.css`; `tw-animate-css` isn't loaded, so the
+  components' `animate-in` classes do nothing and Sky doesn't animate them. The Ctrl+K palette opts out with `data-instant`.
 - **No layout shift from overlays.** `globals.css` sets `scrollbar-gutter: stable` and cancels Radix's scroll-lock
   margin (`body[data-scroll-locked]`), so opening a menu or dialog never moves the page. Guarded by
   `npm run test:e2e` (Playwright, local only), which drives the dev-only harness `app/dev/layout-shift` (404 in

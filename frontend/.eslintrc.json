@@ -5,14 +5,14 @@
 		"no-restricted-imports": [
 			"error",
 			{
-				"paths": [{ "name": "lucide-react", "message": "Import from @/components/icons, so a Night build can swap in its own icons." }],
-				"patterns": [{ "group": ["lucide-react/*"], "message": "Import from @/components/icons, so a Night build can swap in its own icons." }]
+				"paths": [{ "name": "lucide-react", "message": "Import from @/components/icons, so the icons follow the theme." }],
+				"patterns": [{ "group": ["lucide-react/*"], "message": "Import from @/components/icons, so the icons follow the theme." }]
 			}
 		]
 	},
 	"overrides": [
 		{
-			"files": ["src/components/icons.tsx", "src/components/icons.night.tsx"],
+			"files": ["src/components/icons.tsx", "src/components/icons.sky.tsx", "src/components/icons.night.tsx"],
 			"rules": { "no-restricted-imports": "off" }
 		}
 	]

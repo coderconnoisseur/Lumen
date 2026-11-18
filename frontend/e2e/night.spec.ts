@@ -534,7 +534,7 @@ test.describe("known issues", () => {
 		const code = 'import { Star } from "lucide-react";\nexport const s = Star;\n';
 		const rules = async (filePath: string) => (await eslint.lintText(code, { filePath }))[0].messages.map((m: { ruleId: string }) => m.ruleId);
 		expect(await rules("src/components/anything.tsx")).toContain("no-restricted-imports");
-		expect(await rules("src/components/icons.tsx")).not.toContain("no-restricted-imports");
+		expect(await rules("src/components/icons.sky.tsx")).not.toContain("no-restricted-imports");
 		expect(await rules("src/components/icons.night.tsx")).not.toContain("no-restricted-imports");
 	});
 });
