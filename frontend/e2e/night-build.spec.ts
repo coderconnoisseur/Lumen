@@ -1,11 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { budgetHeroOverlaps, signIn } from "./fixtures";
 
-// What only a real Night build can show. In PowerShell: $env:NEXT_PUBLIC_APP_THEME="night"; npx playwright test e2e/night-build.spec.ts
-test.skip(process.env.NEXT_PUBLIC_APP_THEME !== "night", "needs NEXT_PUBLIC_APP_THEME=night");
+// What only the real Night switch shows (icons, figures, first paint), as opposed to flipping the attribute. The theme
+// cookie is what the account menu's "Dark mode" sets.
+test.beforeEach(async ({ context, baseURL }) => {
+	await context.addCookies([{ name: "app_theme", value: "night", url: baseURL! }]);
+});
 
 test("app pages are night from the first server paint", async ({ request }) => {
-	const html = await (await request.get("/home", { headers: { cookie: "lumen_session=1" } })).text();
+	const html = await (await request.get("/home", { headers: { cookie: "lumen_session=1; app_theme=night" } })).text();
 	expect(html).toContain('data-app-theme="night"');
 	expect(html).toContain('<meta name="theme-color" content="#0b0b0c"/>');
 });
@@ -69,4 +72,28 @@ test("the budget hero holds a 12-digit amount on a phone with rolling digits", a
 	await expect(page.getByTestId("budget-hero").locator("number-flow-react").first()).toBeAttached();
 	await page.waitForTimeout(1000); // let the digits finish rolling in
 	expect(await budgetHeroOverlaps(page)).toEqual([]);
+});
+
+test("the account menu switches theme and remembers it", async ({ page, context, baseURL }) => {
+	await context.clearCookies({ name: "app_theme" });
+	await signIn(page, { home });
+	await page.goto("/home");
+	const shell = page.locator("[data-app-theme]").first();
+	const spending = page.getByRole("link", { name: "Spending" }).locator("svg");
+	await expect(shell).toHaveAttribute("data-app-theme", "sky");
+	await expect(spending).toHaveAttribute("viewBox", "0 0 24 24");
+
+	await page.getByRole("button", { name: "Account menu" }).first().click();
+	await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click();
+	await expect(shell).toHaveAttribute("data-app-theme", "night");
+	await page.keyboard.press("Escape"); // the open menu hides the rest of the page from the accessibility tree
+	await expect(spending).toHaveAttribute("viewBox", "0 0 256 256");
+	await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0b0b0c");
+	expect((await context.cookies(baseURL!)).find((c) => c.name === "app_theme")?.value).toBe("night");
+
+	await page.reload();
+	await expect(shell).toHaveAttribute("data-app-theme", "night");
+	await page.getByRole("button", { name: "Account menu" }).first().click();
+	await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click();
+	await expect(shell).toHaveAttribute("data-app-theme", "sky");
 });

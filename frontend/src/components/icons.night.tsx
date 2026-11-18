@@ -1,6 +1,6 @@
 "use client";
 
-// Night's icons (Phosphor, from designeer.xyz's catalogue), under the same names as icons.tsx. Swapped in at bundle time.
+// Night's icons (Phosphor, from designeer.xyz's catalogue), under the same names as icons.sky.tsx.
 import type { Icon, IconWeight } from "@phosphor-icons/react";
 import {
 	ArrowCounterClockwise as PhArrowCounterClockwise,
