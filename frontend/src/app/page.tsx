@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, FileCheck2, Lock, Quote, ShieldCheck, Sparkles, UserCheck, type LucideIcon } from "lucide-react";
+import { ArrowRight, FileCheck2, Lock, Quote, ShieldCheck, Sparkles, UserCheck, type LucideIcon } from "@/components/icons";
 import "./home.css";
 import { ChatDemo } from "@/components/home/chat-demo";
 import { FeatureCarousel, type FeatureCard } from "@/components/home/feature-carousel";

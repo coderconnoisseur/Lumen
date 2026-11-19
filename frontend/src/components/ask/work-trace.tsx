@@ -2,7 +2,7 @@
 
 // "How I got this": adapted from Beautiful UI's Thinking trace (beautifului.dev, MIT), fed by the agent's real steps.
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, Sparkles, X } from "@/components/icons";
 import type { ChatStep } from "@/lib/api/client";
 
 const TOOL_LABELS: Record<string, string> = {

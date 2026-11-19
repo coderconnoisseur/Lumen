@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { CumulativeChart } from "@/components/page/cumulative-chart";
-import { animate } from "motion/react";
-import { Plus } from "lucide-react";
+import { Figure } from "@/components/page/figure";
+import { Plus } from "@/components/icons";
 import { PageCard } from "@/components/page/page-card";
 import { useMoney } from "@/lib/format";
 import { dayIndex, ordinal, parseDay, sameDayDelta, type Period, type Range } from "@/lib/home-math";
@@ -23,23 +22,6 @@ function compared(range: Range, previous: Period, today: Date) {
 	if (range === "1M") return `vs ${monthLong(previous.start)} by the ${ordinal(today.getDate())}`;
 	if (range === "YTD") return `vs ${previous.start.getFullYear()} at this point`;
 	return range === "1W" ? "vs last week at this point" : "vs last quarter at this point";
-}
-
-// Counts up once per browser session, then shows the number straight away (motion rule: no replay on revisits).
-function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
-	const [shown, setShown] = useState(value);
-	useEffect(() => {
-		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		let seen = false;
-		try {
-			seen = sessionStorage.getItem("home-countup") === "1";
-			sessionStorage.setItem("home-countup", "1");
-		} catch {}
-		if (reduce || seen || value <= 0) return setShown(value);
-		const c = animate(0, value, { duration: 0.6, ease: [0.22, 1, 0.36, 1], onUpdate: (v) => setShown(Math.round(v)) });
-		return () => c.stop();
-	}, [value]);
-	return <>{format(shown)}</>;
 }
 
 // Home's hero (spec 2026-10-22 §4.1, Origin style): the period's total, how it compares, where it's heading, and the
@@ -89,7 +71,7 @@ export function SpendCard({
 	const legend = (
 		<span className="ml-auto mr-2 hidden items-center gap-4 sm:flex">
 			<span className="flex items-center gap-1.5">
-				<i className="inline-block w-4 border-t-2 border-primary" />
+				<i className="inline-block w-4 border-t-2 border-[var(--series)]" />
 				Now
 			</span>
 			<span className="flex items-center gap-1.5">
@@ -98,7 +80,7 @@ export function SpendCard({
 			</span>
 			{fc.length > 0 && (
 				<span className="flex items-center gap-1.5">
-					<i className="inline-block w-4 border-t-2 border-dotted border-primary/60" />
+					<i className="inline-block w-4 border-t-2 border-dotted border-[var(--series-forecast)] opacity-60" />
 					Forecast
 				</span>
 			)}
@@ -125,8 +107,8 @@ export function SpendCard({
 			className="relative"
 			data-testid="spend-card"
 		>
-			<div className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">
-				<CountUp value={Math.round(total)} format={(n) => money(n)} />
+			<div data-testid="spend-figure" className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">
+				<Figure value={Math.round(total)} format={(n) => money(n)} />
 			</div>
 			<div className="h-5 text-[13px] text-muted-foreground">
 				{delta && Math.round(delta.abs) !== 0 && (

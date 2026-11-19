@@ -1,4 +1,5 @@
 import { CumulativeChart } from "@/components/page/cumulative-chart";
+import { Amount } from "@/components/page/amount";
 import { PageCard } from "@/components/page/page-card";
 import { useMoney } from "@/lib/format";
 import type { Period } from "@/lib/home-math";
@@ -23,7 +24,7 @@ function MonthBars({ months, today, tall, testId }: { months: Month[]; today: Da
 							data-testid="month-bar"
 							data-current={current || undefined}
 							title={`${short(m.month)}: ${money(Math.round(m.total))}`}
-							className={cn("w-full max-w-10 rounded-t-md", current ? "bg-primary" : "bg-primary/15")}
+							className={cn("w-full max-w-10 rounded-t-md", current ? "bg-[var(--series)]" : "bg-primary/15")}
 							style={{ height: `${Math.max(2, (m.total / max) * (tall ? 170 : 110))}px` }}
 						/>
 						<span className={cn("label-ui", current ? "font-semibold text-primary" : "text-muted-foreground")}>{short(m.month)}</span>
@@ -72,7 +73,7 @@ export function SpendingHero({
 		<PageCard title={`Spent in ${label}`} loading={loading} skeletonHeight={312} data-testid="spending-hero">
 			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
 				<div className="min-w-0">
-					<div className="text-[36px] leading-tight font-medium tracking-tight tabular-nums">{money(Math.round(total))}</div>
+					<div className="text-[36px] leading-tight font-medium tracking-tight tabular-nums"><Amount value={Math.round(total)} format={(n) => money(n)} /></div>
 					<div className="h-5 text-[13px] text-muted-foreground">
 						{delta && Math.round(delta.abs) !== 0 && (
 							<span data-testid="spending-delta">

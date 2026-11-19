@@ -31,7 +31,7 @@ export function PageCard({
 		<section
 			{...rest}
 			className={cn(
-				"rounded-2xl border border-border/70 bg-card px-5 py-[18px] shadow-[0_1px_2px_rgba(28,28,26,.04),0_4px_16px_-8px_rgba(28,28,26,.08)]",
+				"rounded-2xl border border-border/70 bg-card px-5 py-[18px] shadow-[0_1px_2px_rgba(28,28,26,.04),0_4px_16px_-8px_rgba(28,28,26,.08)] dark:border-border dark:shadow-none",
 				className,
 			)}
 		>

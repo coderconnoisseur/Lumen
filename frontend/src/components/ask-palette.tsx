@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/icons";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 // "Ask anything" (⌘/Ctrl+K, or the sidebar button): one question, handed to Ask Lumen as /ask?q=…, which starts a
@@ -18,7 +18,7 @@ export function AskPalette({ open, onOpenChange }: { open: boolean; onOpenChange
 				if (!o) setText("");
 			}}
 		>
-			<DialogContent className="top-[28%] max-w-xl gap-2 p-3" aria-describedby="ask-palette-hint">
+			<DialogContent data-instant className="top-[28%] max-w-xl gap-2 p-3" aria-describedby="ask-palette-hint">
 				<DialogTitle className="sr-only">Ask anything</DialogTitle>
 				<form
 					className="flex items-center gap-3 px-1"

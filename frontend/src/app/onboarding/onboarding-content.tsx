@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Camera, Check, Loader2 } from "lucide-react";
+import { ArrowRight, Camera, Check, Loader2 } from "@/components/icons";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import {

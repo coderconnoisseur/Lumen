@@ -16,7 +16,7 @@ export function PageHeader({
 	return (
 		<header className="mb-5">
 			<div className="flex flex-wrap items-center gap-3 md:pr-12">
-				<h1 className="text-[26px] font-medium tracking-tight">{title}</h1>
+				<h1 className="text-[26px] font-medium tracking-tight dark:font-display dark:text-[34px] dark:leading-[1.1] dark:font-light dark:tracking-[-0.01em]">{title}</h1>
 				{actions && <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{actions}</div>}
 			</div>
 			{brief && <div className="mt-1.5">{brief}</div>}

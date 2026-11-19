@@ -23,6 +23,7 @@ export default defineConfig({
 			NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-dummy",
 			NEXT_PUBLIC_BACKEND_URL: "http://127.0.0.1:9",
 			NEXT_DIST_DIR: ".next-e2e",
+			NEXT_PUBLIC_APP_THEME: process.env.NEXT_PUBLIC_APP_THEME ?? "",
 		},
 	},
 });

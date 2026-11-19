@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Pencil, Search } from "lucide-react";
+import { Download, Pencil, Search } from "@/components/icons";
 import { PageCard } from "@/components/page/page-card";
 import { VendorChip } from "@/components/page/vendor-chip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

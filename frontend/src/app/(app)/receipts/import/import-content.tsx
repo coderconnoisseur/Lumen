@@ -2,7 +2,7 @@
 
 // CSV statement import (SPEC-STATEMENTS), reached from Receipts & statements. Each import is kept in its history
 // (UI revamp Phase 5e) under the optional account name.
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import Link from "next/link";
 import { useState } from "react";
 import { PageHeader } from "@/components/page/page-header";

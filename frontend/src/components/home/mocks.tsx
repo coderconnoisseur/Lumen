@@ -1,6 +1,6 @@
 // Product mockups for the landing page: polished showcase versions of Lumen's screens, with sample data.
 import type { ReactNode } from "react";
-import { CalendarClock, Check, CreditCard, Home, Receipt, Sparkles, TrendingDown } from "lucide-react";
+import { CalendarClock, Check, CreditCard, Home, Receipt, Sparkles, TrendingDown } from "@/components/icons";
 import { RollingNumber } from "@/components/home/motion";
 
 export const label = "text-[10.5px] font-medium tracking-[0.16em] uppercase";

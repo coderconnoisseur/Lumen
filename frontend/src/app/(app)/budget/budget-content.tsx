@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Pencil, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Sparkles } from "@/components/icons";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { budgetApi } from "@/lib/api/client";

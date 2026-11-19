@@ -2,7 +2,7 @@
 
 // "Nothing changes without you": a suggestion card whose Approve / Reject actually respond. Showcase only.
 import { useState } from "react";
-import { Check, Receipt, RotateCcw, Sparkles, X } from "lucide-react";
+import { Check, Receipt, RotateCcw, Sparkles, X } from "@/components/icons";
 import { label } from "./mocks";
 
 type Decision = "approve" | "reject" | null;

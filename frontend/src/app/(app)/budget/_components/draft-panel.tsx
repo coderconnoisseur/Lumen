@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/icons";
 import { agentApi, type BudgetState, type Proposal } from "@/lib/api/client";
 import { useMoney } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -91,7 +91,7 @@ export function DraftPanel({
 										<span className="flex h-7 shrink-0 items-center gap-1.5">
 											{l.decided ? (
 												<span className={cn("text-[12.5px] font-medium", l.decided === "approve" ? "text-good" : "text-muted-foreground")}>
-													{l.decided === "approve" ? "✓ Approved" : old === undefined ? "Skipped" : `Skipped · keeps ${money(old)}`}
+													{l.decided === "approve" ? "Approved" : old === undefined ? "Skipped" : `Skipped · keeps ${money(old)}`}
 												</span>
 											) : (
 												<>

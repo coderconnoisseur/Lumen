@@ -8,11 +8,13 @@ import { AuthGuard } from "@/components/auth/auth-guard";
 import { ProfileProvider } from "@/components/profile/profile-provider";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppThemeProvider } from "@/components/app-theme";
+import type { AppTheme } from "@/lib/app-theme";
 import { isTypingTarget } from "@/lib/utils";
 
 // The signed-in app's frame: auth check, sidebar and top bar are built once and stay mounted while you move between
 // pages, so only the content area swaps, like tabs on X. Rendered by app/(app)/layout.tsx.
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ theme, children }: { theme: AppTheme; children: ReactNode }) {
 	// the Ask palette lives here, not in the sidebar: below md the sidebar is a Sheet that isn't mounted while closed
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	useEffect(() => {
@@ -28,8 +30,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 	}, []);
 
 	return (
-		// Sky (globals.css) wraps everything, auth loader included, so the first server paint is already light.
-		<div data-app-theme="sky" className="contents">
+		// the chosen theme wraps everything, auth loader included, so the first server paint is already in it
+		<AppThemeProvider initial={theme}>
 		<Suspense>
 			<AuthGuard>
 				<ProfileProvider>
@@ -58,6 +60,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 				</ProfileProvider>
 			</AuthGuard>
 		</Suspense>
-		</div>
+		</AppThemeProvider>
 	);
 }

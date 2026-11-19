@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play } from "@/components/icons";
 
 /** Hero sky: a still frame paints instantly (preloaded), the looping video (public/home/sky.mp4, first frame
  *  trimmed so it never starts black) fades in over it once it's actually playing. Reduced motion keeps the still.

@@ -3,7 +3,7 @@
 // The "Ask Lumen" phone: plays a whole conversation (welcome, typing, thinking, a streamed answer, a follow-up)
 // once it scrolls into view, then loops. Showcase only: scripted, no network.
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Copy, Menu, Mic, MoreHorizontal, SquarePen, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ArrowUp, Copy, Menu, Mic, MoreHorizontal, SquarePen, ThumbsDown, ThumbsUp } from "@/components/icons";
 import { Phone, label } from "./mocks";
 
 type Table = { head: string[]; rows: string[][] };

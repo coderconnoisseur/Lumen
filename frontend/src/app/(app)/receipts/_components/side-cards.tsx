@@ -16,8 +16,8 @@ const ago = (s: string) => {
 	return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 const PARTS = [
-	{ key: "imported", label: "new", className: "bg-primary" },
-	{ key: "matched", label: "matched", className: "bg-primary/45" },
+	{ key: "imported", label: "new", className: "bg-[var(--series)]" },
+	{ key: "matched", label: "matched", className: "bg-[var(--series)] opacity-45" },
 	{ key: "duplicates", label: "duplicates", className: "bg-amber-500" },
 	{ key: "credits", label: "credits skipped", className: "bg-muted-foreground/25" },
 ] as const;

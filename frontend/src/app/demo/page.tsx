@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { AuthAlert, AuthShell, AuthWaiting, authLink, authPrimary } from "@/components/auth/auth-shell";

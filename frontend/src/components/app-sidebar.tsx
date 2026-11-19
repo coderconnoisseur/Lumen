@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarClock, ChartLine, House, PieChart, Receipt, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import { CalendarClock, ChartLine, House, PieChart, Receipt, Sparkles, TrendingUp, type LucideIcon } from "@/components/icons";
 
 import {
 	Sidebar,

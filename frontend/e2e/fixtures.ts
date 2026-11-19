@@ -283,3 +283,27 @@ export function forecastFixture({
 	};
 }
 
+
+// Budget hero's parts, for overlap checks: a Range for the figure because a Sky figure is a bare text node in the row.
+export function budgetHeroOverlaps(page: Page) {
+	return page.getByTestId("budget-hero").evaluate((hero) => {
+		const row = hero.querySelector('[class~="h-11"]')!;
+		const figure = document.createRange();
+		figure.setStartBefore(row.firstChild!);
+		figure.setEndBefore(row.lastElementChild!);
+		const parts: [string, DOMRect][] = [
+			["figure", figure.getBoundingClientRect()],
+			["total", row.lastElementChild!.getBoundingClientRect()],
+			["bar", hero.querySelector('[role="img"]')!.getBoundingClientRect()],
+			...["left", "days-left", "per-day"].map((id): [string, DOMRect] => [id, hero.querySelector(`[data-testid="${id}"] b`)!.getBoundingClientRect()]),
+		];
+		const card = hero.getBoundingClientRect();
+		const problems = parts.filter(([, r]) => r.right > card.right || r.left < card.left).map(([n]) => `${n} leaves the card`);
+		parts.forEach(([a, r], i) =>
+			parts.slice(i + 1).forEach(([b, s]) => {
+				if (r.left < s.right && s.left < r.right && r.top < s.bottom && s.top < r.bottom) problems.push(`${a} hits ${b}`);
+			})
+		);
+		return problems;
+	});
+}

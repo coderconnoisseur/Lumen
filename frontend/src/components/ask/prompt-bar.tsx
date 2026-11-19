@@ -2,7 +2,7 @@
 
 // Composer adapted from Beautiful UI's Prompt Bar (beautifului.dev, MIT): auto-growing input, voice, send.
 import { useLayoutEffect, useRef, useState } from "react";
-import { ArrowUp, Mic, Paperclip, X } from "lucide-react";
+import { ArrowUp, Mic, Paperclip, X } from "@/components/icons";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
