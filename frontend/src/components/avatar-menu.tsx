@@ -3,13 +3,11 @@
 import Link from "next/link";
 import { KeyRound, LogOut, Settings } from "@/components/icons";
 
-import { useAppTheme } from "@/components/app-theme";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useProfile } from "@/components/profile/profile-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
 	DropdownMenu,
-	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuLabel,
@@ -33,7 +31,6 @@ export function AvatarMenu() {
 	const name =
 		profile?.display_name ?? user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email ?? "User";
 	const email = user?.email ?? "";
-	const { theme, setTheme } = useAppTheme();
 
 	return (
 		<DropdownMenu>
@@ -41,7 +38,7 @@ export function AvatarMenu() {
 				aria-label="Account menu"
 				className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
-				<Avatar className="size-8">
+				<Avatar className="size-9">
 					{avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
 					<AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground dark:bg-secondary dark:text-foreground">
 						{initials(name) || "U"}
@@ -66,10 +63,6 @@ export function AvatarMenu() {
 						API keys
 					</Link>
 				</DropdownMenuItem>
-				{/* stays open after a click so you see the switch happen behind it */}
-				<DropdownMenuCheckboxItem checked={theme === "night"} onCheckedChange={(on) => setTheme(on ? "night" : "sky")} onSelect={(e) => e.preventDefault()}>
-					Dark mode
-				</DropdownMenuCheckboxItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={() => void authApi.logout()}>
 					<LogOut />

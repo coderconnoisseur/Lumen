@@ -74,7 +74,7 @@ test("the budget hero holds a 12-digit amount on a phone with rolling digits", a
 	expect(await budgetHeroOverlaps(page)).toEqual([]);
 });
 
-test("the account menu switches theme and remembers it", async ({ page, context, baseURL }) => {
+test("the dark mode switch changes theme and remembers it", async ({ page, context, baseURL }) => {
 	await context.clearCookies({ name: "app_theme" });
 	await signIn(page, { home });
 	await page.goto("/home");
@@ -83,17 +83,43 @@ test("the account menu switches theme and remembers it", async ({ page, context,
 	await expect(shell).toHaveAttribute("data-app-theme", "sky");
 	await expect(spending).toHaveAttribute("viewBox", "0 0 24 24");
 
-	await page.getByRole("button", { name: "Account menu" }).first().click();
-	await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click();
+	const toggle = page.getByRole("switch", { name: "Dark mode" });
+	await expect(toggle).toHaveAttribute("aria-checked", "false");
+	await toggle.click();
 	await expect(shell).toHaveAttribute("data-app-theme", "night");
-	await page.keyboard.press("Escape"); // the open menu hides the rest of the page from the accessibility tree
+	await expect(toggle).toHaveAttribute("aria-checked", "true");
 	await expect(spending).toHaveAttribute("viewBox", "0 0 256 256");
 	await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0b0b0c");
 	expect((await context.cookies(baseURL!)).find((c) => c.name === "app_theme")?.value).toBe("night");
 
 	await page.reload();
 	await expect(shell).toHaveAttribute("data-app-theme", "night");
-	await page.getByRole("button", { name: "Account menu" }).first().click();
-	await page.getByRole("menuitemcheckbox", { name: "Dark mode" }).click();
+	await toggle.click();
 	await expect(shell).toHaveAttribute("data-app-theme", "sky");
+});
+
+test("switch, account menu and the page's buttons sit on one line", async ({ page }) => {
+	await signIn(page, { home });
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto("/home");
+	const boxes = await Promise.all(
+		[page.getByRole("switch", { name: "Dark mode" }), page.getByRole("button", { name: "Account menu" }), page.getByRole("button", { name: /upload/i }).first(), page.getByRole("button", { name: /^export$/i })].map(async (l) => (await l.boundingBox())!)
+	);
+	for (const b of boxes) {
+		expect(b.height).toBe(36);
+		expect(b.y).toBeCloseTo(boxes[0].y, 0);
+	}
+	const [toggle, avatar] = boxes;
+	expect(avatar.x - (toggle.x + toggle.width)).toBeLessThanOrEqual(12); // beside each other
+	await page.goto("/ask"); // no PageHeader: the floating copy shows instead
+	await expect(page.getByRole("switch", { name: "Dark mode" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+});
+
+test("phones get the switch beside the account menu in the top bar", async ({ page }) => {
+	await signIn(page, { home });
+	await page.setViewportSize({ width: 375, height: 812 });
+	await page.goto("/home");
+	await expect(page.getByRole("switch", { name: "Dark mode" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
 });
