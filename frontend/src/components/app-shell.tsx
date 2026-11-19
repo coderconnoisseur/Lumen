@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AskPalette } from "@/components/ask-palette";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { ProfileProvider } from "@/components/profile/profile-provider";
-import { AvatarMenu } from "@/components/avatar-menu";
+import { HeaderControls } from "@/components/header-controls";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppThemeProvider } from "@/components/app-theme";
 import type { AppTheme } from "@/lib/app-theme";
@@ -42,17 +42,14 @@ export function AppShell({ theme, children }: { theme: AppTheme; children: React
 					<AppSidebar onAsk={() => setPaletteOpen(true)} />
 					<AskPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 					<SidebarInset id="main" className="relative min-h-screen bg-transparent">
-						{/* no top bar on desktop: just the account menu, floating top-right over the page (owner, 2026-10-22).
+						{/* no top bar on desktop: the dark mode switch and account menu sit top-right (owner, 2026-10-22 and 2026-11-19).
 						    Phones keep a slim row, since the sidebar there is a sheet that needs a button to open. */}
 						<header className="flex h-14 items-center px-4 md:hidden">
 							<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-							<div className="ml-auto">
-								<AvatarMenu />
-							</div>
+							<HeaderControls className="ml-auto" />
 						</header>
-						<div className="absolute top-5 right-6 z-20 hidden md:block lg:right-8">
-							<AvatarMenu />
-						</div>
+						{/* pages with a PageHeader carry these in their title row instead (globals.css hides this copy there) */}
+						<HeaderControls className="absolute top-5 right-6 z-20 max-md:hidden lg:right-8 app-floating-controls" />
 						{children}
 					</SidebarInset>
 				</SidebarProvider>

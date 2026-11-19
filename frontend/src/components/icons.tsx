@@ -55,6 +55,7 @@ export const LogOut = both(Sky.LogOut, Night.LogOut);
 export const Mail = both(Sky.Mail, Night.Mail);
 export const Menu = both(Sky.Menu, Night.Menu);
 export const Mic = both(Sky.Mic, Night.Mic);
+export const Moon = both(Sky.Moon, Night.Moon);
 export const MoreHorizontal = both(Sky.MoreHorizontal, Night.MoreHorizontal);
 export const PanelLeftIcon = both(Sky.PanelLeftIcon, Night.PanelLeftIcon);
 export const Paperclip = both(Sky.Paperclip, Night.Paperclip);

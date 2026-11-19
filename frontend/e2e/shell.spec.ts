@@ -301,5 +301,6 @@ test("everything you can click shows the hand cursor; disabled things don't", as
 	await page.goto("/spending");
 	await expect(page.getByRole("button", { name: "Last month", exact: true })).toBeVisible({ timeout: 15_000 });
 	expect(await cursor(page.getByRole("button", { name: "Last month", exact: true }))).toBe("pointer");
-	expect(await cursor(page.getByRole("switch"))).toBe("pointer");
+	expect(await cursor(page.getByRole("switch", { name: /^Compare/ }))).toBe("pointer");
+	expect(await cursor(page.getByRole("switch", { name: "Dark mode" }))).toBe("pointer");
 });

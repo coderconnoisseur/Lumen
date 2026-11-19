@@ -277,7 +277,8 @@ embeds the demo documents once per server and uploads the files in the backgroun
   Extra tokens: `good`, `bad`, `accent-soft`, `--band`. Type roles: `font-serif` (Newsreader), `font-label` /
   `.label-ui` (card titles, tags, ticks: Funnel Sans, sentence case; the owner ruled out all-caps mono labels).
 - **Night theme (`docs/superpowers/specs/2026-11-05-dark-mode-design.md`).** The user switches between Sky and Night with
-  "Dark mode" in the account menu. `components/app-theme.tsx` holds the choice, writes the `app_theme` cookie and sets
+  the dark mode switch beside the account menu (`components/header-controls.tsx`; PageHeader ends its title row with
+  it, app-shell floats a copy on pages without one and puts it in the phone top bar). `components/app-theme.tsx` holds the choice, writes the `app_theme` cookie and sets
   the shell's `data-app-theme`; `(app)/layout.tsx` reads the cookie on the server so the first paint (and the browser-bar
   colour) is already right. `NEXT_PUBLIC_APP_THEME=night` only changes the default for someone with no cookie. Tokens and
   motion live in `app/night.css`. Night-only tweaks in shared components use `dark:` classes, which stay off in Sky.

@@ -224,6 +224,11 @@
 		margin-right: 0 !important;
 		padding-right: 0 !important;
 	}
+	/* the floating dark mode switch + account menu (app-shell.tsx) steps aside where a PageHeader carries its own copy
+	   in the title row; !important because this layer sits under the utility that makes it flex */
+	#main:has([data-page-header]) .app-floating-controls {
+		display: none !important;
+	}
 	body {
 		@apply bg-background text-foreground;
 		background-image:

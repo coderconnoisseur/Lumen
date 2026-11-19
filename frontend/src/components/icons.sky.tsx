@@ -40,6 +40,7 @@ export {
 	Mail,
 	Menu,
 	Mic,
+	Moon,
 	MoreHorizontal,
 	PanelLeftIcon,
 	Paperclip,

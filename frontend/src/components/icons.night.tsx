@@ -42,6 +42,7 @@ import {
 	Lock as PhLock,
 	MagnifyingGlass as PhMagnifyingGlass,
 	Microphone as PhMicrophone,
+	Moon as PhMoon,
 	NotePencil as PhNotePencil,
 	Paperclip as PhPaperclip,
 	Pause as PhPause,
@@ -119,6 +120,7 @@ export const LogOut = ph(PhSignOut);
 export const Mail = ph(PhEnvelopeSimple);
 export const Menu = ph(PhList);
 export const Mic = ph(PhMicrophone);
+export const Moon = ph(PhMoon);
 export const MoreHorizontal = ph(PhDotsThree);
 export const PanelLeftIcon = ph(PhSidebarSimple);
 export const Paperclip = ph(PhPaperclip);
